@@ -1,0 +1,649 @@
+<!-- The Black Box Daily Feed -->
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>The Black Box Daily Feed</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#8311d4",
+                        "background-light": "#f7f6f8",
+                        "background-dark": "#1a1022",
+                        "card-dark": "#2a1e35", // A slightly lighter shade for cards
+                        "glow-passion": "#d41155",
+                        "glow-stable": "#11d4aa",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                    backgroundImage: {
+                        'mystic-pattern': "radial-gradient(circle at 50% 0%, rgba(131, 17, 212, 0.15) 0%, rgba(26, 16, 34, 0) 70%)"
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom subtle pulse animation for the cards */
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.02); opacity: 1; }
+        }
+        .breathing-card:hover {
+            animation: breathe 3s ease-in-out infinite;
+        }
+        .text-glow {
+            text-shadow: 0 0 20px rgba(131, 17, 212, 0.5);
+        }
+        /* Custom scrollbar hiding */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-100 min-h-screen flex flex-col overflow-hidden relative selection:bg-primary selection:text-white">
+<!-- Ambient Background Effect -->
+<div class="absolute inset-0 z-0 bg-mystic-pattern pointer-events-none"></div>
+<!-- Main Navigation / Header -->
+<header class="relative z-20 w-full px-8 py-6 flex justify-between items-center">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 bg-primary rounded-full animate-pulse shadow-[0_0_10px_#8311d4]"></div>
+<h1 class="text-xs uppercase tracking-[0.3em] text-primary/80 font-semibold">The Black Box // Daily Feed</h1>
+</div>
+<div class="flex items-center gap-6 text-sm font-medium text-gray-400">
+<span class="text-white cursor-pointer hover:text-primary transition-colors">Oracle</span>
+<span class="cursor-pointer hover:text-white transition-colors">Archives</span>
+<span class="cursor-pointer hover:text-white transition-colors">Rituals</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative p-2 rounded-full hover:bg-white/5 transition-colors group">
+<span class="material-icons-outlined text-gray-400 group-hover:text-white">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"></span>
+</button>
+<div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-900 p-[1px]">
+<img alt="User Avatar" class="w-full h-full rounded-full object-cover border-2 border-background-dark" data-alt="Close up of a woman looking mysterious" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATuGs_LW_Sm5v7jCVSLUnpfMY6ohpmiqGImCh9BxEtzMdmyIj9wdWc5xWbEjOCAm7KOwWmpMCiEZ-yT889Bk7YhTX5LSGcpT7xjTnEe2kpQkyj8qu7rYY_Q-lTZGX7RsEhUkvfhvQwAs3-K0UTQFbX8Tdwy5QL6eLHboxumzHVgNvWV6CMt2uhzSi5oCdCQPxa-117WlAMRhZpiz_yIDosh73oxKh0Akjk2JaI0Z-DCxeJwfIOn5Yhp_tcx0UkajyrJB_Ez7haS9w"/>
+</div>
+</div>
+</header>
+<!-- Main Dashboard Grid -->
+<main class="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-4 grid grid-cols-12 gap-8 h-[calc(100vh-100px)]">
+<!-- Left Column: User State / Querent's Panel -->
+<aside class="col-span-3 flex flex-col gap-6 h-full justify-center">
+<!-- Current Mode Card -->
+<div class="bg-card-dark/40 backdrop-blur-sm border border-white/5 rounded-lg p-6 relative overflow-hidden group hover:border-primary/30 transition-all duration-500">
+<div class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
+<span class="material-icons-outlined text-4xl">incomplete_circle</span>
+</div>
+<h3 class="text-xs uppercase tracking-widest text-gray-500 mb-4">Current Vibrational State</h3>
+<div class="flex flex-col items-center py-4">
+<div class="relative w-32 h-32 flex items-center justify-center mb-4">
+<!-- Abstract Radial Chart Representation -->
+<svg class="w-full h-full transform -rotate-90">
+<circle cx="64" cy="64" fill="none" r="60" stroke="rgba(255,255,255,0.05)" stroke-width="2"></circle>
+<circle class="opacity-80" cx="64" cy="64" fill="none" r="60" stroke="#8311d4" stroke-dasharray="377" stroke-dashoffset="100" stroke-width="2"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-2xl font-bold tracking-tight text-white">LUST</span>
+<span class="text-[10px] uppercase tracking-wider text-primary">Mode Active</span>
+</div>
+</div>
+</div>
+<p class="text-sm text-gray-400 leading-relaxed text-center">
+                    Your recent interactions suggest a craving for volatility and high-stakes emotional exchange.
+                </p>
+<div class="mt-6 pt-6 border-t border-white/5 flex justify-between text-xs text-gray-500">
+<span>Intensity</span>
+<span class="text-white">High (85%)</span>
+</div>
+</div>
+<!-- Mini Widget: Moon Phase -->
+<div class="bg-card-dark/40 backdrop-blur-sm border border-white/5 rounded-lg p-5 flex items-center justify-between group hover:bg-white/5 transition-colors cursor-pointer">
+<div>
+<h4 class="text-sm text-white font-medium">Waning Crescent</h4>
+<span class="text-xs text-gray-500">Ideal for releasing attachments</span>
+</div>
+<div class="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center text-primary">
+<span class="material-icons-outlined">dark_mode</span>
+</div>
+</div>
+</aside>
+<!-- Center Column: The Altar / Destiny Cards -->
+<section class="col-span-9 flex flex-col h-full relative">
+<!-- Oracle Text -->
+<div class="text-center mb-8 mt-4 fade-in-up">
+<h2 class="text-xl md:text-2xl font-light text-white tracking-wide text-glow">
+                    The stars have aligned these three Source Codes for you today.
+                </h2>
+<p class="text-sm text-gray-500 mt-2 tracking-wide">Select a card to initiate resonance sequence.</p>
+</div>
+<!-- The Spread -->
+<div class="flex-1 flex items-center justify-center gap-6 px-4 pb-12 w-full perspective-1000">
+<!-- Card A: Passion (Left) -->
+<div class="relative w-1/3 max-w-[320px] h-[500px] group cursor-pointer breathing-card transition-all duration-500 hover:-translate-y-4">
+<!-- Glow Effect -->
+<div class="absolute -inset-[1px] bg-gradient-to-b from-glow-passion to-primary rounded-xl opacity-40 blur-md group-hover:opacity-100 transition duration-700"></div>
+<!-- Card Content -->
+<div class="relative h-full bg-card-dark rounded-xl overflow-hidden border border-white/10 flex flex-col">
+<!-- Card Face (Abstract Visual) -->
+<div class="flex-1 bg-black relative overflow-hidden">
+<img alt="Abstract red and purple fluid art" class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-screen group-hover:scale-110 transition-transform duration-1000" data-alt="Abstract swirling red and purple fluid patterns" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBndlxXDMhUeDiw_0tDybyyugauVm2AypAP3pIiYSftvuiMNgFBUTdos7ldCfDA1A6k4jD4TnlMdx1HhHevaQHDyXJ1DpyBY9TQN9DV-vWSnj0fQXoRGEo5FyXD-Gjftk4JE-mzZHNUQO7TTcH6xGblfhKNHSmeDsWv6jcLfR3zAa0tpP6C8Bmv-PqP6bibQB_V44uUPsA3jX2yV0OuAVa44m10YxXqDvVhYLarNtj0_RRUkIpijzwGyc1AbyGJfZoHLQpI26LdTjQ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+<!-- Locked State Overlay -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-16 h-16 border border-glow-passion/50 rounded-full flex items-center justify-center group-hover:border-glow-passion transition-colors duration-500">
+<span class="material-icons-outlined text-glow-passion text-2xl animate-pulse">lock</span>
+</div>
+</div>
+</div>
+<!-- Card Footer -->
+<div class="p-6 bg-card-dark border-t border-white/5 relative z-10">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-glow-passion tracking-widest uppercase">High Intensity</span>
+<span class="text-xs text-gray-500">98% Match</span>
+</div>
+<h3 class="text-white text-lg font-display font-light">The Catalyst</h3>
+<div class="mt-3 flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+<span class="text-[10px] px-2 py-1 rounded-full border border-white/10 text-gray-300">#ScorpioMoon</span>
+<span class="text-[10px] px-2 py-1 rounded-full border border-white/10 text-gray-300">#ChaosMagic</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Card B: Wildcard (Center - Prominent) -->
+<div class="relative w-1/3 max-w-[340px] h-[540px] z-10 group cursor-pointer breathing-card hover:-translate-y-6 transition-all duration-500">
+<!-- Glow Effect -->
+<div class="absolute -inset-[2px] bg-gradient-to-b from-primary via-purple-500 to-indigo-900 rounded-xl opacity-60 blur-lg group-hover:opacity-100 transition duration-700"></div>
+<div class="relative h-full bg-[#150c1c] rounded-xl overflow-hidden border border-primary/50 flex flex-col">
+<!-- Visual -->
+<div class="flex-1 bg-black relative overflow-hidden">
+<img alt="Mystical sacred geometry glowing center" class="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-screen group-hover:rotate-12 transition-transform duration-[2s]" data-alt="Glowing purple geometric lines in dark void" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWJAw84K7lua5lcCGlOKKiXHcI6UjDJoDP4ZuKpL5OG_CeHnqKE7CiG_t5x7OCMRu3WBRFRBxAYwll8NU5QCbpXu1cHOE_TMYkddMv5Dti9pFgObhcjkv0WM1PTgjiyEyjWkk1N15q3dFIU8mxsyyNgmj0WinHrZ7HKSbemGSVgUKJh0lHJF6LY0IscCXfMmUdMOpz3QywKOQmeLxxbdzPrfa9XWtg7aYdPrimKuFprp_Tpxp8mQkyNScfANuulbZjf-4SANEBV3M"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-20 h-20 border-2 border-primary/30 rounded-full flex items-center justify-center bg-black/50 backdrop-blur-md group-hover:border-primary transition-colors duration-500">
+<span class="material-icons-outlined text-primary text-3xl">visibility_off</span>
+</div>
+</div>
+</div>
+<div class="p-8 bg-card-dark border-t border-primary/20 relative z-10">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-primary tracking-widest uppercase">Karmic Lesson</span>
+<span class="text-xs text-gray-500">100% Match</span>
+</div>
+<h3 class="text-white text-xl font-display font-medium">The Mirror</h3>
+<div class="mt-4">
+<button class="w-full py-3 rounded-full bg-primary hover:bg-primary/90 text-white text-xs uppercase tracking-widest font-semibold transition-all shadow-[0_0_15px_rgba(131,17,212,0.4)] hover:shadow-[0_0_25px_rgba(131,17,212,0.6)]">
+                                    Unlock Reading
+                                </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Card C: Stability (Right) -->
+<div class="relative w-1/3 max-w-[320px] h-[500px] group cursor-pointer breathing-card transition-all duration-500 hover:-translate-y-4">
+<!-- Glow Effect -->
+<div class="absolute -inset-[1px] bg-gradient-to-b from-glow-stable to-teal-800 rounded-xl opacity-40 blur-md group-hover:opacity-100 transition duration-700"></div>
+<div class="relative h-full bg-card-dark rounded-xl overflow-hidden border border-white/10 flex flex-col">
+<!-- Visual -->
+<div class="flex-1 bg-black relative overflow-hidden">
+<img alt="Abstract teal ripples" class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-screen group-hover:scale-110 transition-transform duration-1000" data-alt="Calm blue and green abstract liquid waves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrx2PM6tEudj-aj9cOm3_1rm0xTKgknCM3DpyIE-T0ySlPAGcUtmMqlBTDhaMtyXRj3o5oJv9h6EMHidxuMah30v6NgvR9GGEeoCEomNYTCwkB4KoCgKCTKoA2XCkgccLidJ8_lERoX5nOJdJX3d3qdtaMdT_N0xFqlQUFhcjSf9gTVOVLmPK93X47z_ztKp_4PPOngMznlvoFpTk6uXZJo7Wbb6GD3NPfIZmCUtt-r8mR-is9rgwY-1fleFooJP30d2xz_FH_rWs"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-16 h-16 border border-glow-stable/50 rounded-full flex items-center justify-center group-hover:border-glow-stable transition-colors duration-500">
+<span class="material-icons-outlined text-glow-stable text-2xl animate-pulse">lock</span>
+</div>
+</div>
+</div>
+<div class="p-6 bg-card-dark border-t border-white/5 relative z-10">
+<div class="flex justify-between items-start mb-2">
+<span class="text-xs font-bold text-glow-stable tracking-widest uppercase">Slow Burn</span>
+<span class="text-xs text-gray-500">89% Match</span>
+</div>
+<h3 class="text-white text-lg font-display font-light">The Anchor</h3>
+<div class="mt-3 flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+<span class="text-[10px] px-2 py-1 rounded-full border border-white/10 text-gray-300">#TaurusSun</span>
+<span class="text-[10px] px-2 py-1 rounded-full border border-white/10 text-gray-300">#EarthEnergy</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Bar (Bottom Navigation) -->
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+<nav class="bg-card-dark/80 backdrop-blur-md border border-white/10 px-2 py-2 rounded-full shadow-2xl flex items-center gap-1">
+<button class="w-12 h-12 rounded-full bg-white/5 hover:bg-primary hover:text-white text-gray-400 flex items-center justify-center transition-all duration-300 group relative">
+<span class="material-icons-outlined text-xl">grid_view</span>
+<span class="absolute -top-10 scale-0 group-hover:scale-100 transition-transform bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100">Deck</span>
+</button>
+<button class="w-12 h-12 rounded-full bg-primary text-white shadow-[0_0_10px_#8311d4] flex items-center justify-center transition-all duration-300 scale-110 mx-2">
+<span class="material-icons-outlined text-xl">auto_awesome</span>
+</button>
+<button class="w-12 h-12 rounded-full bg-white/5 hover:bg-primary hover:text-white text-gray-400 flex items-center justify-center transition-all duration-300 group relative">
+<span class="material-icons-outlined text-xl">history_edu</span>
+<span class="absolute -top-10 scale-0 group-hover:scale-100 transition-transform bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100">History</span>
+</button>
+<button class="w-12 h-12 rounded-full bg-white/5 hover:bg-primary hover:text-white text-gray-400 flex items-center justify-center transition-all duration-300 group relative">
+<span class="material-icons-outlined text-xl">settings</span>
+<span class="absolute -top-10 scale-0 group-hover:scale-100 transition-transform bg-black text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100">Config</span>
+</button>
+</nav>
+</div>
+</body></html>
+
+<!-- Source Code Landing Page -->
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Source Code - Mystical Dating Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ff9e80", // Soft Coral/Peachy Orange
+                        "secondary": "#a7d7c5", // Light Teal
+                        "accent": "#ffccbc", // Lighter Peach
+                        "soft-pink": "#f8bbd0",
+                        "background-light": "#fff5f0", // Very light peach/white
+                        "background-dark": "#fff0e6", // Slightly darker peach for contrast sections
+                        "text-main": "#5d4037", // Warm brown for text instead of harsh black
+                        "text-light": "#8d6e63", // Lighter warm brown
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px"},
+                    backgroundImage: {
+                        'ethereal-gradient': 'linear-gradient(135deg, #fff5f0 0%, #ffccbc 50%, #f8bbd0 100%)',
+                        'soft-gradient': 'linear-gradient(to bottom, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1))',
+                        'card-gradient': 'linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%)',
+                        'button-gradient': 'linear-gradient(90deg, #ffab91 0%, #ffcc80 100%)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fff5f0; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ffccbc; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff9e80; 
+        }@keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }@keyframes soft-pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 158, 128, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(255, 158, 128, 0.5); }
+        }
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 10px 30px rgba(93, 64, 55, 0.05);
+        }
+        .text-glow {
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+        }
+        .totem-icon {
+            filter: drop-shadow(0px 4px 6px rgba(93, 64, 55, 0.1));
+        }
+    </style>
+</head>
+<body class="bg-background-light font-display text-text-main min-h-screen selection:bg-accent selection:text-text-main overflow-x-hidden">
+<nav class="fixed w-full z-50 glass-nav transition-all duration-300">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="flex items-center justify-between h-24">
+<div class="flex-shrink-0 flex items-center gap-2 cursor-pointer">
+<span class="material-symbols-outlined text-primary text-3xl">spa</span>
+<span class="font-light text-2xl tracking-widest text-text-main uppercase">Source<span class="font-bold text-primary">Code</span></span>
+</div>
+<div class="hidden md:block">
+<div class="ml-10 flex items-baseline space-x-10">
+<a class="text-text-light hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors" href="#">Manifesto</a>
+<a class="text-text-light hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors" href="#">The Alchemy</a>
+<a class="text-text-light hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors" href="#">Stories</a>
+</div>
+</div>
+<div>
+<button class="bg-white/50 hover:bg-white text-text-main border border-white px-8 py-3 rounded-full text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md">
+                        Login
+                    </button>
+</div>
+</div>
+</div>
+</nav>
+<section class="relative min-h-screen flex items-center justify-center pt-24 overflow-hidden bg-ethereal-gradient">
+<div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1579546929518-9e396f3cc809?q=80&amp;w=2070&amp;auto=format&amp;fit=crop')] bg-cover bg-center opacity-10 pointer-events-none mix-blend-overlay" data-alt="Soft abstract pastel background"></div>
+<div class="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-b from-white/40 to-transparent rounded-full blur-[100px] pointer-events-none translate-x-1/3 -translate-y-1/3"></div>
+<div class="absolute bottom-0 left-0 w-[600px] h-[600px] bg-soft-pink/20 rounded-full blur-[80px] pointer-events-none -translate-x-1/3 translate-y-1/3"></div>
+<div class="relative z-10 max-w-5xl mx-auto text-center px-4 pt-10">
+<div class="mb-10 inline-flex items-center gap-3 px-6 py-2 rounded-full border border-white/40 bg-white/20 backdrop-blur-sm animate-float">
+<span class="material-symbols-outlined text-primary text-sm">filter_vintage</span>
+<span class="text-sm font-light tracking-wide text-text-main">The Future of Deep Connection</span>
+</div>
+<h1 class="text-6xl md:text-8xl font-thin tracking-tight text-text-main mb-8 leading-none">
+                We don't match faces,<br/>
+                we match <span class="font-normal text-transparent bg-clip-text bg-gradient-to-r from-primary via-soft-pink to-secondary">Source Codes</span>.
+            </h1>
+<p class="text-xl md:text-2xl text-text-light font-light mb-14 max-w-2xl mx-auto leading-relaxed">
+                A connection deeper than appearance. Discover the alchemy of Astrology, Psychology, and Dynamics in a safe, mindful space.
+            </p>
+<div class="flex flex-col sm:flex-row items-center justify-center gap-8">
+<button class="group relative px-10 py-5 bg-button-gradient text-white rounded-full text-lg font-medium tracking-wide shadow-[0_10px_30px_rgba(255,158,128,0.4)] hover:shadow-[0_15px_40px_rgba(255,158,128,0.6)] transition-all duration-300 transform hover:-translate-y-1">
+<span class="relative z-10 flex items-center gap-3">
+                        Decode Your Soul
+                        <span class="material-icons text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</span>
+</button>
+<div class="flex items-center gap-4 text-text-light text-sm bg-white/30 px-5 py-3 rounded-full backdrop-blur-sm">
+<div class="flex -space-x-3">
+<img alt="Avatar of a woman" class="w-8 h-8 rounded-full border-2 border-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuoJ8zZkZUuRsGTz4bjg8a2G4Kk66_M1ioCwPLOJKZL-Lo-uPgX2YIkS-VGVWD2kDPAqr5EQ5lrNQrvE152wlQ8v0XEFpUH7MMH19arR52z5qHw-WWJldCMMHCW_sQeavZueQ6OpjCiyOiO3Wdeb5j_DPhrg6LxYkkmyMtf09kzTs4oWe_hTVRDfq21y-w4KR16fuADqxiZ3sZkXEvh3a2YV1pTPJL2K5n3q0bUE0_K6KgHZ91N-fyzNTiWxvieUKpPgcxAS2TSDQ"/>
+<img alt="Avatar of a man" class="w-8 h-8 rounded-full border-2 border-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDf6PC_jTKBX4NtKxErOyMoeL-PKwTOiwKYcPsHnuHciRdK16Q_DQaXt6yGThboFs8QlChw2Lnn-I2bgHprIzAuAsWVvTAeYFYa95H7L8dCaMY4nyEH8rdZ-XsvFqWF25BAKy1blsPSragCxvz3nIZks8lZBTv-BdEngkb3_Ru2ETP2CgBLdGWasbunH9tbvV9bbHqz1_XUAtuGEtQQ2bw-cKCFA652heubkghQ3mKHKc4u3moMpf7QtytlMijZ4au_RJczWW7Ky0w"/>
+<img alt="Avatar of a woman" class="w-8 h-8 rounded-full border-2 border-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLSkc3atJgVwYbPd0_-eP5qyDqXTmShnpTA7Pax-N6fUrj9LblxwNUY4FO1gQTIsm5dFKukquc08HSpL5DMEWomX3ecoBDhz5eS3b9d4sJHFsShxTaFzjeGqhGqIiVzaXZhap1cLqTjhD1f08zo2jHQYoVJeNHjVc896oeD0m6AfmXLGlrBnaTEPL9xQRtQUNhZOOn4uHKO57npMixCbQFI6uiaN39YVXHmA7DBn8-flVr6jynXnrkYs8bP5KzjUcNdrOUmBcxk0E"/>
+</div>
+<span>10,000+ Souls Decoded</span>
+</div>
+</div>
+</div>
+<div class="absolute top-1/4 left-10 opacity-60 hidden lg:block animate-float" style="animation-delay: 1s;">
+<span class="material-symbols-outlined text-6xl text-secondary/40 rotate-12">flutter_dash</span> 
+</div>
+<div class="absolute bottom-1/4 right-10 opacity-60 hidden lg:block animate-float" style="animation-delay: 2s;">
+<span class="material-symbols-outlined text-6xl text-primary/40 -rotate-12">pest_control_rodent</span> 
+</div>
+</section>
+<section class="py-32 relative overflow-hidden bg-background-light">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+<div class="text-center mb-24">
+<h2 class="text-sm font-medium text-primary tracking-[0.3em] uppercase mb-6">The Trinity of Connection</h2>
+<h3 class="text-4xl md:text-5xl font-light text-text-main">How We Calculate Resonance</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-10 lg:gap-14">
+<div class="group relative rounded-3xl transition-all duration-500 hover:-translate-y-2">
+<div class="glass-card h-full rounded-[2rem] p-10 flex flex-col items-center text-center relative overflow-hidden border border-white shadow-lg bg-white/40">
+<div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary/50 to-transparent"></div>
+<div class="w-24 h-24 rounded-full bg-gradient-to-br from-white to-background-light flex items-center justify-center mb-8 shadow-inner text-primary group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-5xl opacity-80">owl</span>
+</div>
+<h4 class="text-2xl font-light text-text-main mb-4">Cosmic Alignment</h4>
+<p class="text-text-light font-light leading-relaxed">
+                            Beyond sun signs. We map your entire natal chart to find karmic destiny and planetary resonance.
+                        </p>
+<div class="mt-10">
+<span class="text-xs text-primary/70 uppercase tracking-widest border-b border-primary/20 pb-1">Astrology Engine</span>
+</div>
+</div>
+</div>
+<div class="group relative rounded-3xl transition-all duration-500 hover:-translate-y-2 md:-translate-y-12">
+<div class="glass-card h-full rounded-[2rem] p-10 flex flex-col items-center text-center relative overflow-hidden border border-white shadow-lg bg-white/40">
+<div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-secondary/50 to-transparent"></div>
+<div class="w-24 h-24 rounded-full bg-gradient-to-br from-white to-background-light flex items-center justify-center mb-8 shadow-inner text-secondary group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-5xl opacity-80">forest</span>
+</div>
+<h4 class="text-2xl font-light text-text-main mb-4">Attachment Style</h4>
+<p class="text-text-light font-light leading-relaxed">
+                            Healing anxious and avoidant patterns together. Understand the root of your emotional needs.
+                        </p>
+<div class="mt-10">
+<span class="text-xs text-secondary/70 uppercase tracking-widest border-b border-secondary/20 pb-1">Psyche Mapping</span>
+</div>
+</div>
+</div>
+<div class="group relative rounded-3xl transition-all duration-500 hover:-translate-y-2">
+<div class="glass-card h-full rounded-[2rem] p-10 flex flex-col items-center text-center relative overflow-hidden border border-white shadow-lg bg-white/40">
+<div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-soft-pink/50 to-transparent"></div>
+<div class="w-24 h-24 rounded-full bg-gradient-to-br from-white to-background-light flex items-center justify-center mb-8 shadow-inner text-soft-pink group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-5xl opacity-80">flutter_dash</span>
+</div>
+<h4 class="text-2xl font-light text-text-main mb-4">Power Balance</h4>
+<p class="text-text-light font-light leading-relaxed">
+                            Explore dominance, submission, and equality safely. Align on the unspoken energies of desire.
+                        </p>
+<div class="mt-10">
+<span class="text-xs text-soft-pink/70 uppercase tracking-widest border-b border-soft-pink/20 pb-1">Energy Dynamics</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 relative bg-background-dark overflow-hidden">
+<div class="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-white/30 to-transparent pointer-events-none"></div>
+<div class="max-w-6xl mx-auto px-4 sm:px-6 relative z-10 flex flex-col md:flex-row items-center gap-20">
+<div class="flex-1 space-y-10">
+<h2 class="text-5xl font-light text-text-main leading-tight">
+                     See beyond the veil of <br/>
+<span class="text-primary italic font-serif">superficiality</span>.
+                 </h2>
+<p class="text-text-light text-lg font-light leading-relaxed">
+                     Traditional apps show you a photo. We show you the energetic blueprint. When you match on Source Code, you already know the potential for harmony, conflict, and growth.
+                 </p>
+<div class="space-y-6 pt-6">
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-icons text-primary text-xl">check</span>
+</div>
+<span class="text-text-main font-light text-lg">Verified birth charts for accuracy</span>
+</div>
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-icons text-primary text-xl">check</span>
+</div>
+<span class="text-text-main font-light text-lg">Deep psychological profiling quiz</span>
+</div>
+<div class="flex items-center gap-5">
+<div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+<span class="material-icons text-primary text-xl">check</span>
+</div>
+<span class="text-text-main font-light text-lg">Private, secure, and judgment-free space</span>
+</div>
+</div>
+</div>
+<div class="flex-1 w-full max-w-md flex justify-center">
+<div class="relative bg-white rounded-[3rem] p-4 shadow-2xl h-[640px] w-[340px] border-4 border-white/50 ring-1 ring-black/5">
+<div class="h-full w-full bg-background-light rounded-[2.5rem] overflow-hidden relative shadow-inner flex flex-col">
+<div class="pt-12 px-6 pb-6 bg-gradient-to-b from-soft-pink/20 to-transparent">
+<div class="flex justify-between items-end mb-4">
+<div>
+<h3 class="text-2xl font-medium text-text-main">Elara, 28</h3>
+<p class="text-sm text-primary flex items-center gap-1 font-medium">
+<span class="material-icons text-sm">stars</span> 98% Resonance
+                                     </p>
+</div>
+<div class="w-12 h-12 rounded-full bg-white p-1 shadow-sm">
+<img alt="Profile thumb" class="w-full h-full rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDv_sPatNl_AV_-_7po2wRqeun0JHNFqcvunHHIt8zz4UovDX2tnJW5jrqCpE2G1Zn23uFnCe3gTdBiWOzS2hTC2Cf2kHcGe3LR2AdsvM2tIA4A-XIPEhA4HG6VwD4Fyrb7um3F9ktZ2BO59jV6JNjPcrKYD9tqkXsVHUdc-o-eVbNxLoQXK3V3j9wLk-Kn17yIA35JzWzpEU7EDu72XdQ0jDhSElrICOjftrgItOnw_dwn6Ez2cY0luAZWVtZH1j2f2XVaiMxNKJo"/>
+</div>
+</div>
+<div class="flex justify-center my-4 relative">
+<div class="w-48 h-48 rounded-full border border-primary/20 flex items-center justify-center relative animate-spin-slow">
+<div class="absolute inset-0 border border-secondary/30 rounded-full scale-75"></div>
+<div class="absolute inset-0 border border-soft-pink/40 rounded-full scale-50"></div>
+<div class="absolute inset-0 rounded-full bg-gradient-to-tr from-primary/10 to-secondary/10 blur-xl"></div>
+<span class="material-symbols-outlined text-6xl text-text-light/50">self_improvement</span>
+</div>
+</div>
+</div>
+<div class="p-6 space-y-4 flex-1">
+<div class="bg-white/60 p-4 rounded-2xl shadow-sm border border-white/50">
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs uppercase text-text-light tracking-wider font-semibold">Sun</span>
+<span class="text-sm text-text-main font-medium">Scorpio ♏</span>
+</div>
+<div class="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-primary/60 w-3/4 rounded-full"></div>
+</div>
+</div>
+<div class="bg-white/60 p-4 rounded-2xl shadow-sm border border-white/50">
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs uppercase text-text-light tracking-wider font-semibold">Attachment</span>
+<span class="text-sm text-text-main font-medium">Secure-Leaning</span>
+</div>
+<div class="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+<div class="h-full bg-secondary/60 w-1/2 rounded-full"></div>
+</div>
+</div>
+<button class="w-full py-4 mt-2 bg-gradient-to-r from-primary to-soft-pink text-white rounded-2xl text-sm font-semibold shadow-lg shadow-primary/20 tracking-wide">
+                                Initiate Connection
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="py-24 bg-background-light relative">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<h2 class="text-center text-3xl font-light text-text-main mb-16">Echoes from the <span class="text-primary font-medium italic">Source</span></h2>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+<div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 relative">
+<span class="material-icons absolute top-8 right-8 text-primary/20 text-4xl">format_quote</span>
+<div class="flex gap-1 text-primary mb-6">
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+</div>
+<p class="text-text-light font-light italic mb-8 leading-relaxed">"I was tired of swiping on faces. Source Code connected me with someone who understood my darkness before we even spoke. It's unnerving but beautiful."</p>
+<div class="flex items-center gap-4">
+<img alt="Profile of Marcus" class="w-12 h-12 rounded-full border-2 border-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHdy6nCXyBX7E2Wdia_S1D9bWy4u9ChbYlcetNhfkMF9ed9ylh_LC_U785ZwpYYGnM3wcWF0njQ2fqXom-k61S5tswJBgo0bVZ4abMlpZRsynZypqmlmOTERaboiM8PufDrnPORMO85TCpkvEN3z3JldwSsKpIRWsnfJhP9YYah296fxB9bKAp51WsdC-yoxAradayCzxWUAYDeq-ySvRh5tkoOjS3-3ZGddgzKJc9Fb0tm7GAGF8Z-mAq0n7HFpPVaoszLsDoTXo"/>
+<div>
+<p class="text-text-main text-sm font-semibold">Marcus T.</p>
+<p class="text-text-light text-xs">Matched 3 months ago</p>
+</div>
+</div>
+</div>
+<div class="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 relative transform lg:-translate-y-4">
+<span class="material-icons absolute top-8 right-8 text-secondary/20 text-4xl">format_quote</span>
+<div class="flex gap-1 text-secondary mb-6">
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+</div>
+<p class="text-text-light font-light italic mb-8 leading-relaxed">"The Power Dynamics pillar changed everything. We knew our energetic roles immediately. No awkward negotiation, just pure flow."</p>
+<div class="flex items-center gap-4">
+<img alt="Profile of Sarah" class="w-12 h-12 rounded-full border-2 border-secondary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXF9LbDaTiug5MFP3aE-T0ZZ0kF1udM2qnTn5zjkUpeLH9d4DtVeD6G7zM0a5gXdHavHM4WZWRs0EeWqrMC4pRIa4p6rQpO3y7yJEjZIcigTapCgS5nOQeu2vHBxgYqkX0Pm_QhUTH7omyWaG63iSQSoMAczT05sEqBaGKKfPU0yBGfhQRMYo-tXM4YesGAr8PIQZ64DpEP7IsENxu5rlZt_lx6-jbnL0_zSvswEgq6cwChj3qi-zs2KLI1LgB3Y_gmdBCZutis0I"/>
+<div>
+<p class="text-text-main text-sm font-semibold">Sarah J.</p>
+<p class="text-text-light text-xs">Matched 1 month ago</p>
+</div>
+</div>
+</div>
+<div class="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 relative">
+<span class="material-icons absolute top-8 right-8 text-soft-pink/20 text-4xl">format_quote</span>
+<div class="flex gap-1 text-soft-pink mb-6">
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+<span class="material-icons text-sm">star</span>
+</div>
+<p class="text-text-light font-light italic mb-8 leading-relaxed">"Finally, a dating app that respects psychological depth. The attachment theory matching is spot on. I feel safe."</p>
+<div class="flex items-center gap-4">
+<img alt="Profile of Alex" class="w-12 h-12 rounded-full border-2 border-soft-pink/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsmp3lfxMXi3dnfeaKFP0AksfBRKfAKWaRZSBzRiZROq_EcXxnGMqSpaYTPZ-HMlckNFuWU7GjNh_vNuSLP23jt9M7Z6IShZoH9f_wDSXjhjs318IFH9oSQ2G9EcuA2l6IKQn_rUgZASN9valGpJDedf0Ok0xxPgrfkFsRGZty1L0O6s3nGewOtmuPnXBJvWlwCaN6a5WJxY7VAIWJYJDBxNSPRyBGrDYNoVypJObVVt-lhIX9aRMk1qqL1o7RH4po2VCFre9Qmiw"/>
+<div>
+<p class="text-text-main text-sm font-semibold">Alex R.</p>
+<p class="text-text-light text-xs">Matched 6 months ago</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<footer class="bg-white border-t border-gray-100 pt-20 pb-10">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+<div class="col-span-1 md:col-span-1">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary text-2xl">spa</span>
+<span class="font-light text-xl tracking-widest text-text-main uppercase">Source<span class="font-bold text-primary">Code</span></span>
+</div>
+<p class="text-text-light text-sm font-light leading-relaxed">
+                        Decrypting the language of the soul to forge connections that transcend the physical plane.
+                    </p>
+</div>
+<div>
+<h4 class="text-text-main font-medium mb-6">The Platform</h4>
+<ul class="space-y-3 text-sm text-text-light font-light">
+<li><a class="hover:text-primary transition-colors" href="#">How it Works</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Pricing</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Success Stories</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Download App</a></li>
+</ul>
+</div>
+<div>
+<h4 class="text-text-main font-medium mb-6">Resources</h4>
+<ul class="space-y-3 text-sm text-text-light font-light">
+<li><a class="hover:text-primary transition-colors" href="#">Astrology Guide</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Attachment Quiz</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Safety Center</a></li>
+<li><a class="hover:text-primary transition-colors" href="#">Support</a></li>
+</ul>
+</div>
+<div>
+<h4 class="text-text-main font-medium mb-6">Follow the Stars</h4>
+<div class="flex space-x-4">
+<a class="w-10 h-10 rounded-full bg-background-light flex items-center justify-center text-text-light hover:bg-primary hover:text-white hover:scale-110 transition-all shadow-sm" href="#">
+<span class="material-icons text-sm">share</span>
+</a>
+<a class="w-10 h-10 rounded-full bg-background-light flex items-center justify-center text-text-light hover:bg-primary hover:text-white hover:scale-110 transition-all shadow-sm" href="#">
+<span class="material-icons text-sm">alternate_email</span>
+</a>
+<a class="w-10 h-10 rounded-full bg-background-light flex items-center justify-center text-text-light hover:bg-primary hover:text-white hover:scale-110 transition-all shadow-sm" href="#">
+<span class="material-icons text-sm">rss_feed</span>
+</a>
+</div>
+</div>
+</div>
+<div class="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-text-light font-light">
+<p>© 2023 Source Code Inc. All rights reserved.</p>
+<div class="flex space-x-6">
+<a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
+</div>
+</div>
+</div>
+</footer>
+
+</body></html>
