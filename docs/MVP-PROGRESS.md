@@ -19,7 +19,7 @@
 | `/daily` | Daily Feed (3 Cards) | Done | Pending | 需串接 `GET /api/matches/daily`，目前為 mock data |
 | `/connections` | Connections List | Done | Pending | 需串接 `GET /api/connections` |
 | `/connections/[id]` | Chat Room | Done | Pending | 需串接 Supabase Realtime + `GET/POST /api/connections/:id/messages` |
-| `/profile` | Self-View Profile | Done | Pending | 需串接 `GET /api/profile/me` |
+| `/profile` | Self-View Profile + Edit | Done | **Done** | 已串接 `GET/PATCH /api/profile/me` + 編輯模式（全欄位 + 照片） |
 
 ---
 
@@ -65,7 +65,11 @@
 - [ ] `POST /api/connections/:id/messages` — 發送訊息
 
 ### Profile
-- [ ] `GET /api/profile/me` — 自我檢視：Base Stats + Archetype
+- [x] `GET /api/profile/me` — 自我檢視：所有個人資料 + 照片
+- [x] `PATCH /api/profile/me` — 更新個人資料（display_name, 出生資料, RPV, 自動重算 data_tier）
+- [x] `POST /api/profile/me/photos` — 重新上傳照片
+- [x] `GET /api/profile/energy` — 取得社交能量狀態
+- [x] `PATCH /api/profile/energy` — 更新社交能量狀態 (high/medium/low)
 
 ---
 
@@ -95,7 +99,8 @@
 | Chat (Text) | UI Done, Realtime Pending | 需 Supabase Realtime |
 | 24hr Auto-Disconnect | Not Started | 需 DB cron/trigger |
 | Ice-breaker (Simplified) | Not Started | UI + AI API |
-| Self-View Profile | UI Done, Data Pending | 需 API |
+| Self-View Profile + Edit | **Done** | GET/PATCH API + 編輯模式 + 照片重傳 |
+| Social Energy Bar | **Done** | 一鍵切換 High/Medium/Low，存入 DB |
 
 ---
 

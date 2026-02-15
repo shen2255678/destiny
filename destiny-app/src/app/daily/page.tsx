@@ -158,7 +158,7 @@ function VibrationalRing() {
 /** Left sidebar — vibrational state card + moon phase widget */
 function Sidebar() {
   return (
-    <aside className="col-span-3 flex flex-col gap-6 h-full justify-center">
+    <aside className="hidden lg:flex lg:col-span-3 flex-col gap-6 h-full justify-center">
       {/* Vibrational State card */}
       <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group transition-all duration-500 hover:shadow-lg">
         {/* Decorative icon */}
@@ -428,14 +428,14 @@ function MatchCardItem({ card }: { card: MatchCard }) {
     ? "bg-white/80 border-white shadow-xl"
     : "bg-white/40 border-white/60 shadow-sm";
 
-  const heightClass = isWildcard ? "h-[540px]" : "h-[500px]";
+  const heightClass = isWildcard ? "lg:h-[540px]" : "lg:h-[500px]";
   const hoverTranslate = isWildcard
     ? "hover:-translate-y-6"
     : "hover:-translate-y-4";
 
   return (
     <div
-      className={`relative ${isWildcard ? "w-[34%] max-w-[340px] z-10" : "w-[30%] max-w-[320px]"} ${heightClass} group cursor-pointer breathing-card transition-all duration-500 ${hoverTranslate}`}
+      className={`relative ${isWildcard ? "w-full lg:w-[34%] max-w-[340px] z-10" : "w-full lg:w-[30%] max-w-[320px]"} ${heightClass} group cursor-pointer breathing-card transition-all duration-500 ${hoverTranslate}`}
       role="article"
       aria-label={`Match card: ${card.archetype}`}
     >
@@ -542,9 +542,9 @@ function TopHeader({ energy, onToggleEnergy }: { energy: SocialEnergyLevel; onTo
         </h1>
       </div>
 
-      {/* Centre — nav links */}
+      {/* Centre — nav links (hidden on mobile) */}
       <nav
-        className="flex items-center gap-8 text-sm font-medium text-[#8c7089]/80"
+        className="hidden md:flex items-center gap-8 text-sm font-medium text-[#8c7089]/80"
         aria-label="Main navigation"
       >
         {headerLinks.map((link) => (
@@ -691,7 +691,7 @@ export default function DailyFeedPage() {
 
       {/* Main content grid */}
       <main
-        className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 py-4 grid grid-cols-12 gap-8 h-[calc(100vh-100px)]"
+        className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-4 md:px-6 py-4 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 lg:h-[calc(100vh-100px)]"
         role="main"
         aria-label="Daily match feed"
       >
@@ -700,7 +700,7 @@ export default function DailyFeedPage() {
 
         {/* ---- Cards section (col 4–12) ---- */}
         <section
-          className="col-span-9 flex flex-col h-full relative"
+          className="col-span-1 lg:col-span-9 flex flex-col h-full relative"
           aria-label="Today's matched Source Codes"
         >
           {/* Section heading */}
@@ -717,7 +717,7 @@ export default function DailyFeedPage() {
 
           {/* Three match cards */}
           <div
-            className="flex-1 flex items-center justify-center gap-6 px-4 pb-16 w-full"
+            className="flex-1 flex flex-col lg:flex-row items-center justify-center gap-6 px-4 pb-16 w-full"
             role="list"
             aria-label="Match cards"
           >

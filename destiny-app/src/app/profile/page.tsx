@@ -4,9 +4,10 @@
  * DESTINY — Profile Page (Self-View + Edit)
  * Route: /profile
  *
- * Loads real user data from GET /api/profile/me.
- * Supports editing: display_name, birth data, RPV test, and photos.
+ * Loads real user data from GET /api/profile/me (including signed photo URLs).
+ * Supports editing: display_name, bio, interest tags, birth data, RPV test, photos.
  * Archetype and Base Stats are system-generated (read-only).
+ * Responsive: max-w-lg → md:max-w-2xl → lg:max-w-4xl
  */
 
 import Link from "next/link";
@@ -36,6 +37,7 @@ interface PhotoRecord {
   storage_path: string;
   blurred_path: string;
   upload_order: number;
+  photo_url: string | null;
 }
 
 interface ProfileData {
@@ -54,6 +56,8 @@ interface ProfileData {
   venus_sign: string | null;
   archetype_name: string | null;
   archetype_desc: string | null;
+  bio: string | null;
+  interest_tags: string[];
   photos: PhotoRecord[];
 }
 
@@ -62,9 +66,9 @@ interface ProfileData {
 // ---------------------------------------------------------------------------
 
 const TIER_LABELS: Record<number, { name: string; desc: string }> = {
-  1: { name: "Gold Tier", desc: "Precise birth time recorded — full D1 & D9 chart enabled." },
-  2: { name: "Silver Tier", desc: "Fuzzy birth time — medium accuracy with fuzzy logic." },
-  3: { name: "Bronze Tier", desc: "Birth date only — limited astrology data." },
+  1: { name: "Gold Tier", desc: "Precise birth time — full D1 & D9 chart." },
+  2: { name: "Silver Tier", desc: "Fuzzy birth time — medium accuracy." },
+  3: { name: "Bronze Tier", desc: "Birth date only — limited astrology." },
 };
 
 const BIRTH_TIME_OPTIONS = [
@@ -96,6 +100,21 @@ const TAIWAN_CITIES = [
   "台東縣", "澎湖縣", "金門縣", "連江縣",
 ];
 
+const PRESET_TAGS: Record<string, string[]> = {
+  "生活": ["旅遊", "美食", "咖啡", "烹飪", "寵物"],
+  "藝術": ["電影", "音樂", "攝影", "閱讀", "繪畫"],
+  "運動": ["健身", "瑜伽", "登山", "游泳", "跑步"],
+  "社交": ["派對", "桌遊", "品酒", "露營", "市集"],
+  "知識": ["心理學", "占星", "科技", "語言", "投資"],
+  "生活風格": ["極簡主義", "永續生活", "冥想", "手作", "植物"],
+};
+
+const MAX_TAGS = 10;
+const BIO_MAX_LENGTH = 500;
+
+// Responsive main width class — used in TopBar and main
+const MAIN_WIDTH = "w-full max-w-lg md:max-w-2xl lg:max-w-4xl mx-auto";
+
 // ---------------------------------------------------------------------------
 // Sub-components (Display)
 // ---------------------------------------------------------------------------
@@ -118,62 +137,128 @@ function TopBar({ dataTier, isEditing, onToggleEdit, saving }: {
 }) {
   const tier = TIER_LABELS[dataTier] || TIER_LABELS[3];
   return (
-    <header className="relative z-20 w-full px-6 py-5 flex items-center gap-4" role="banner">
-      <Link
-        href="/daily"
-        className="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-[#8c7089] hover:text-[#d98695] hover:bg-white/60 transition-all duration-200 shrink-0"
-        aria-label="Back to Daily Feed"
-      >
-        <span className="material-symbols-outlined text-xl" aria-hidden="true">arrow_back</span>
-      </Link>
+    <header className="relative z-20 w-full px-4 md:px-6 py-5" role="banner">
+      <div className={`${MAIN_WIDTH} flex items-center gap-4`}>
+        <Link
+          href="/daily"
+          className="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-[#8c7089] hover:text-[#d98695] hover:bg-white/60 transition-all duration-200 shrink-0"
+          aria-label="Back to Daily Feed"
+        >
+          <span className="material-symbols-outlined text-xl" aria-hidden="true">arrow_back</span>
+        </Link>
 
-      <div className="flex-1 flex flex-col">
-        <p className="text-[10px] uppercase tracking-[0.35em] text-[#8c7089] font-medium">Your Source Code</p>
-        <h1 className="text-lg font-light text-[#5c4059] tracking-wide leading-tight">My Source Code</h1>
-      </div>
+        <div className="flex-1 flex flex-col">
+          <p className="text-[10px] uppercase tracking-[0.35em] text-[#8c7089] font-medium">Your Source Code</p>
+          <h1 className="text-lg font-light text-[#5c4059] tracking-wide leading-tight">My Source Code</h1>
+        </div>
 
-      <button
-        onClick={onToggleEdit}
-        disabled={saving}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-panel text-[#8c7089] hover:text-[#d98695] hover:bg-white/60 transition-all duration-200"
-        aria-label={isEditing ? "Cancel editing" : "Edit profile"}
-      >
-        <span className="material-symbols-outlined text-sm" aria-hidden="true">
-          {isEditing ? "close" : "edit"}
-        </span>
-        <span className="text-xs font-medium tracking-wide">
-          {isEditing ? "取消" : "編輯"}
-        </span>
-      </button>
+        <button
+          onClick={onToggleEdit}
+          disabled={saving}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-panel text-[#8c7089] hover:text-[#d98695] hover:bg-white/60 transition-all duration-200"
+          aria-label={isEditing ? "Cancel editing" : "Edit profile"}
+        >
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">
+            {isEditing ? "close" : "edit"}
+          </span>
+          <span className="text-xs font-medium tracking-wide">
+            {isEditing ? "取消" : "編輯"}
+          </span>
+        </button>
 
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-panel" aria-label={`${tier.name} member`}>
-        <span className="text-[#b86e7d] text-xs font-semibold tracking-wider">
-          {dataTier === 1 ? "✦ Gold" : dataTier === 2 ? "✦ Silver" : "✦ Bronze"}
-        </span>
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-panel" aria-label={`${tier.name} member`}>
+          <span className="text-[#b86e7d] text-xs font-semibold tracking-wider">
+            {dataTier === 1 ? "✦ Gold" : dataTier === 2 ? "✦ Silver" : "✦ Bronze"}
+          </span>
+        </div>
       </div>
     </header>
   );
 }
 
+/** Photo gallery — view mode */
+function PhotoGallery({ photos }: { photos: PhotoRecord[] }) {
+  if (photos.length === 0) return null;
+  return (
+    <section className="grid grid-cols-2 gap-3 md:gap-4" aria-label="My photos">
+      {photos.map((photo) => (
+        <div
+          key={photo.id}
+          className="aspect-[3/4] rounded-2xl overflow-hidden glass-panel border border-white/50 group"
+        >
+          {photo.photo_url ? (
+            <img
+              src={photo.photo_url}
+              alt={`Photo ${photo.upload_order}`}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#fcecf0] to-[#fdf2e9]">
+              <span className="material-symbols-outlined text-3xl text-[#d98695]/30" aria-hidden="true">image</span>
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** Bio display — view mode */
+function BioDisplay({ bio }: { bio: string | null }) {
+  if (!bio) return null;
+  return (
+    <section className="glass-panel rounded-2xl p-5 md:p-6" aria-labelledby="bio-heading">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="material-symbols-outlined text-lg text-[#d98695]" aria-hidden="true">edit_note</span>
+        <h3 id="bio-heading" className="text-xs uppercase tracking-[0.3em] text-[#8c7089] font-medium">About Me</h3>
+      </div>
+      <p className="text-sm text-[#5c4059]/80 leading-relaxed font-light whitespace-pre-wrap">{bio}</p>
+    </section>
+  );
+}
+
+/** Interest tags display — view mode */
+function InterestTagsDisplay({ tags }: { tags: string[] }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <section className="glass-panel rounded-2xl p-5 md:p-6" aria-labelledby="tags-heading">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="material-symbols-outlined text-lg text-[#d98695]" aria-hidden="true">sell</span>
+        <h3 id="tags-heading" className="text-xs uppercase tracking-[0.3em] text-[#8c7089] font-medium">Interests</h3>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-[#d98695]/10 text-[#b86e7d] border border-[#d98695]/20"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ArchetypeCard({ name, desc }: { name: string | null; desc: string | null }) {
   return (
-    <section className="glass-panel rounded-3xl p-8 relative overflow-hidden breathing-card transition-all duration-500" aria-labelledby="archetype-title">
+    <section className="glass-panel rounded-3xl p-6 md:p-8 relative overflow-hidden breathing-card transition-all duration-500" aria-labelledby="archetype-title">
       <div className="absolute inset-0 bg-gradient-to-br from-[#fcecf0]/60 via-white/20 to-[#fdf2e9]/40 rounded-3xl pointer-events-none" aria-hidden="true" />
       <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-[#d98695] opacity-10 blur-3xl pointer-events-none" aria-hidden="true" />
 
       <div className="relative z-10 flex justify-center mb-5">
         <div
-          className="w-20 h-20 rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(217,134,149,0.25)]"
+          className="w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-[0_8px_24px_rgba(217,134,149,0.25)]"
           style={{ background: "linear-gradient(135deg, rgba(217,134,149,0.15), rgba(247,197,168,0.15))", border: "1.5px solid rgba(217,134,149,0.3)" }}
           aria-hidden="true"
         >
-          <span className="material-symbols-outlined text-4xl" style={{ color: "#d98695" }}>explore</span>
+          <span className="material-symbols-outlined text-3xl md:text-4xl" style={{ color: "#d98695" }}>explore</span>
         </div>
       </div>
 
       <div className="relative z-10 text-center mb-5">
         <p className="text-[10px] uppercase tracking-[0.35em] text-[#8c7089] mb-1">Your Archetype</p>
-        <h2 id="archetype-title" className="text-2xl font-light text-[#5c4059] tracking-wide">
+        <h2 id="archetype-title" className="text-xl md:text-2xl font-light text-[#5c4059] tracking-wide">
           {name || "Decoding..."}
         </h2>
       </div>
@@ -212,7 +297,7 @@ function StatBar({ stat }: { stat: BaseStat }) {
 
 function BaseStatsSection({ stats }: { stats: BaseStat[] }) {
   return (
-    <section className="glass-panel rounded-2xl p-6 space-y-5" aria-labelledby="stats-heading">
+    <section className="glass-panel rounded-2xl p-5 md:p-6 space-y-5" aria-labelledby="stats-heading">
       <div className="flex items-center gap-2 mb-1">
         <span className="material-symbols-outlined text-lg text-[#d98695]" aria-hidden="true">bar_chart</span>
         <h3 id="stats-heading" className="text-xs uppercase tracking-[0.3em] text-[#8c7089] font-medium">Base Stats</h3>
@@ -227,9 +312,9 @@ function BaseStatsSection({ stats }: { stats: BaseStat[] }) {
 function DataTierCard({ tier }: { tier: number }) {
   const info = TIER_LABELS[tier] || TIER_LABELS[3];
   return (
-    <section className="glass-panel rounded-2xl p-5 flex items-center justify-between" aria-label={`Data tier: ${info.name}`}>
+    <section className="glass-panel rounded-2xl p-4 md:p-5 flex items-center justify-between" aria-label={`Data tier: ${info.name}`}>
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #f7c5a8, #d98695)", boxShadow: "0 4px 14px rgba(217,134,149,0.35)" }} aria-hidden="true">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #f7c5a8, #d98695)", boxShadow: "0 4px 14px rgba(217,134,149,0.35)" }} aria-hidden="true">
           <span className="material-symbols-outlined text-white text-sm">workspace_premium</span>
         </div>
         <div>
@@ -238,7 +323,7 @@ function DataTierCard({ tier }: { tier: number }) {
         </div>
       </div>
       <div className="text-right">
-        <p className="text-[10px] text-[#8c7089] leading-relaxed font-light max-w-[140px]">{info.desc}</p>
+        <p className="text-[10px] text-[#8c7089] leading-relaxed font-light max-w-[160px]">{info.desc}</p>
       </div>
     </section>
   );
@@ -247,7 +332,7 @@ function DataTierCard({ tier }: { tier: number }) {
 function AstroSummaryCard({ items, tier }: { items: AstroItem[]; tier: number }) {
   const tierLabel = tier === 1 ? "Gold" : tier === 2 ? "Silver" : "Bronze";
   return (
-    <section className="glass-panel rounded-2xl p-6" aria-labelledby="astro-heading">
+    <section className="glass-panel rounded-2xl p-5 md:p-6" aria-labelledby="astro-heading">
       <div className="flex items-center gap-2 mb-5">
         <span className="material-symbols-outlined text-lg text-[#d98695]" aria-hidden="true">auto_awesome</span>
         <h3 id="astro-heading" className="text-xs uppercase tracking-[0.3em] text-[#8c7089] font-medium">Astro Summary</h3>
@@ -289,7 +374,7 @@ function PrivacyNote() {
 
 function EditSection({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="glass-panel rounded-2xl p-6 space-y-4">
+    <section className="glass-panel rounded-2xl p-5 md:p-6 space-y-4">
       <div className="flex items-center gap-2 mb-1">
         <span className="material-symbols-outlined text-lg text-[#d98695]" aria-hidden="true">{icon}</span>
         <h3 className="text-xs uppercase tracking-[0.3em] text-[#8c7089] font-medium">{title}</h3>
@@ -329,6 +414,87 @@ function OptionPill({ selected, onClick, icon, label }: { selected: boolean; onC
 }
 
 // ---------------------------------------------------------------------------
+// Bio Edit Component
+// ---------------------------------------------------------------------------
+
+function BioEditSection({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const remaining = BIO_MAX_LENGTH - value.length;
+  return (
+    <EditSection title="About Me" icon="edit_note">
+      <FormField label="自我介紹">
+        <textarea
+          value={value}
+          onChange={(e) => {
+            if (e.target.value.length <= BIO_MAX_LENGTH) onChange(e.target.value);
+          }}
+          placeholder="寫些什麼讓人認識你..."
+          rows={5}
+          className={inputClass + " resize-none"}
+        />
+      </FormField>
+      <div className="flex justify-end">
+        <span className={`text-[10px] font-medium tracking-wide ${remaining < 50 ? "text-[#d98695]" : "text-[#8c7089]/60"}`}>
+          {remaining} / {BIO_MAX_LENGTH}
+        </span>
+      </div>
+    </EditSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Interest Tag Picker
+// ---------------------------------------------------------------------------
+
+function InterestTagPicker({ selected, onChange }: { selected: string[]; onChange: (tags: string[]) => void }) {
+  function toggleTag(tag: string) {
+    if (selected.includes(tag)) {
+      onChange(selected.filter((t) => t !== tag));
+    } else if (selected.length < MAX_TAGS) {
+      onChange([...selected, tag]);
+    }
+  }
+
+  return (
+    <EditSection title="Interests" icon="sell">
+      <p className="text-xs text-[#8c7089] font-light">
+        選擇最多 {MAX_TAGS} 個興趣標籤 · 已選 {selected.length} / {MAX_TAGS}
+      </p>
+      <div className="space-y-4">
+        {Object.entries(PRESET_TAGS).map(([category, tags]) => (
+          <div key={category}>
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[#8c7089]/70 font-semibold mb-2">{category}</p>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => {
+                const isSelected = selected.includes(tag);
+                const isDisabled = !isSelected && selected.length >= MAX_TAGS;
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    disabled={isDisabled}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 ${
+                      isSelected
+                        ? "bg-[#d98695]/15 text-[#b86e7d] border-[#d98695]/40 shadow-[0_1px_4px_rgba(217,134,149,0.15)]"
+                        : isDisabled
+                        ? "bg-white/20 text-[#8c7089]/40 border-white/30 cursor-not-allowed"
+                        : "bg-white/30 text-[#8c7089] border-white/50 hover:border-[#d98695]/30 hover:text-[#b86e7d]"
+                    }`}
+                  >
+                    {isSelected && <span className="mr-1">✓</span>}
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </EditSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Photo Edit Component
 // ---------------------------------------------------------------------------
 
@@ -358,34 +524,38 @@ function PhotoEditSection({ photos, onUpload, uploading }: {
     return () => URL.revokeObjectURL(url);
   }, [file2]);
 
-  const hasExisting = photos.length > 0;
+  // Get existing photo URLs
+  const existingUrl1 = photos.find((p) => p.upload_order === 1)?.photo_url || null;
+  const existingUrl2 = photos.find((p) => p.upload_order === 2)?.photo_url || null;
+
+  const slots = [
+    { index: 0, preview: preview1, existingUrl: existingUrl1, inputRef: input1Ref, setFile: setFile1 },
+    { index: 1, preview: preview2, existingUrl: existingUrl2, inputRef: input2Ref, setFile: setFile2 },
+  ];
 
   return (
     <EditSection title="Photos" icon="photo_camera">
-      {hasExisting && !file1 && !file2 && (
-        <p className="text-xs text-[#8c7089] font-light">
-          已上傳 {photos.length} 張照片。選擇新照片以替換。
-        </p>
-      )}
-      <div className="grid grid-cols-2 gap-4">
-        {[0, 1].map((i) => {
-          const file = i === 0 ? file1 : file2;
-          const preview = i === 0 ? preview1 : preview2;
-          const inputRef = i === 0 ? input1Ref : input2Ref;
-          const setFile = i === 0 ? setFile1 : setFile2;
+      <div className="grid grid-cols-2 gap-3 md:gap-4">
+        {slots.map(({ index, preview, existingUrl, inputRef, setFile }) => {
+          const displayUrl = preview || existingUrl;
           return (
             <button
-              key={i}
+              key={index}
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="aspect-square rounded-2xl glass-panel border border-dashed border-[#d98695]/30 flex flex-col items-center justify-center gap-2 hover:border-[#d98695]/60 hover:bg-white/40 transition-all duration-200 overflow-hidden relative"
+              className="aspect-[3/4] rounded-2xl glass-panel border border-dashed border-[#d98695]/30 flex flex-col items-center justify-center gap-2 hover:border-[#d98695]/60 hover:bg-white/40 transition-all duration-200 overflow-hidden relative group"
             >
-              {preview ? (
-                <img src={preview} alt={`Photo ${i + 1} preview`} className="absolute inset-0 w-full h-full object-cover" />
+              {displayUrl ? (
+                <>
+                  <img src={displayUrl} alt={`Photo ${index + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-white text-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 drop-shadow-lg" aria-hidden="true">edit</span>
+                  </div>
+                </>
               ) : (
                 <>
                   <span className="material-symbols-outlined text-2xl text-[#d98695]/50" aria-hidden="true">add_photo_alternate</span>
-                  <span className="text-[10px] text-[#8c7089]">照片 {i + 1}</span>
+                  <span className="text-[10px] text-[#8c7089]">照片 {index + 1}</span>
                 </>
               )}
               <input
@@ -413,9 +583,9 @@ function PhotoEditSection({ photos, onUpload, uploading }: {
           {uploading ? "上傳中..." : "上傳照片"}
         </button>
       )}
-      {(file1 && !file2) || (!file1 && file2) ? (
+      {((file1 && !file2) || (!file1 && file2)) && (
         <p className="text-[10px] text-[#d98695] text-center">請選擇兩張照片後上傳</p>
-      ) : null}
+      )}
     </EditSection>
   );
 }
@@ -453,6 +623,8 @@ export default function ProfilePage() {
 
   // Edit form state
   const [editDisplayName, setEditDisplayName] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editTags, setEditTags] = useState<string[]>([]);
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editBirthTime, setEditBirthTime] = useState("");
   const [editBirthTimeExact, setEditBirthTimeExact] = useState("");
@@ -461,6 +633,19 @@ export default function ProfilePage() {
   const [editRpvPower, setEditRpvPower] = useState("");
   const [editRpvEnergy, setEditRpvEnergy] = useState("");
 
+  function populateEditFields(d: ProfileData) {
+    setEditDisplayName(d.display_name || "");
+    setEditBio(d.bio || "");
+    setEditTags(Array.isArray(d.interest_tags) ? d.interest_tags : []);
+    setEditBirthDate(d.birth_date || "");
+    setEditBirthTime(d.birth_time || "unknown");
+    setEditBirthTimeExact(d.birth_time_exact || "");
+    setEditBirthCity(d.birth_city || "");
+    setEditRpvConflict(d.rpv_conflict || "");
+    setEditRpvPower(d.rpv_power || "");
+    setEditRpvEnergy(d.rpv_energy || "");
+  }
+
   // Fetch profile data
   useEffect(() => {
     async function fetchProfile() {
@@ -468,17 +653,10 @@ export default function ProfilePage() {
         const res = await fetch("/api/profile/me");
         if (!res.ok) throw new Error("Failed to load profile");
         const json = await res.json();
-        setProfile(json.data);
-        // Populate edit fields
         const d = json.data;
-        setEditDisplayName(d.display_name || "");
-        setEditBirthDate(d.birth_date || "");
-        setEditBirthTime(d.birth_time || "unknown");
-        setEditBirthTimeExact(d.birth_time_exact || "");
-        setEditBirthCity(d.birth_city || "");
-        setEditRpvConflict(d.rpv_conflict || "");
-        setEditRpvPower(d.rpv_power || "");
-        setEditRpvEnergy(d.rpv_energy || "");
+        d.interest_tags = Array.isArray(d.interest_tags) ? d.interest_tags : [];
+        setProfile(d);
+        populateEditFields(d);
       } catch {
         setError("無法載入個人資料");
       } finally {
@@ -486,19 +664,12 @@ export default function ProfilePage() {
       }
     }
     fetchProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleToggleEdit() {
     if (isEditing && profile) {
-      // Reset edit fields on cancel
-      setEditDisplayName(profile.display_name || "");
-      setEditBirthDate(profile.birth_date || "");
-      setEditBirthTime(profile.birth_time || "unknown");
-      setEditBirthTimeExact(profile.birth_time_exact || "");
-      setEditBirthCity(profile.birth_city || "");
-      setEditRpvConflict(profile.rpv_conflict || "");
-      setEditRpvPower(profile.rpv_power || "");
-      setEditRpvEnergy(profile.rpv_energy || "");
+      populateEditFields(profile);
     }
     setIsEditing(!isEditing);
     setError(null);
@@ -515,6 +686,8 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           display_name: editDisplayName || null,
+          bio: editBio || null,
+          interest_tags: editTags,
           birth_date: editBirthDate,
           birth_time: editBirthTime,
           birth_time_exact: editBirthTime === "precise" ? editBirthTimeExact : null,
@@ -529,7 +702,9 @@ export default function ProfilePage() {
         throw new Error(json.error || "Save failed");
       }
       const json = await res.json();
-      setProfile((prev) => prev ? { ...prev, ...json.data } : prev);
+      const updated = json.data;
+      updated.interest_tags = Array.isArray(updated.interest_tags) ? updated.interest_tags : [];
+      setProfile((prev) => prev ? { ...prev, ...updated } : prev);
       setIsEditing(false);
       setSuccessMsg("已儲存");
       setTimeout(() => setSuccessMsg(null), 2000);
@@ -552,8 +727,13 @@ export default function ProfilePage() {
         const json = await res.json();
         throw new Error(json.error || "Upload failed");
       }
-      const json = await res.json();
-      setProfile((prev) => prev ? { ...prev, photos: json.data } : prev);
+      // Re-fetch profile to get new signed URLs
+      const profileRes = await fetch("/api/profile/me");
+      if (profileRes.ok) {
+        const json = await profileRes.json();
+        json.data.interest_tags = Array.isArray(json.data.interest_tags) ? json.data.interest_tags : [];
+        setProfile(json.data);
+      }
       setSuccessMsg("照片已更新");
       setTimeout(() => setSuccessMsg(null), 2000);
     } catch (err: unknown) {
@@ -590,7 +770,7 @@ export default function ProfilePage() {
       <AmbientBlobs />
       <TopBar dataTier={profile.data_tier} isEditing={isEditing} onToggleEdit={handleToggleEdit} saving={saving} />
 
-      <main className="relative z-10 flex-1 w-full max-w-lg mx-auto px-4 pb-10 flex flex-col gap-5" role="main" aria-label="My Source Code profile">
+      <main className={`relative z-10 flex-1 ${MAIN_WIDTH} px-4 md:px-6 pb-10 flex flex-col gap-5`} role="main" aria-label="My Source Code profile">
         {/* Status messages */}
         {error && (
           <div className="glass-panel rounded-xl p-3 border border-red-200 bg-red-50/50 text-xs text-red-600 text-center">
@@ -606,103 +786,90 @@ export default function ProfilePage() {
         {isEditing ? (
           /* ====== EDIT MODE ====== */
           <>
-            {/* Basic Info */}
-            <EditSection title="Basic Info" icon="person">
-              <FormField label="顯示名稱">
-                <input
-                  type="text"
-                  value={editDisplayName}
-                  onChange={(e) => setEditDisplayName(e.target.value)}
-                  placeholder="你的名字"
-                  className={inputClass}
-                />
-              </FormField>
-            </EditSection>
+            {/* Two-column grid on large screens */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {/* Left column */}
+              <div className="flex flex-col gap-5">
+                {/* Photos */}
+                <PhotoEditSection photos={profile.photos} onUpload={handlePhotoUpload} uploading={uploading} />
 
-            {/* Birth Data */}
-            <EditSection title="Birth Data" icon="calendar_month">
-              <FormField label="出生日期">
-                <input
-                  type="date"
-                  value={editBirthDate}
-                  onChange={(e) => setEditBirthDate(e.target.value)}
-                  className={inputClass}
-                />
-              </FormField>
-              <FormField label="出生時間精度">
-                <select value={editBirthTime} onChange={(e) => setEditBirthTime(e.target.value)} className={selectClass}>
-                  {BIRTH_TIME_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </FormField>
-              {editBirthTime === "precise" && (
-                <FormField label="精確出生時間">
-                  <input
-                    type="time"
-                    value={editBirthTimeExact}
-                    onChange={(e) => setEditBirthTimeExact(e.target.value)}
-                    className={inputClass}
-                  />
-                </FormField>
-              )}
-              <FormField label="出生城市">
-                <select value={editBirthCity} onChange={(e) => setEditBirthCity(e.target.value)} className={selectClass}>
-                  <option value="">選擇城市</option>
-                  {TAIWAN_CITIES.map((city) => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-              </FormField>
-            </EditSection>
-
-            {/* RPV Test */}
-            <EditSection title="RPV Test" icon="psychology">
-              <FormField label="衝突時傾向">
-                <div className="flex gap-3">
-                  {RPV_OPTIONS.conflict.map((opt) => (
-                    <OptionPill
-                      key={opt.value}
-                      selected={editRpvConflict === opt.value}
-                      onClick={() => setEditRpvConflict(opt.value)}
-                      icon={opt.icon}
-                      label={opt.label}
+                {/* Basic Info */}
+                <EditSection title="Basic Info" icon="person">
+                  <FormField label="顯示名稱">
+                    <input
+                      type="text"
+                      value={editDisplayName}
+                      onChange={(e) => setEditDisplayName(e.target.value)}
+                      placeholder="你的名字"
+                      className={inputClass}
                     />
-                  ))}
-                </div>
-              </FormField>
-              <FormField label="權力傾向">
-                <div className="flex gap-3">
-                  {RPV_OPTIONS.power.map((opt) => (
-                    <OptionPill
-                      key={opt.value}
-                      selected={editRpvPower === opt.value}
-                      onClick={() => setEditRpvPower(opt.value)}
-                      icon={opt.icon}
-                      label={opt.label}
-                    />
-                  ))}
-                </div>
-              </FormField>
-              <FormField label="能量傾向">
-                <div className="flex gap-3">
-                  {RPV_OPTIONS.energy.map((opt) => (
-                    <OptionPill
-                      key={opt.value}
-                      selected={editRpvEnergy === opt.value}
-                      onClick={() => setEditRpvEnergy(opt.value)}
-                      icon={opt.icon}
-                      label={opt.label}
-                    />
-                  ))}
-                </div>
-              </FormField>
-            </EditSection>
+                  </FormField>
+                </EditSection>
 
-            {/* Photos */}
-            <PhotoEditSection photos={profile.photos} onUpload={handlePhotoUpload} uploading={uploading} />
+                {/* Bio */}
+                <BioEditSection value={editBio} onChange={setEditBio} />
+              </div>
 
-            {/* Save button */}
+              {/* Right column */}
+              <div className="flex flex-col gap-5">
+                {/* Interest Tags */}
+                <InterestTagPicker selected={editTags} onChange={setEditTags} />
+
+                {/* Birth Data */}
+                <EditSection title="Birth Data" icon="calendar_month">
+                  <FormField label="出生日期">
+                    <input type="date" value={editBirthDate} onChange={(e) => setEditBirthDate(e.target.value)} className={inputClass} />
+                  </FormField>
+                  <FormField label="出生時間精度">
+                    <select value={editBirthTime} onChange={(e) => setEditBirthTime(e.target.value)} className={selectClass}>
+                      {BIRTH_TIME_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </FormField>
+                  {editBirthTime === "precise" && (
+                    <FormField label="精確出生時間">
+                      <input type="time" value={editBirthTimeExact} onChange={(e) => setEditBirthTimeExact(e.target.value)} className={inputClass} />
+                    </FormField>
+                  )}
+                  <FormField label="出生城市">
+                    <select value={editBirthCity} onChange={(e) => setEditBirthCity(e.target.value)} className={selectClass}>
+                      <option value="">選擇城市</option>
+                      {TAIWAN_CITIES.map((city) => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </FormField>
+                </EditSection>
+
+                {/* RPV Test */}
+                <EditSection title="RPV Test" icon="psychology">
+                  <FormField label="衝突時傾向">
+                    <div className="flex gap-3 flex-wrap">
+                      {RPV_OPTIONS.conflict.map((opt) => (
+                        <OptionPill key={opt.value} selected={editRpvConflict === opt.value} onClick={() => setEditRpvConflict(opt.value)} icon={opt.icon} label={opt.label} />
+                      ))}
+                    </div>
+                  </FormField>
+                  <FormField label="權力傾向">
+                    <div className="flex gap-3 flex-wrap">
+                      {RPV_OPTIONS.power.map((opt) => (
+                        <OptionPill key={opt.value} selected={editRpvPower === opt.value} onClick={() => setEditRpvPower(opt.value)} icon={opt.icon} label={opt.label} />
+                      ))}
+                    </div>
+                  </FormField>
+                  <FormField label="能量傾向">
+                    <div className="flex gap-3 flex-wrap">
+                      {RPV_OPTIONS.energy.map((opt) => (
+                        <OptionPill key={opt.value} selected={editRpvEnergy === opt.value} onClick={() => setEditRpvEnergy(opt.value)} icon={opt.icon} label={opt.label} />
+                      ))}
+                    </div>
+                  </FormField>
+                </EditSection>
+              </div>
+            </div>
+
+            {/* Save button — full width */}
             <button
               type="button"
               onClick={handleSave}
@@ -716,10 +883,25 @@ export default function ProfilePage() {
         ) : (
           /* ====== VIEW MODE ====== */
           <>
-            <ArchetypeCard name={profile.archetype_name} desc={profile.archetype_desc} />
-            <BaseStatsSection stats={baseStats} />
-            <DataTierCard tier={profile.data_tier} />
-            <AstroSummaryCard items={astroItems} tier={profile.data_tier} />
+            {/* Photos + Archetype side by side on lg */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <PhotoGallery photos={profile.photos} />
+              <ArchetypeCard name={profile.archetype_name} desc={profile.archetype_desc} />
+            </div>
+
+            {/* Bio + Tags */}
+            <BioDisplay bio={profile.bio} />
+            <InterestTagsDisplay tags={profile.interest_tags} />
+
+            {/* Stats + Tier + Astro in responsive grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <BaseStatsSection stats={baseStats} />
+              <div className="flex flex-col gap-5">
+                <DataTierCard tier={profile.data_tier} />
+                <AstroSummaryCard items={astroItems} tier={profile.data_tier} />
+              </div>
+            </div>
+
             <PrivacyNote />
           </>
         )}

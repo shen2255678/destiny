@@ -32,7 +32,7 @@ export default function OnboardingLayout({
           TOP CHROME — logo + progress stepper
       ============================================================ */}
       <header className="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-white/40">
-        <div className="max-w-2xl mx-auto px-6 py-4">
+        <div className="max-w-2xl lg:max-w-3xl mx-auto px-4 md:px-6 py-4">
           {/* Row 1: logo + eyebrow tag */}
           <div className="flex items-center justify-between mb-4">
             <Link
@@ -77,7 +77,7 @@ export default function OnboardingLayout({
           MAIN — page content, padded below the fixed header
       ============================================================ */}
       <main
-        className="flex-1 flex flex-col pt-[128px] pb-16 px-6"
+        className="flex-1 flex flex-col pt-[128px] pb-16 px-4 md:px-6 lg:px-8"
         id="main-content"
       >
         {/* Decorative background blobs */}
@@ -106,7 +106,7 @@ export default function OnboardingLayout({
           aria-hidden="true"
         />
 
-        <div className="relative z-10 max-w-2xl mx-auto w-full flex-1">
+        <div className="relative z-10 max-w-2xl lg:max-w-3xl mx-auto w-full flex-1">
           {children}
         </div>
       </main>

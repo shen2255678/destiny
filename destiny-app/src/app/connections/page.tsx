@@ -115,9 +115,10 @@ function AmbientBlobs() {
 function TopHeader() {
   return (
     <header
-      className="relative z-20 w-full px-5 py-5 flex items-center justify-between"
+      className="relative z-20 w-full px-4 md:px-6 py-5"
       role="banner"
     >
+      <div className="w-full max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto flex items-center justify-between">
       <div className="flex items-center gap-3">
         <Link
           href="/daily"
@@ -151,6 +152,7 @@ function TopHeader() {
           aria-hidden="true"
         />
       </button>
+      </div>
     </header>
   );
 }
@@ -425,7 +427,7 @@ export default function ConnectionsPage() {
 
       {/* Main */}
       <main
-        className="relative z-10 flex-1 w-full max-w-lg mx-auto px-4 pb-10 flex flex-col"
+        className="relative z-10 flex-1 w-full max-w-lg md:max-w-3xl lg:max-w-5xl mx-auto px-4 md:px-6 pb-10 flex flex-col"
         role="main"
         aria-label="Active connections"
       >
@@ -438,7 +440,7 @@ export default function ConnectionsPage() {
 
             {/* Connection cards */}
             <ul
-              className="space-y-3"
+              className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4"
               role="list"
               aria-label="Connection list"
             >

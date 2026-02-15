@@ -37,6 +37,8 @@ export interface Database {
           element_primary: 'fire' | 'earth' | 'air' | 'water' | null
           archetype_name: string | null
           archetype_desc: string | null
+          bio: string | null
+          interest_tags: Json
           social_energy: 'high' | 'medium' | 'low'
           onboarding_step: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
           created_at: string
@@ -69,10 +71,13 @@ export interface Database {
           element_primary?: 'fire' | 'earth' | 'air' | 'water' | null
           archetype_name?: string | null
           archetype_desc?: string | null
+          bio?: string | null
+          interest_tags?: Json
           social_energy?: 'high' | 'medium' | 'low'
           onboarding_step?: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>
+        Relationships: []
       }
       photos: {
         Row: {
@@ -93,6 +98,14 @@ export interface Database {
           upload_order: number
         }
         Update: Partial<Database['public']['Tables']['photos']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'photos_user_id_fkey'
+            columns: ['user_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
       }
       daily_matches: {
         Row: {
@@ -131,6 +144,20 @@ export interface Database {
           user_action?: 'pending' | 'accept' | 'pass'
         }
         Update: Partial<Database['public']['Tables']['daily_matches']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'daily_matches_user_id_fkey'
+            columns: ['user_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'daily_matches_matched_user_id_fkey'
+            columns: ['matched_user_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
       }
       connections: {
         Row: {
@@ -164,6 +191,20 @@ export interface Database {
           status?: 'icebreaker' | 'active' | 'expired'
         }
         Update: Partial<Database['public']['Tables']['connections']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'connections_user_a_id_fkey'
+            columns: ['user_a_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'connections_user_b_id_fkey'
+            columns: ['user_b_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
       }
       messages: {
         Row: {
@@ -180,7 +221,27 @@ export interface Database {
           content: string
         }
         Update: Partial<Database['public']['Tables']['messages']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'messages_connection_id_fkey'
+            columns: ['connection_id']
+            referencedRelation: 'connections'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'messages_sender_id_fkey'
+            columns: ['sender_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
       }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
     }
   }
 }

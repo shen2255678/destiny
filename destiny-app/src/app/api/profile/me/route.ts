@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Taiwan city coordinates (shared with birth-data API)
 const TAIWAN_CITIES: Record<string, { lat: number; lng: number }> = {
@@ -72,7 +73,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('users')
-    .select('display_name, gender, birth_date, birth_time, birth_time_exact, birth_city, data_tier, rpv_conflict, rpv_power, rpv_energy, sun_sign, moon_sign, venus_sign, archetype_name, archetype_desc')
+    .select('display_name, gender, birth_date, birth_time, birth_time_exact, birth_city, data_tier, rpv_conflict, rpv_power, rpv_energy, sun_sign, moon_sign, venus_sign, archetype_name, archetype_desc, bio, interest_tags')
     .eq('id', user.id)
     .single()
 
@@ -80,20 +81,35 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Fetch photos
+  // Fetch photos with signed URLs
   const { data: photos } = await supabase
     .from('photos')
     .select('id, storage_path, blurred_path, upload_order')
     .eq('user_id', user.id)
     .order('upload_order')
 
-  return NextResponse.json({ data: { ...data, photos: photos || [] } })
+  const photosWithUrls = []
+  if (photos && photos.length > 0) {
+    const admin = createAdminClient()
+    for (const photo of photos) {
+      const { data: signedData } = await admin.storage
+        .from('photos')
+        .createSignedUrl(photo.storage_path, 3600) // 1 hour
+      photosWithUrls.push({
+        ...photo,
+        photo_url: signedData?.signedUrl || null,
+      })
+    }
+  }
+
+  return NextResponse.json({ data: { ...data, photos: photosWithUrls } })
 }
 
 const ALLOWED_FIELDS = [
   'display_name',
   'birth_date', 'birth_time', 'birth_time_exact', 'birth_city',
   'rpv_conflict', 'rpv_power', 'rpv_energy',
+  'bio', 'interest_tags',
 ] as const
 
 export async function PATCH(request: Request) {
