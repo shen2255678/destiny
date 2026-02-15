@@ -194,6 +194,17 @@ export default function RpvTestPage() {
 
   return (
     <div className="flex flex-col gap-8 py-4">
+      {/* ---- Back button ---- */}
+      <button
+        type="button"
+        onClick={() => router.push("/onboarding/birth-data")}
+        className="self-start flex items-center gap-1.5 text-sm text-[#8c7089] hover:text-[#d98695] transition-colors duration-200"
+        aria-label="回到上一步"
+      >
+        <span className="material-symbols-outlined text-base" aria-hidden="true">arrow_back</span>
+        <span className="text-xs tracking-wide">上一步</span>
+      </button>
+
       {/* ---- Header ---- */}
       <header className="text-center space-y-2">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel border border-primary/20 mb-2">

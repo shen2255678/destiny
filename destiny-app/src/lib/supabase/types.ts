@@ -37,6 +37,7 @@ export interface Database {
           element_primary: 'fire' | 'earth' | 'air' | 'water' | null
           archetype_name: string | null
           archetype_desc: string | null
+          social_energy: 'high' | 'medium' | 'low'
           onboarding_step: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
           created_at: string
           updated_at: string
@@ -68,6 +69,7 @@ export interface Database {
           element_primary?: 'fire' | 'earth' | 'air' | 'water' | null
           archetype_name?: string | null
           archetype_desc?: string | null
+          social_energy?: 'high' | 'medium' | 'low'
           onboarding_step?: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>

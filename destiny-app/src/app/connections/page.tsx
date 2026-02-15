@@ -118,13 +118,24 @@ function TopHeader() {
       className="relative z-20 w-full px-5 py-5 flex items-center justify-between"
       role="banner"
     >
-      <div>
-        <p className="text-[10px] uppercase tracking-[0.35em] text-[#8c7089] font-medium">
-          Your Active
-        </p>
-        <h1 className="text-xl font-light text-[#5c4059] tracking-wide">
-          Connections
-        </h1>
+      <div className="flex items-center gap-3">
+        <Link
+          href="/daily"
+          className="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-[#8c7089] hover:text-[#d98695] hover:bg-white/60 transition-all duration-200 shrink-0"
+          aria-label="Back to Daily Feed"
+        >
+          <span className="material-symbols-outlined text-xl" aria-hidden="true">
+            arrow_back
+          </span>
+        </Link>
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-[#8c7089] font-medium">
+            Your Active
+          </p>
+          <h1 className="text-xl font-light text-[#5c4059] tracking-wide">
+            Connections
+          </h1>
+        </div>
       </div>
 
       <button

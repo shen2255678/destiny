@@ -16,7 +16,8 @@
  *   Navigate to /daily — no props required, all data is mocked inline.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,6 +27,7 @@ interface NavItem {
   icon: string;
   label: string;
   active?: boolean;
+  href: string;
 }
 
 interface MatchTag {
@@ -50,10 +52,10 @@ interface MatchCard {
 // ---------------------------------------------------------------------------
 
 const NAV_ITEMS: NavItem[] = [
-  { icon: "grid_view", label: "Deck" },
-  { icon: "auto_awesome", label: "Daily", active: true },
-  { icon: "history_edu", label: "History" },
-  { icon: "settings", label: "Config" },
+  { icon: "grid_view", label: "Deck", href: "/connections" },
+  { icon: "auto_awesome", label: "Daily", active: true, href: "/daily" },
+  { icon: "history_edu", label: "History", href: "/connections" },
+  { icon: "settings", label: "Config", href: "/profile" },
 ];
 
 const MATCH_CARDS: MatchCard[] = [
@@ -465,10 +467,65 @@ function MatchCardItem({ card }: { card: MatchCard }) {
 }
 
 // ---------------------------------------------------------------------------
+// Social Energy Bar
+// ---------------------------------------------------------------------------
+
+type SocialEnergyLevel = "high" | "medium" | "low";
+
+const ENERGY_CONFIG: Record<SocialEnergyLevel, { emoji: string; color: string; glow: string; label: string; desc: string }> = {
+  high: { emoji: "\u{1F7E2}", color: "#4ade80", glow: "rgba(74,222,128,0.4)", label: "High", desc: "想認識新靈魂" },
+  medium: { emoji: "\u{1F7E1}", color: "#facc15", glow: "rgba(250,204,21,0.4)", label: "Medium", desc: "簡單聊聊就好" },
+  low: { emoji: "\u{1F535}", color: "#60a5fa", glow: "rgba(96,165,250,0.4)", label: "Low", desc: "請給予空間" },
+};
+
+const ENERGY_CYCLE: SocialEnergyLevel[] = ["high", "medium", "low"];
+
+function SocialEnergyToggle({ energy, onToggle }: { energy: SocialEnergyLevel; onToggle: () => void }) {
+  const config = ENERGY_CONFIG[energy];
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={onToggle}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel border border-white/50 hover:bg-white/60 transition-all duration-200 cursor-pointer"
+        aria-label={`社交能量: ${config.label} — ${config.desc}。點擊切換`}
+      >
+        <div
+          className="w-2.5 h-2.5 rounded-full transition-all duration-300"
+          style={{ backgroundColor: config.color, boxShadow: `0 0 8px ${config.glow}` }}
+        />
+        <span className="text-[10px] font-medium tracking-wider text-[#5c4059] uppercase">
+          {config.label}
+        </span>
+      </button>
+
+      {/* Tooltip */}
+      {showTooltip && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 rounded-xl glass-panel border border-white/50 shadow-lg whitespace-nowrap z-50">
+          <p className="text-[10px] text-[#8c7089] font-medium mb-1">社交能量條</p>
+          <p className="text-xs text-[#5c4059]">{config.emoji} {config.desc}</p>
+          <p className="text-[9px] text-[#8c7089] mt-1">點擊切換狀態</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Top Header
 // ---------------------------------------------------------------------------
 
-function TopHeader() {
+function TopHeader({ energy, onToggleEnergy }: { energy: SocialEnergyLevel; onToggleEnergy: () => void }) {
+  const router = useRouter();
+
+  const headerLinks = [
+    { label: "Archives", href: "/connections" },
+    { label: "Settings", href: "/profile" },
+  ];
+
   return (
     <header
       className="relative z-20 w-full px-8 py-6 flex justify-between items-center"
@@ -490,18 +547,22 @@ function TopHeader() {
         className="flex items-center gap-8 text-sm font-medium text-[#8c7089]/80"
         aria-label="Main navigation"
       >
-        {["Archives", "Settings"].map((link) => (
+        {headerLinks.map((link) => (
           <button
-            key={link}
+            key={link.label}
+            onClick={() => router.push(link.href)}
             className="cursor-pointer hover:text-[#d98695] transition-colors bg-transparent border-none p-0"
           >
-            {link}
+            {link.label}
           </button>
         ))}
       </nav>
 
-      {/* Right — notification + avatar */}
+      {/* Right — energy toggle + notification + avatar */}
       <div className="flex items-center gap-4">
+        {/* Social Energy Toggle */}
+        <SocialEnergyToggle energy={energy} onToggle={onToggleEnergy} />
+
         <button
           className="relative p-2 rounded-full hover:bg-white/40 transition-colors group"
           aria-label="Notifications (1 unread)"
@@ -518,11 +579,11 @@ function TopHeader() {
           />
         </button>
 
-        {/* Avatar — gradient ring, gradient fill */}
-        <div
-          className="w-10 h-10 rounded-full bg-gradient-to-br from-[#d98695] to-[#f7c5a8] p-[2px]"
-          role="img"
-          aria-label="User avatar"
+        {/* Avatar — clickable, navigates to profile */}
+        <button
+          onClick={() => router.push("/profile")}
+          className="w-10 h-10 rounded-full bg-gradient-to-br from-[#d98695] to-[#f7c5a8] p-[2px] cursor-pointer"
+          aria-label="Go to profile"
         >
           <div className="w-full h-full rounded-full bg-gradient-to-br from-[#fcecf0] to-[#fdf2e9] border-2 border-white flex items-center justify-center">
             <span
@@ -532,7 +593,7 @@ function TopHeader() {
               person
             </span>
           </div>
-        </div>
+        </button>
       </div>
     </header>
   );
@@ -543,7 +604,7 @@ function TopHeader() {
 // ---------------------------------------------------------------------------
 
 function FloatingNav() {
-  const [active, setActive] = useState<string>("Daily");
+  const router = useRouter();
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
@@ -552,11 +613,11 @@ function FloatingNav() {
         aria-label="Bottom navigation"
       >
         {NAV_ITEMS.map((item) => {
-          const isActive = active === item.label;
+          const isActive = item.active;
           return (
             <div key={item.label} className="relative group">
               <button
-                onClick={() => setActive(item.label)}
+                onClick={() => router.push(item.href)}
                 aria-label={item.label}
                 aria-current={isActive ? "page" : undefined}
                 className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer ${
@@ -591,11 +652,29 @@ function FloatingNav() {
 // ---------------------------------------------------------------------------
 
 export default function DailyFeedPage() {
+  const [energy, setEnergy] = useState<SocialEnergyLevel>("medium");
+
+  // Load social energy from API
+  useEffect(() => {
+    fetch("/api/profile/energy")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => { if (data?.social_energy) setEnergy(data.social_energy); })
+      .catch(() => {});
+  }, []);
+
+  const handleToggleEnergy = useCallback(() => {
+    const currentIdx = ENERGY_CYCLE.indexOf(energy);
+    const nextEnergy = ENERGY_CYCLE[(currentIdx + 1) % ENERGY_CYCLE.length];
+    setEnergy(nextEnergy);
+    // Persist to DB (fire-and-forget)
+    fetch("/api/profile/energy", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ social_energy: nextEnergy }),
+    }).catch(() => {});
+  }, [energy]);
+
   return (
-    /*
-     * The body already carries the healing gradient via globals.css.
-     * This wrapper is transparent so the background shows through.
-     */
     <div className="min-h-screen flex flex-col overflow-hidden relative selection:bg-[#d98695] selection:text-white">
       {/* Ambient light blobs — decorative, aria-hidden */}
       <div
@@ -608,7 +687,7 @@ export default function DailyFeedPage() {
       />
 
       {/* Top header */}
-      <TopHeader />
+      <TopHeader energy={energy} onToggleEnergy={handleToggleEnergy} />
 
       {/* Main content grid */}
       <main
