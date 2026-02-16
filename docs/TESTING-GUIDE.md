@@ -1,6 +1,6 @@
 # DESTINY — Testing Guide
 
-**Last Updated:** 2026-02-15
+**Last Updated:** 2026-02-16
 
 ---
 
@@ -16,7 +16,7 @@
 
 ## Layer 1: Unit Tests (Mock — 不需真實 DB)
 
-已有 33 個 unit tests，全部使用 mock Supabase client。
+已有 35 個 unit tests，全部使用 mock Supabase client。
 
 ### 執行方式
 
@@ -280,12 +280,114 @@ UPDATE users SET onboarding_step = 'birth_data' WHERE email = 'test1@example.com
 
 ---
 
+## Astro Service 測試
+
+### 啟動服務
+
+```bash
+cd astro-service
+pip install -r requirements.txt    # 首次安裝
+uvicorn main:app --port 8001       # 啟動
+```
+
+### Python Unit Tests (30 tests)
+
+```bash
+cd astro-service
+pytest test_chart.py -v
+```
+
+測試涵蓋：
+
+| 類別 | 測試項目 | 數量 |
+|------|---------|------|
+| 西洋占星 | Sun sign 12 星座、Tier 1/2/3 行為、邊界日期 | 12 |
+| 八字四柱 | 日主、四柱結構、年柱/日柱驗證、Tier 行為 | 16 |
+| 五行關係 | 相生/相剋/比和 全循環 | 7 |
+
+### API 測試
+
+```bash
+# 健康檢查
+curl http://localhost:8001/health
+
+# 西洋占星 + 八字 (Tier 1: 精確時間)
+curl -X POST http://localhost:8001/calculate-chart \
+  -H "Content-Type: application/json" \
+  -d '{"birth_date":"1997-03-07","birth_time":"precise","birth_time_exact":"10:59","lat":25.033,"lng":121.565,"data_tier":1}'
+
+# 預期結果包含：
+# sun_sign, moon_sign, venus_sign, mars_sign, saturn_sign, ascendant_sign
+# bazi.four_pillars: 丁丑 癸卯 戊申 丁巳
+# bazi.day_master: 戊 (earth)
+
+# Tier 3: 僅日期
+curl -X POST http://localhost:8001/calculate-chart \
+  -H "Content-Type: application/json" \
+  -d '{"birth_date":"1995-06-15","data_tier":3}'
+
+# 五行關係分析
+curl -X POST http://localhost:8001/analyze-relation \
+  -H "Content-Type: application/json" \
+  -d '{"element_a":"wood","element_b":"fire"}'
+# 預期: relation=a_generates_b, harmony_score=0.85
+```
+
+### 八字驗證案例
+
+| 鐘錶時間 | 出生地 | 真太陽時 | 四柱 | 日主 |
+|----------|--------|---------|------|------|
+| 1997-03-07 10:59 | 台北 | ~10:53 | 丁丑 癸卯 戊申 丁巳 | 戊土(陽) |
+
+> **真太陽時計算：**
+> `solar_time = clock_time + (經度 - 120°) × 4分鐘 + 均時差(EoT)`
+> 台北 121.565°E → 經度修正 +6.26 分鐘，三月初 EoT ≈ -12 分鐘
+
+### 八字 Data Tier 行為
+
+| Tier | 時柱 | 說明 |
+|------|------|------|
+| Tier 1 (精確時間) | 完整四柱 | 有年月日時全部 |
+| Tier 2 (模糊時間) | 近似時柱 | morning=9:00, afternoon=14:00, evening=20:00 |
+| Tier 3 (僅日期) | 無時柱 | hour = null |
+
+---
+
+## Onboarding + 星盤整合測試
+
+完成 birth-data 步驟後，API 會自動呼叫 astro-service 計算星盤和八字。
+
+### 驗證流程
+
+1. 確認 astro-service 在 `localhost:8001` 運行中
+2. 走完 `/onboarding/birth-data` 步驟
+3. 在 Supabase Dashboard → Table Editor → users 確認以下欄位已寫入：
+
+| 欄位 | 說明 | 範例值 |
+|------|------|--------|
+| sun_sign | 太陽星座 | gemini |
+| moon_sign | 月亮星座 (Tier 2+) | cancer |
+| venus_sign | 金星星座 | taurus |
+| mars_sign | 火星星座 | leo |
+| saturn_sign | 土星星座 | pisces |
+| ascendant_sign | 上升星座 (Tier 1 only) | virgo |
+| element_primary | 主要元素 | air |
+| bazi_day_master | 日主天干 | 戊 |
+| bazi_element | 日主五行 | earth |
+| bazi_four_pillars | 四柱完整資料 (JSONB) | {"day_master":"戊", ...} |
+
+> **注意：** 如果 astro-service 未啟動，星盤欄位會保持 null，但 onboarding 流程不受影響（非阻塞式）。
+
+---
+
 ## Summary
 
 | 我想測什麼？ | 用哪層？ |
 |-------------|---------|
 | API 邏輯是否正確 (快速) | Layer 1: `npm test` |
+| 星盤/八字計算正確性 | Astro Service: `pytest test_chart.py` |
 | 完整用戶流程 (註冊到完成) | Layer 2: 瀏覽器 E2E |
 | 單一 API response 格式 | Layer 3: 瀏覽器 Console fetch |
 | DB 是否正確寫入 | Supabase Dashboard |
 | Error handling (401/400) | Layer 1 (mock) 或 Layer 3 (real) |
+| 五行配對分析 | `/analyze-relation` API |

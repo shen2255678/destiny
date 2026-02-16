@@ -148,6 +148,9 @@ export async function POST(request: Request) {
           saturn_sign: chart.saturn_sign ?? null,
           ascendant_sign: chart.ascendant_sign ?? null,
           element_primary: chart.element_primary ?? null,
+          bazi_day_master: chart.bazi?.day_master ?? null,
+          bazi_element: chart.bazi?.day_master_element ?? null,
+          bazi_four_pillars: chart.bazi ?? null,
         })
         .eq('id', user.id)
     }

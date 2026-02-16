@@ -40,6 +40,9 @@ export interface Database {
           bio: string | null
           interest_tags: Json
           social_energy: 'high' | 'medium' | 'low'
+          bazi_day_master: string | null
+          bazi_element: 'wood' | 'fire' | 'earth' | 'metal' | 'water' | null
+          bazi_four_pillars: Json | null
           onboarding_step: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
           created_at: string
           updated_at: string
@@ -74,6 +77,9 @@ export interface Database {
           bio?: string | null
           interest_tags?: Json
           social_energy?: 'high' | 'medium' | 'low'
+          bazi_day_master?: string | null
+          bazi_element?: 'wood' | 'fire' | 'earth' | 'metal' | 'water' | null
+          bazi_four_pillars?: Json | null
           onboarding_step?: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>

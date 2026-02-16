@@ -134,4 +134,16 @@ def calculate_chart(
     sun_sign = result.get("sun_sign")
     result["element_primary"] = ELEMENT_MAP.get(sun_sign) if sun_sign else None
 
+    # ── BaZi (八字四柱) ────────────────────────────────────────
+    from bazi import calculate_bazi
+    bazi = calculate_bazi(
+        birth_date=birth_date,
+        birth_time=birth_time,
+        birth_time_exact=birth_time_exact,
+        lat=lat,
+        lng=lng,
+        data_tier=data_tier,
+    )
+    result["bazi"] = bazi
+
     return result

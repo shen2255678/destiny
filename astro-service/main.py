@@ -12,10 +12,22 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from chart import calculate_chart
+from bazi import analyze_element_relation
 
-app = FastAPI(title="DESTINY Astro Service", version="0.1.0")
+# Ensure Chinese characters are returned as-is (not escaped as \uXXXX)
+class UTF8JSONResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        import json
+        return json.dumps(content, ensure_ascii=False).encode("utf-8")
+
+app = FastAPI(
+    title="DESTINY Astro Service",
+    version="0.3.0",
+    default_response_class=UTF8JSONResponse,
+)
 
 
 class ChartRequest(BaseModel):
@@ -46,3 +58,17 @@ def calc_chart(req: ChartRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class RelationRequest(BaseModel):
+    element_a: str  # "wood" | "fire" | "earth" | "metal" | "water"
+    element_b: str
+
+
+@app.post("/analyze-relation")
+def relation(req: RelationRequest):
+    """Analyze Five-Element relationship between two people's Day Masters."""
+    valid = {"wood", "fire", "earth", "metal", "water"}
+    if req.element_a not in valid or req.element_b not in valid:
+        raise HTTPException(status_code=400, detail="Invalid element. Must be: wood/fire/earth/metal/water")
+    return analyze_element_relation(req.element_a, req.element_b)
