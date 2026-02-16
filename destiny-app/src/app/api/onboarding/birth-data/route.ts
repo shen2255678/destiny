@@ -120,5 +120,48 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ data })
+  // Call astro-service to calculate natal chart and write signs back to DB
+  const astroUrl = process.env.ASTRO_SERVICE_URL || 'http://localhost:8001'
+  try {
+    const chartRes = await fetch(`${astroUrl}/calculate-chart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        birth_date,
+        birth_time,
+        birth_time_exact: birth_time_exact || null,
+        lat: lat ?? 25.033,
+        lng: lng ?? 121.565,
+        data_tier,
+      }),
+    })
+
+    if (chartRes.ok) {
+      const chart = await chartRes.json()
+      await supabase
+        .from('users')
+        .update({
+          sun_sign: chart.sun_sign ?? null,
+          moon_sign: chart.moon_sign ?? null,
+          venus_sign: chart.venus_sign ?? null,
+          mars_sign: chart.mars_sign ?? null,
+          saturn_sign: chart.saturn_sign ?? null,
+          ascendant_sign: chart.ascendant_sign ?? null,
+          element_primary: chart.element_primary ?? null,
+        })
+        .eq('id', user.id)
+    }
+  } catch {
+    // Astro service unavailable — signs stay null, non-blocking
+    console.warn('[birth-data] astro-service unreachable, skipping chart calculation')
+  }
+
+  // Re-fetch to include chart data in response
+  const { data: updated } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  return NextResponse.json({ data: updated })
 }

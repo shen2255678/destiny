@@ -1,8 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+// Mock global fetch for astro-service call
+const originalFetch = globalThis.fetch
+vi.stubGlobal('fetch', vi.fn(() =>
+  Promise.resolve(new Response(JSON.stringify({
+    sun_sign: 'capricorn', moon_sign: null, venus_sign: 'aquarius',
+    mars_sign: 'scorpio', saturn_sign: 'capricorn', ascendant_sign: null,
+    element_primary: 'earth', data_tier: 3,
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+))
+
 // Mock Supabase server client
 const mockGetUser = vi.fn()
 const mockUpsert = vi.fn()
+const mockUpdate = vi.fn()
 const mockFrom = vi.fn()
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -29,11 +40,27 @@ describe('POST /api/onboarding/birth-data', () => {
       data: { user: { id: 'user-uuid-123' } },
       error: null,
     })
-    mockFrom.mockReturnValue({ upsert: mockUpsert })
+    // mockFrom needs to handle: upsert chain, update chain, and select chain
+    const mockUserData = {
+      id: 'user-uuid-123', birth_date: '1990-01-15', data_tier: 3,
+      sun_sign: 'capricorn', moon_sign: null,
+    }
+    mockUpdate.mockReturnValue({
+      eq: () => Promise.resolve({ data: mockUserData, error: null }),
+    })
+    mockFrom.mockImplementation(() => ({
+      upsert: mockUpsert,
+      update: mockUpdate,
+      select: () => ({
+        eq: () => ({
+          single: () => Promise.resolve({ data: mockUserData, error: null }),
+        }),
+      }),
+    }))
     mockUpsert.mockReturnValue({
       select: () => ({
         single: () => Promise.resolve({
-          data: { id: 'user-uuid-123', birth_date: '1990-01-15', data_tier: 3 },
+          data: mockUserData,
           error: null,
         }),
       }),
