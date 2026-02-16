@@ -39,7 +39,7 @@
 | Image Processing | **Done** | sharp 高斯模糊 + 基本驗證 (MIME type + size limit 10MB) — 詳見 `docs/PHOTO-PIPELINE.md` |
 | Archetype Generator | **Done** | `src/lib/ai/archetype.ts` — 8 組 deterministic 原型 (待升級 Claude API) |
 | API Routes (其餘) | Not Started | Daily matching, connections, chat, profile endpoints |
-| Python Microservice | Not Started | FastAPI + Swiss Ephemeris，星盤計算引擎 |
+| Python Microservice | **Done** (計算核心) | `astro-service/` — FastAPI + Swiss Ephemeris，12 pytest 通過。詳見 `docs/ASTRO-SERVICE.md` |
 | AI/LLM Integration | Not Started | Claude API 串接 (動態原型、變色龍標籤、破冰題) |
 
 ---
@@ -75,10 +75,12 @@
 
 ---
 
-## Python Microservice (待實作)
+## Python Microservice (`astro-service/`)
 
-- [ ] `POST /calculate-chart` — 計算星盤 (Swiss Ephemeris)
+- [x] `POST /calculate-chart` — 計算星盤 (Swiss Ephemeris)，支援 Tier 1/2/3
+- [x] `GET /health` — Health check
 - [ ] `POST /run-daily-matching` — 每日 21:00 Cron Job，生成配對
+- [ ] 串接 Next.js API — onboarding birth-data 完成後自動呼叫 calculate-chart 回寫 DB
 
 ---
 
@@ -120,7 +122,8 @@
 | `src/__tests__/api/onboarding-rpv-test.test.ts` | 3 | RPV test API (saves results, 401, 400) |
 | `src/__tests__/api/onboarding-photos.test.ts` | 5 | Photos API (upload+blur, 401, 400 missing, 400 type, 400 size) |
 | `src/__tests__/api/onboarding-soul-report.test.ts` | 3 | Soul report API (archetype gen, onboarding complete, 401) |
-| **Total** | **35** | All passing |
+| `astro-service/test_chart.py` | 12 | 星盤計算 (longitude→sign, tier 1/2/3, boundary, all 12 signs) |
+| **Total** | **47** | All passing (35 JS + 12 Python) |
 
 ---
 
@@ -137,6 +140,7 @@
 | Storage Bucket | **Done** | `photos` bucket + upload/view/delete policies |
 | `.env.local` | **Done** | SUPABASE_URL + ANON_KEY |
 | Vitest | **Done** | vitest + @testing-library/react + user-event |
+| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + pytest (12 tests) |
 
 ---
 
@@ -148,7 +152,7 @@
 4. ~~**Responsive** — 部分頁面在手機尺寸可能需要調整~~ → ✅ Done（全站響應式已完成）
 5. **Radar Chart** — 目前用進度條代替，後續可升級為 Recharts/Nivo radar chart
 6. **Archetype AI** — 目前為 deterministic 映射 (8 組)，待串接 Claude API 動態生成
-7. **Python 星盤** — birth-data API 目前僅存資料，尚未觸發星盤計算
+7. ~~**Python 星盤** — birth-data API 目前僅存資料，尚未觸發星盤計算~~ → ✅ 計算核心已完成，待串接 Next.js API 自動呼叫
 
 ---
 
@@ -157,11 +161,12 @@
 1. ~~**建立 Supabase 專案**~~ — ✅ Done
 2. ~~**實作 Auth flow**~~ — ✅ Done (Login/Register + middleware + 19 tests)
 3. ~~**實作 Onboarding API**~~ — ✅ Done (birth-data, rpv-test, photos, soul-report + 14 tests)
-4. **建立 Python Microservice** — FastAPI + swisseph 星盤計算 ← **NEXT**
-5. **實作 Daily Matching** — Python cron + match algorithm
-6. **串接 AI/LLM** — 動態原型生成、變色龍標籤
-7. **實作 Chat** — Supabase Realtime WebSocket
-8. **Progressive Unlock Logic** — DB trigger + frontend unlock
+4. ~~**建立 Python Microservice**~~ — ✅ Done (chart calculation + 12 tests)
+5. **串接星盤計算到 Next.js** — birth-data API → astro-service → 回寫 DB ← **NEXT**
+6. **實作 Daily Matching** — Python cron + match algorithm
+7. **串接 AI/LLM** — 動態原型生成、變色龍標籤
+8. **實作 Chat** — Supabase Realtime WebSocket
+9. **Progressive Unlock Logic** — DB trigger + frontend unlock
 
 ---
 
@@ -172,7 +177,7 @@
 | Phase | Tasks | Status |
 |-------|-------|--------|
 | Phase A: Onboarding API | Tasks 1-4 (birth-data, rpv-test, photos, soul-report) | **Done** ✅ |
-| Phase B: Python Microservice | Tasks 5-6 (chart calculation, wire to API) | Pending |
+| Phase B: Python Microservice | Tasks 5-6 (chart calculation, wire to API) | **Partial** ✅ Chart calc done, wiring pending |
 | Phase C: Daily Matching | Tasks 7-10 (matching, daily feed, actions, AI tags) | Pending |
 | Phase D: Connections + Chat | Tasks 11-13 (connections, icebreaker, realtime chat) | Pending |
 | Phase E: Profile + Finishing | Tasks 14-15 (profile API, 24hr auto-disconnect) | **Partial** ✅ Profile done, 24hr pending |
