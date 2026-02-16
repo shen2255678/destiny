@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DESTINY** is a precision matchmaking dating platform that combines Vedic Astrology (占星學), Attachment Psychology (依戀心理學), and BDSM Power Dynamics (權力動力學) for deep compatibility matching. The tagline: "We don't match faces, we match Source Codes."
 
-**Status:** Active development — Phase A (Onboarding) complete, Phase B (Python Microservice) next.
+**Status:** Active development — Phase A (Onboarding) complete, Phase B (Astro Microservice) complete, Phase C (Daily Matching) next.
 
 ## Repository Structure
 
@@ -27,11 +27,19 @@ destiny/
 │   │   │   ├── auth.ts           # register/login/logout/getCurrentUser
 │   │   │   └── ai/archetype.ts   # Deterministic archetype generator
 │   │   ├── middleware.ts          # Auth guard (redirects to /login)
-│   │   └── __tests__/            # Vitest tests (33 tests, 7 files)
-│   ├── supabase/migrations/      # 001_initial_schema.sql (pushed to remote)
+│   │   └── __tests__/            # Vitest tests (35 tests, 7 files)
+│   ├── supabase/migrations/      # 001-004 migrations (pushed to remote)
 │   └── .env.local                # SUPABASE_URL + ANON_KEY
+├── astro-service/                # Python microservice (FastAPI + Swiss Ephemeris)
+│   ├── main.py                   # FastAPI server (port 8001)
+│   ├── chart.py                  # Western astrology: planetary positions → zodiac signs
+│   ├── bazi.py                   # BaZi (八字四柱): Four Pillars + Five Elements + true solar time
+│   ├── test_chart.py             # pytest (30 tests)
+│   └── requirements.txt
 ├── docs/
 │   ├── MVP-PROGRESS.md           # Progress tracker (source of truth)
+│   ├── TESTING-GUIDE.md          # Three-layer testing strategy + astro-service
+│   ├── ASTRO-SERVICE.md          # Astro microservice API guide
 │   ├── TECH-STACK.md
 │   └── superbase.md              # Supabase project details
 └── CLAUDE.md                     # This file
@@ -40,6 +48,8 @@ destiny/
 ## Key Documentation
 
 - `docs/MVP-PROGRESS.md` — Progress tracker with all endpoints, test coverage, known issues
+- `docs/TESTING-GUIDE.md` — Three-layer testing strategy (unit/E2E/API) + astro-service
+- `docs/ASTRO-SERVICE.md` — Python astro microservice API guide
 - `docs/TECH-STACK.md` — Architecture details and DB schema
 - `docs/superbase.md` — Supabase project config (ref: `masninqgihbazjirweiy`)
 - `MVP_PHASE1.pdf` — Detailed MVP specification
@@ -52,17 +62,25 @@ destiny/
 - **Backend:** Next.js API Routes (server-side), Supabase (Auth + PostgreSQL + Storage)
 - **Database:** Supabase PostgreSQL — 5 tables with RLS, triggers, indexes
 - **Image Processing:** sharp (Gaussian blur for progressive photo reveal)
-- **Testing:** Vitest + @testing-library/react + user-event (TDD workflow)
-- **Planned:** Python FastAPI + swisseph (astrology), Claude API (AI archetypes/tags)
+- **Testing:** Vitest + @testing-library/react + user-event (TDD workflow); pytest for Python
+- **Astro Service:** Python FastAPI + pyswisseph (Western astrology) + BaZi (八字四柱, true solar time)
+- **Planned:** Claude API (AI archetypes/tags), Supabase Realtime (chat)
 
 ## Development Commands
 
 ```bash
+# Next.js App
 cd destiny-app
 npm run dev          # Start dev server (localhost:3000)
-npm test             # Run Vitest tests (33 tests)
+npm test             # Run Vitest tests (35 tests)
 npx vitest run       # Run tests once (CI mode)
 npm run build        # Production build
+
+# Astro Service (Python)
+cd astro-service
+pip install -r requirements.txt   # Install dependencies (first time)
+uvicorn main:app --port 8001      # Start service
+pytest test_chart.py -v           # Run tests (30 tests)
 ```
 
 ## Architecture
@@ -79,15 +97,28 @@ npm run build        # Production build
 Match_Score = (Kernel_Compatibility × 0.5) + (Power_Dynamic_Fit × 0.3) + (Glitch_Tolerance × 0.2)
 ```
 
+Kernel_Compatibility 由兩套系統組成：
+- **西洋占星 (Western Astrology)** — 6 行星 + 上升星座 → 吸引的成因
+- **八字四柱 (BaZi)** — 日主五行 + 相生相剋 → 相處的姿態
+
+### Astro Service (`astro-service/`)
+
+Python FastAPI 微服務，提供：
+- `POST /calculate-chart` — 西洋占星 + 八字計算（自動呼叫於 birth-data API）
+- `POST /analyze-relation` — 五行關係分析（相生/相剋/比和）
+- `GET /health` — Health check
+- **真太陽時 (True Solar Time):** BaZi 時柱使用經度修正 + 均時差 (Equation of Time)
+- **非阻塞式整合:** astro-service 不可用時，onboarding 不受影響，星盤欄位保持 null
+
 ### Data Integrity Tiers
 
-- **Tier 1 (Gold):** Precise birth time → full D1 & D9 chart
-- **Tier 2 (Silver):** Fuzzy birth time → medium accuracy with fuzzy logic
-- **Tier 3 (Bronze):** Birth date only → limited astrology
+- **Tier 1 (Gold):** Precise birth time → full chart + 完整四柱（年月日時）
+- **Tier 2 (Silver):** Fuzzy birth time → medium accuracy + 近似時柱
+- **Tier 3 (Bronze):** Birth date only → Sun sign only + 三柱（無時柱）
 
 ### Onboarding Flow (4 steps, all wired)
 
-1. `/onboarding/birth-data` → `POST /api/onboarding/birth-data` (computes data_tier)
+1. `/onboarding/birth-data` → `POST /api/onboarding/birth-data` (computes data_tier + auto-calls astro-service)
 2. `/onboarding/rpv-test` → `POST /api/onboarding/rpv-test` (maps option IDs to DB values)
 3. `/onboarding/photos` → `POST /api/onboarding/photos` (sharp blur + Supabase Storage)
 4. `/onboarding/soul-report` → `GET /api/onboarding/soul-report` (archetype generation)

@@ -44,9 +44,9 @@ src/__tests__/
 ├── login-page.test.tsx                   # 4 tests  — Login 頁面互動
 ├── register-page.test.tsx                # 5 tests  — Register 頁面互動
 └── api/
-    ├── onboarding-birth-data.test.ts     # 5 tests  — data_tier 計算 + 驗證
+    ├── onboarding-birth-data.test.ts     # 5 tests  — data_tier 計算 + 驗證 + astro-service 串接
     ├── onboarding-rpv-test.test.ts       # 3 tests  — RPV 儲存 + 驗證
-    ├── onboarding-photos.test.ts         # 3 tests  — 照片上傳 + blur
+    ├── onboarding-photos.test.ts         # 5 tests  — 照片上傳 + blur + 驗證
     └── onboarding-soul-report.test.ts    # 3 tests  — 原型生成 + onboarding complete
 ```
 
@@ -101,6 +101,7 @@ npm run dev
 - [ ] 點擊 Continue
 - [ ] 預期: 導向 `/onboarding/rpv-test`
 - [ ] 驗證: Supabase Dashboard → Table Editor → users → 確認 birth_date, birth_time, data_tier 已寫入
+- [ ] 驗證: 若 astro-service 運行中 → sun_sign, bazi_day_master, bazi_element 應有值
 
 #### Step 2: RPV Test (作業系統)
 - [ ] 3 題都選擇一個選項
