@@ -274,6 +274,14 @@ export async function POST(request: Request) {
           bazi_day_master: chart.bazi?.day_master ?? null,
           bazi_element: chart.bazi?.day_master_element ?? null,
           bazi_four_pillars: chart.bazi ?? null,
+          // Phase G new chart fields
+          mercury_sign:  chart.mercury_sign ?? null,
+          jupiter_sign:  chart.jupiter_sign ?? null,
+          pluto_sign:    chart.pluto_sign ?? null,
+          chiron_sign:   chart.chiron_sign ?? null,
+          juno_sign:     chart.juno_sign ?? null,
+          house4_sign:   chart.house4_sign ?? null,
+          house8_sign:   chart.house8_sign ?? null,
         })
         .eq('id', user.id)
     }
