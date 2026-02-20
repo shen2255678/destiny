@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-20 (Phase C ✅ Phase D ✅ Phase B.5 ✅)
+**Last Updated:** 2026-02-20 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅)
 
 ---
 
@@ -43,6 +43,7 @@
 | Python Microservice | **Done** | `astro-service/` — FastAPI + Swiss Ephemeris + BaZi 八字四柱 + 真太陽時，30 pytest 通過。已串接 birth-data API 自動回寫 DB。詳見 `docs/ASTRO-SERVICE.md` |
 | Rectification Data Layer | **Done** ✅ | Phase B.5：Migration 006 + types.ts 更新 + birth-data API 接受 accuracy_type/window/fuzzy_period + 初始化 rectification state + log range_initialized event + 4-card 精度 UX + rectification quiz endpoints (next-question + answer) |
 | AI/LLM Integration | Not Started | Claude API 串接 (動態原型、變色龍標籤、破冰題) |
+| **Matching Algorithm v2 (Phase G)** | **Done ✅** | Lust/Soul 雙軸 + 四軌（friend/passion/partner/soul）+ Power D/s frame + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8。Migration 007 + `compute_match_v2` + `/api/onboarding/attachment`。設計文件：`docs/plans/2026-02-20-expanded-matching-algorithm-design.md`，實作計劃：`docs/plans/2026-02-20-phase-g-matching-v2-plan.md` |
 
 ---
 
@@ -50,10 +51,11 @@
 
 ### Auth & Onboarding
 - [x] `POST /api/auth/register` — Supabase Auth 註冊 (透過 `src/lib/auth.ts`)
-- [x] `POST /api/onboarding/birth-data` — 儲存出生資料 + 計算 data_tier (1/2/3)
+- [x] `POST /api/onboarding/birth-data` — 儲存出生資料 + 計算 data_tier (1/2/3) + 回寫星盤（含 Phase G 新欄位）
 - [x] `POST /api/onboarding/rpv-test` — 儲存 RPV 三題測試結果 (conflict/power/energy)
 - [x] `POST /api/onboarding/photos` — 上傳 2 張照片 + sharp 高斯模糊 + Supabase Storage
 - [x] `GET /api/onboarding/soul-report` — 生成靈魂原型 + base stats + 更新 onboarding_step=complete
+- [x] `POST /api/onboarding/attachment` — **(Phase G)** 儲存依附風格（anxious/avoidant/secure）+ 角色（dom_secure/sub_secure/balanced）
 
 ### Rectification (Phase B.5 — Done ✅)
 - [x] `GET /api/rectification/next-question` — 取得下一道校正問題（依邊界案例優先度排序：Asc/Dsc 換座優先；4 道題庫：月亮崩潰 coarse + 上升排除 fine + 八字社交 coarse + 八字時柱 fine）
@@ -84,12 +86,15 @@
 
 ## Python Microservice (`astro-service/`)
 
-- [x] `POST /calculate-chart` — 計算星盤 (Swiss Ephemeris) + 八字四柱 (BaZi)，支援 Tier 1/2/3
+- [x] `POST /calculate-chart` — 計算星盤 (Swiss Ephemeris) + 八字四柱 (BaZi)，支援 Tier 1/2/3；**(Phase G)** 新增 Mercury/Jupiter/Pluto/Chiron/Juno + House 4/8（Placidus）
 - [x] `POST /analyze-relation` — 五行關係分析（相生/相剋/比和 + harmony_score）
+- [x] `POST /compute-match` — **(Phase G v2)** 輸出 `lust_score, soul_score, power{rpv/frame_break/viewer_role/target_role}, tracks{friend/passion/partner/soul}, primary_track, quadrant, labels`
 - [x] `GET /health` — Health check
 - [x] 串接 Next.js API — birth-data 完成後自動呼叫 calculate-chart 回寫 DB（非阻塞式）
 - [x] 真太陽時 (True Solar Time) — 經度修正 + 均時差 (Equation of Time)
 - [x] Migration 004 — `bazi_day_master`, `bazi_element`, `bazi_four_pillars` 欄位
+- [x] Migration 007 — **(Phase G)** `mercury_sign, jupiter_sign, pluto_sign, chiron_sign, juno_sign, house4_sign, house8_sign, attachment_role`
+- [x] Windows Unicode path fix — `_resolve_ephe_path()` 自動複製星曆檔到 ASCII temp 路徑（pyswisseph C 庫不支援 Unicode）
 - [ ] `POST /run-daily-matching` — 每日 21:00 Cron Job，生成配對
 
 ---
@@ -137,11 +142,12 @@
 | `src/__tests__/api/matches-action.test.ts` | 7 | Action API (accept, pass, mutual accept → connection, 401, 400, 404, no duplicate) |
 | `src/__tests__/api/connections.test.ts` | 5 | Connections list API (200 with list, 401 unauth, empty state, other_user, tags) |
 | `src/__tests__/api/connections-messages.test.ts` | 8 | Messages API: GET (401, 403, detail+msgs, is_self) + POST (401, 400, 403, insert) |
-| `astro-service/test_chart.py` | 30 | 西洋占星 (12) + 八字四柱 (11) + 五行關係 (7) |
+| `astro-service/test_chart.py` | 37 | 西洋占星 (12) + 八字四柱 (11) + 五行關係 (7) + Phase G 新星體/宮位 (6+1) |
 | `src/__tests__/api/rectification-next-question.test.ts` | 6 | Rectification next-question API (401, 204 locked, 204 PRECISE, shape, options, boundary priority) |
 | `src/__tests__/api/rectification-answer.test.ts` | 9 | Rectification answer API (401, 400 missing/invalid, 200 state, confidence increase, event log, update users, tier_upgraded) |
-| `astro-service/test_matching.py` | 41 | 配對演算法：sign_aspect(9) + kernel(6) + power(4) + glitch(3) + classify(6) + tags(5) + integration(8) |
-| **Total** | **147** | All passing (82 JS + 71 Python) — +15 rectification tests (B.5) |
+| `astro-service/test_matching.py` | 73 | 配對演算法 v1：sign_aspect(9) + kernel(6) + power(4) + glitch(3) + classify(6) + tags(5) + integration(8)；**Phase G v2：** lust(4) + soul(4) + power_v2(4) + chiron(4) + quadrant(5) + attachment(3) + match_v2(8) |
+| `src/__tests__/api/onboarding/attachment.test.ts` | 7 | **(Phase G)** Attachment API (400 missing, 400 invalid style, 200 valid, 200 all styles, 401 unauth, role included, 400 invalid role) |
+| **Total** | **199** | All passing (89 JS + 110 Python) — +52 Phase G tests |
 
 ---
 
@@ -213,8 +219,9 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 6. ~~**Phase C: Daily Matching**~~ — ✅ Done (matching algo + /compute-match + /run + /daily + /action + 53 new tests)
 7. ~~**Phase B.5: Rectification Data Layer**~~ — ✅ Done (Migration 006 + accuracy_type/window fields + 4-card UX + quiz endpoints + 15 new tests; total 82 JS tests)
 8. ~~**Phase D: Connections + Chat**~~ — ✅ Done (GET /api/connections + GET/POST /api/connections/:id/messages + Realtime + 13 new tests)
-9. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
-10. **Phase F: AI/LLM Integration**
+9. ~~**Phase G: Matching Algorithm v2**~~ ← ✅ Done (Lust/Soul 雙軸 + 四軌 + Power D/s + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；199 tests)
+10. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
+11. **Phase F: AI/LLM Integration**
 
 ---
 
@@ -325,6 +332,37 @@ ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS image_path TEXT;  -- Storag
 
 ---
 
+### Phase G: Matching Algorithm v2（擴充星體 + 雙軸 + 四軌）
+
+**設計文件：** `docs/plans/2026-02-20-expanded-matching-algorithm-design.md`
+**依賴：** Phase C 已完成（matching.py 基礎存在）
+
+| Step | Task | 類型 | 說明 |
+|------|------|------|------|
+| G1 | **Migration 007** | New SQL | 新增 `mercury_sign, jupiter_sign, pluto_sign, chiron_sign, juno_sign, house4_sign, house8_sign, attachment_style, attachment_role` |
+| G2 | **chart.py 擴充** | Edit | 加入 Mercury/Jupiter/Pluto/Chiron/Juno + House 4/8；`swe.set_ephe_path('./ephe')`；Tier 2/3 降級 null |
+| G3 | **bazi.py** | Edit | 加入 `swe.set_ephe_path('./ephe')` |
+| G4 | **matching.py 重寫** | Rewrite | 用新架構取代舊 `Match_Score`：`calculate_lust_score` + `calculate_soul_score` + `calculate_power` + `calculate_tracks` + `classify_quadrant` |
+| G5 | **test_matching.py 更新** | Edit | 新增 ~37 個測試（見設計文件 §13）；舊測試遷移/移除 |
+| G6 | **`/api/onboarding/attachment`** | New API | Next.js 新端點：接受 Q_A1/Q_A2 → 回寫 `attachment_style/role` |
+| G7 | **birth-data API 更新** | Edit | 呼叫 astro-service 後，回寫新欄位（mercury_sign ... house8_sign） |
+| G8 | **types.ts 更新** | Edit | 新增 Migration 007 欄位型別 |
+| G9 | **daily feed 輸出更新** | Edit | `/api/matches/daily` 改用新 Schema 輸出 `primary_track` / `lust_score` / `soul_score` |
+
+**Attachment 問卷（2 題，加入 Onboarding Step 2 或獨立 Step）：**
+
+| 題號 | 問題 | 選項 |
+|------|------|------|
+| Q_A1 | 當你喜歡上一個人，你更像⋯⋯ | A.焦慮確認(anxious) / B.保持距離(avoidant) / C.自然流動(secure) |
+| Q_A2 | 在親密關係裡，你更渴望⋯⋯ | A.成為依靠(dom_secure) / B.完全放下防備(sub_secure) / C.獨立又黏著(balanced) |
+
+**星曆檔（已下載至 `astro-service/ephe/`）：**
+- `seas_18.se1`（Chiron + Juno）
+- `sepl_18.se1`（行星）
+- `semo_18.se1`（月亮）
+
+---
+
 ### Phase F: AI/LLM Integration (後續)
 
 | Step | Task | 說明 |
@@ -346,4 +384,5 @@ ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS image_path TEXT;  -- Storag
 | Phase D: Connections + Chat | connections API + text/image chat + Realtime | **Done** ✅ |
 | Phase E: Progressive Unlock | sync level + photo unlock + 24hr disconnect | Pending |
 | Phase F: AI/LLM | dynamic archetype + chameleon tags + icebreaker | Pending |
+| **Phase G: Matching v2** | Lust/Soul 雙軸 + 四軌（friend/passion/partner/soul）+ Power D/s frame + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；Migration 007；110 Python + 89 JS tests | **Done ✅** |
 | ~~Phase E (old): Profile~~ | GET/PATCH API + photos + bio + tags + energy | **Done** ✅ |
