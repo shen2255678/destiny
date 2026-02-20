@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DESTINY** is a precision matchmaking dating platform that combines Vedic Astrology (占星學), Attachment Psychology (依戀心理學), and BDSM Power Dynamics (權力動力學) for deep compatibility matching. The tagline: "We don't match faces, we match Source Codes."
 
-**Status:** Active development — Phase A (Onboarding) complete, Phase B (Astro Microservice) complete, Phase C (Daily Matching) next.
+**Status:** Active development — Phase A ✅, Phase B ✅, Phase C (Daily Matching) ✅, Phase B.5 (Rectification Data Layer) Specced → Pending, Phase D (Connections + Chat) **NEXT**.
 
 ## Repository Structure
 
@@ -40,18 +40,26 @@ destiny/
 │   ├── MVP-PROGRESS.md           # Progress tracker (source of truth)
 │   ├── TESTING-GUIDE.md          # Three-layer testing strategy + astro-service
 │   ├── ASTRO-SERVICE.md          # Astro microservice API guide
+│   ├── DEPLOYMENT.md             # Vercel + Railway + AI API strategy
+│   ├── Dynamic_BirthTimeRectification_Spec.md  # Phase B.5 完整 spec
 │   ├── TECH-STACK.md
-│   └── superbase.md              # Supabase project details
+│   ├── superbase.md              # Supabase project details
+│   └── plans/
+│       ├── 2026-02-14-destiny-mvp-design.md
+│       └── 2026-02-18-rectification-data-layer-design.md  # Phase B.5 設計文件
 └── CLAUDE.md                     # This file
 ```
 
 ## Key Documentation
 
-- `docs/MVP-PROGRESS.md` — Progress tracker with all endpoints, test coverage, known issues
+- `docs/MVP-PROGRESS.md` — Progress tracker with all endpoints, test coverage, known issues (**read this first**)
 - `docs/TESTING-GUIDE.md` — Three-layer testing strategy (unit/E2E/API) + astro-service
 - `docs/ASTRO-SERVICE.md` — Python astro microservice API guide
 - `docs/TECH-STACK.md` — Architecture details and DB schema
 - `docs/superbase.md` — Supabase project config (ref: `masninqgihbazjirweiy`)
+- `docs/DEPLOYMENT.md` — Hosting guide: Vercel (Next.js) + Railway (Python) + AI API timeout strategy
+- `docs/Dynamic_BirthTimeRectification_Spec.md` — Full spec for Dynamic Birth Time Rectification (Phase B.5)
+- `docs/plans/2026-02-18-rectification-data-layer-design.md` — DB schema + API contract + UX flow for Phase B.5
 - `MVP_PHASE1.pdf` — Detailed MVP specification
 - `產品企劃書.pdf` — Complete product plan
 - `Soul_Codes.pdf` — Zodiac personality/compatibility models

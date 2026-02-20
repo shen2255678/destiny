@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from chart import calculate_chart
 from bazi import analyze_element_relation
+from matching import compute_match_score
 
 # Ensure Chinese characters are returned as-is (not escaped as \uXXXX)
 class UTF8JSONResponse(JSONResponse):
@@ -72,3 +73,23 @@ def relation(req: RelationRequest):
     if req.element_a not in valid or req.element_b not in valid:
         raise HTTPException(status_code=400, detail="Invalid element. Must be: wood/fire/earth/metal/water")
     return analyze_element_relation(req.element_a, req.element_b)
+
+
+class MatchRequest(BaseModel):
+    user_a: dict
+    user_b: dict
+
+
+@app.post("/compute-match")
+def compute_match(req: MatchRequest):
+    """Compute match score between two user profiles.
+
+    user_a / user_b should contain flat profile fields:
+      data_tier, sun_sign, moon_sign, venus_sign, mars_sign, saturn_sign,
+      ascendant_sign, bazi_element, rpv_conflict, rpv_power, rpv_energy
+    """
+    try:
+        result = compute_match_score(req.user_a, req.user_b)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

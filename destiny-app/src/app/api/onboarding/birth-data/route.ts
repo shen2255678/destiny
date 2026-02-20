@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type { AccuracyType } from '@/lib/supabase/types'
 
 // Taiwan city coordinates for astrology chart calculation
 const TAIWAN_CITIES: Record<string, { lat: number; lng: number }> = {
@@ -49,13 +50,85 @@ const TAIWAN_CITIES: Record<string, { lat: number; lng: number }> = {
 }
 
 function lookupCityCoords(city: string): { lat: number; lng: number } | null {
-  // Direct match
   if (TAIWAN_CITIES[city]) return TAIWAN_CITIES[city]
-  // Partial match: check if city name contains any key
   for (const [key, coords] of Object.entries(TAIWAN_CITIES)) {
     if (city.includes(key) || key.includes(city)) return coords
   }
   return null
+}
+
+// ---------------------------------------------------------------------------
+// Rectification helpers
+// ---------------------------------------------------------------------------
+
+type FuzzyPeriod = 'morning' | 'afternoon' | 'evening' | 'unknown'
+
+const FUZZY_WINDOWS: Record<FuzzyPeriod, { start: string; end: string; size: number; legacy: string }> = {
+  morning:   { start: '06:00', end: '12:00', size: 360,  legacy: 'morning' },
+  afternoon: { start: '12:00', end: '18:00', size: 360,  legacy: 'afternoon' },
+  evening:   { start: '18:00', end: '24:00', size: 360,  legacy: 'evening' },
+  unknown:   { start: '00:00', end: '24:00', size: 1440, legacy: 'unknown' },
+}
+
+interface RectificationDefaults {
+  accuracy_type: AccuracyType
+  current_confidence: number
+  window_size_minutes: number
+  window_start: string | null
+  window_end: string | null
+  birth_time: string
+  data_tier: number
+}
+
+function computeRectification(
+  accuracyType: AccuracyType,
+  birthTimeExact: string | null,
+  windowStart: string | null,
+  windowEnd: string | null,
+  fuzzyPeriod: string | null,
+): RectificationDefaults {
+  switch (accuracyType) {
+    case 'PRECISE':
+      return {
+        accuracy_type: 'PRECISE',
+        current_confidence: 0.90,
+        window_size_minutes: 0,
+        window_start: birthTimeExact,
+        window_end: birthTimeExact,
+        birth_time: 'precise',
+        data_tier: 1,
+      }
+    case 'TWO_HOUR_SLOT':
+      return {
+        accuracy_type: 'TWO_HOUR_SLOT',
+        current_confidence: 0.30,
+        window_size_minutes: 120,
+        window_start: windowStart,
+        window_end: windowEnd,
+        birth_time: 'unknown', // no legacy equivalent; use unknown as fallback
+        data_tier: 2,
+      }
+    case 'FUZZY_DAY': {
+      const period = (fuzzyPeriod as FuzzyPeriod) || 'unknown'
+      const pw = FUZZY_WINDOWS[period] ?? FUZZY_WINDOWS.unknown
+      return {
+        accuracy_type: 'FUZZY_DAY',
+        current_confidence: period === 'unknown' ? 0.05 : 0.15,
+        window_size_minutes: pw.size,
+        window_start: pw.start,
+        window_end: pw.end,
+        birth_time: pw.legacy,
+        data_tier: period === 'unknown' ? 3 : 2,
+      }
+    }
+  }
+}
+
+/** Legacy mapping: convert old birth_time to accuracy_type. */
+function legacyToAccuracyType(birthTime: string): { accuracyType: AccuracyType; fuzzyPeriod: string | null } {
+  if (birthTime === 'precise') return { accuracyType: 'PRECISE', fuzzyPeriod: null }
+  const period = ['morning', 'afternoon', 'evening', 'unknown'].includes(birthTime) ? birthTime : 'unknown'
+  return { accuracyType: 'FUZZY_DAY', fuzzyPeriod: period }
 }
 
 function computeDataTier(birthTime: string): number {
@@ -64,13 +137,31 @@ function computeDataTier(birthTime: string): number {
   return 3
 }
 
+// ---------------------------------------------------------------------------
+// Route handler
+// ---------------------------------------------------------------------------
+
 export async function POST(request: Request) {
   const body = await request.json()
-  const { birth_date, birth_time, birth_time_exact, birth_city, birth_lat, birth_lng } = body
+  const {
+    birth_date,
+    birth_city,
+    birth_lat,
+    birth_lng,
+    // New accuracy_type system
+    accuracy_type,
+    fuzzy_period,
+    window_start: bodyWindowStart,
+    window_end: bodyWindowEnd,
+    // Legacy system
+    birth_time: legacyBirthTime,
+    birth_time_exact,
+  } = body
 
-  if (!birth_date || !birth_time || !birth_city) {
+  // Require birth_date, birth_city, and at least one of accuracy_type or birth_time
+  if (!birth_date || !birth_city || (!accuracy_type && !legacyBirthTime)) {
     return NextResponse.json(
-      { error: 'Missing required fields: birth_date, birth_time, birth_city' },
+      { error: 'Missing required fields: birth_date, birth_city, and accuracy_type or birth_time' },
       { status: 400 }
     )
   }
@@ -82,7 +173,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const data_tier = computeDataTier(birth_time)
+  // Resolve accuracy_type (new system takes priority over legacy)
+  let rectData: RectificationDefaults
+  if (accuracy_type) {
+    rectData = computeRectification(accuracy_type, birth_time_exact || null, bodyWindowStart || null, bodyWindowEnd || null, fuzzy_period || null)
+  } else {
+    // Backward compat: derive from legacy birth_time
+    const { accuracyType, fuzzyPeriod } = legacyToAccuracyType(legacyBirthTime)
+    rectData = computeRectification(accuracyType, birth_time_exact || null, null, null, fuzzyPeriod)
+    // Keep legacy data_tier for backward compat
+    rectData.data_tier = computeDataTier(legacyBirthTime)
+  }
 
   // Auto-lookup coordinates for Taiwan cities if not provided
   let lat = birth_lat || null
@@ -101,14 +202,20 @@ export async function POST(request: Request) {
       {
         id: user.id,
         email: user.email!,
-        gender: 'male', // will be set from registration, placeholder for upsert
+        gender: 'male',
         birth_date,
-        birth_time,
+        birth_time: rectData.birth_time,
         birth_time_exact: birth_time_exact || null,
         birth_city,
         birth_lat: lat,
         birth_lng: lng,
-        data_tier,
+        data_tier: rectData.data_tier,
+        accuracy_type: rectData.accuracy_type,
+        window_start: rectData.window_start,
+        window_end: rectData.window_end,
+        window_size_minutes: rectData.window_size_minutes,
+        rectification_status: 'collecting_signals',
+        current_confidence: rectData.current_confidence,
         onboarding_step: 'rpv_test',
       },
       { onConflict: 'id' }
@@ -120,7 +227,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Call astro-service to calculate natal chart and write signs back to DB
+  // Log range_initialized event (non-blocking)
+  supabase.from('rectification_events').insert({
+    user_id: user.id,
+    source: 'signup',
+    event_type: 'range_initialized',
+    payload: {
+      accuracy_type: rectData.accuracy_type,
+      window_start: rectData.window_start,
+      window_end: rectData.window_end,
+      window_size_minutes: rectData.window_size_minutes,
+      initial_confidence: rectData.current_confidence,
+    },
+  }).catch(() => {
+    console.warn('[birth-data] failed to log range_initialized event')
+  })
+
+  // Call astro-service to calculate natal chart (non-blocking)
   const astroUrl = process.env.ASTRO_SERVICE_URL || 'http://localhost:8001'
   try {
     const chartRes = await fetch(`${astroUrl}/calculate-chart`, {
@@ -128,11 +251,11 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         birth_date,
-        birth_time,
+        birth_time: rectData.birth_time,
         birth_time_exact: birth_time_exact || null,
         lat: lat ?? 25.033,
         lng: lng ?? 121.565,
-        data_tier,
+        data_tier: rectData.data_tier,
       }),
     })
 
@@ -155,7 +278,6 @@ export async function POST(request: Request) {
         .eq('id', user.id)
     }
   } catch {
-    // Astro service unavailable — signs stay null, non-blocking
     console.warn('[birth-data] astro-service unreachable, skipping chart calculation')
   }
 
@@ -166,5 +288,5 @@ export async function POST(request: Request) {
     .eq('id', user.id)
     .single()
 
-  return NextResponse.json({ data: updated })
+  return NextResponse.json({ data: updated ?? data })
 }

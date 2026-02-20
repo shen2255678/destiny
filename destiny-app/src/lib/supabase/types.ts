@@ -6,6 +6,16 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export type AccuracyType = 'PRECISE' | 'TWO_HOUR_SLOT' | 'FUZZY_DAY'
+
+export type RectificationStatus =
+  | 'unrectified'
+  | 'collecting_signals'
+  | 'narrowed_to_2hr'
+  | 'narrowed_to_d9'
+  | 'locked'
+  | 'needs_review'
+
 export interface Database {
   public: {
     Tables: {
@@ -16,7 +26,7 @@ export interface Database {
           display_name: string | null
           gender: 'male' | 'female' | 'non-binary'
           birth_date: string
-          birth_time: 'precise' | 'morning' | 'afternoon' | 'unknown' | null
+          birth_time: 'precise' | 'morning' | 'afternoon' | 'evening' | 'unknown' | null
           birth_time_exact: string | null
           birth_city: string
           birth_lat: number | null
@@ -44,6 +54,20 @@ export interface Database {
           bazi_element: 'wood' | 'fire' | 'earth' | 'metal' | 'water' | null
           bazi_four_pillars: Json | null
           onboarding_step: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
+          // Rectification fields
+          accuracy_type: AccuracyType | null
+          window_start: string | null
+          window_end: string | null
+          window_size_minutes: number | null
+          rectification_status: RectificationStatus
+          current_confidence: number
+          active_range_start: string | null
+          active_range_end: string | null
+          calibrated_time: string | null
+          active_d9_slot: number | null
+          is_boundary_case: boolean
+          dealbreakers: string[]
+          priorities: 'Achievement' | 'LifeQuality' | null
           created_at: string
           updated_at: string
         }
@@ -53,7 +77,7 @@ export interface Database {
           display_name?: string | null
           gender: 'male' | 'female' | 'non-binary'
           birth_date: string
-          birth_time?: 'precise' | 'morning' | 'afternoon' | 'unknown' | null
+          birth_time?: 'precise' | 'morning' | 'afternoon' | 'evening' | 'unknown' | null
           birth_time_exact?: string | null
           birth_city: string
           birth_lat?: number | null
@@ -81,6 +105,20 @@ export interface Database {
           bazi_element?: 'wood' | 'fire' | 'earth' | 'metal' | 'water' | null
           bazi_four_pillars?: Json | null
           onboarding_step?: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
+          // Rectification fields
+          accuracy_type?: AccuracyType | null
+          window_start?: string | null
+          window_end?: string | null
+          window_size_minutes?: number | null
+          rectification_status?: RectificationStatus
+          current_confidence?: number
+          active_range_start?: string | null
+          active_range_end?: string | null
+          calibrated_time?: string | null
+          active_d9_slot?: number | null
+          is_boundary_case?: boolean
+          dealbreakers?: string[]
+          priorities?: 'Achievement' | 'LifeQuality' | null
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>
         Relationships: []
@@ -237,6 +275,34 @@ export interface Database {
           {
             foreignKeyName: 'messages_sender_id_fkey'
             columns: ['sender_id']
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      rectification_events: {
+        Row: {
+          id: string
+          user_id: string
+          ts: string
+          source: 'signup' | 'daily_quiz' | 'interaction' | 'post_date_feedback' | 'admin'
+          event_type: 'range_initialized' | 'range_narrowed' | 'candidate_eliminated' | 'confidence_updated' | 'locked' | 'flagged_needs_review'
+          payload: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          ts?: string
+          source: 'signup' | 'daily_quiz' | 'interaction' | 'post_date_feedback' | 'admin'
+          event_type: 'range_initialized' | 'range_narrowed' | 'candidate_eliminated' | 'confidence_updated' | 'locked' | 'flagged_needs_review'
+          payload?: Json
+        }
+        Update: Partial<Database['public']['Tables']['rectification_events']['Insert']>
+        Relationships: [
+          {
+            foreignKeyName: 'rectification_events_user_id_fkey'
+            columns: ['user_id']
             referencedRelation: 'users'
             referencedColumns: ['id']
           }

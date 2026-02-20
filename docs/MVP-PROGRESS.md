@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-20
+**Last Updated:** 2026-02-20 (Phase C ✅ Phase D ✅ Phase B.5 ✅)
 
 ---
 
@@ -12,13 +12,13 @@
 | `/login` | Login | Done | **Done** | 已串接 Supabase Auth + error handling + loading state |
 | `/register` | Register | Done | **Done** | 已串接 Supabase Auth + error handling + loading state |
 | `/onboarding` | Redirect | Done | N/A | 自動導向 /onboarding/birth-data |
-| `/onboarding/birth-data` | Step 1: 硬體規格 | Done | **Done** | 已串接 `POST /api/onboarding/birth-data` + data_tier 計算 |
+| `/onboarding/birth-data` | Step 1: 硬體規格 | Done | **Done** | 4-card 精度選擇 UX + 12 格 TWO_HOUR_SLOT grid + FUZZY_DAY 3 選項；已串接 `POST /api/onboarding/birth-data` + accuracy_type + rectification 初始化 |
 | `/onboarding/rpv-test` | Step 2: 作業系統 | Done | **Done** | 已串接 `POST /api/onboarding/rpv-test`，option ID → DB value 映射 |
 | `/onboarding/photos` | Step 3: 視覺門檻 | Done | **Done** | 已串接 `POST /api/onboarding/photos`，真實檔案上傳 + sharp 高斯模糊 |
 | `/onboarding/soul-report` | Step 4: 靈魂原型 | Done | **Done** | 已串接 `GET /api/onboarding/soul-report`，deterministic 原型生成 (待升級 AI) |
-| `/daily` | Daily Feed (3 Cards) | Done | Pending | 需串接 `GET /api/matches/daily`，目前為 mock data |
-| `/connections` | Connections List | Done | Pending | 需串接 `GET /api/connections` |
-| `/connections/[id]` | Chat Room | Done | Pending | 需串接 Supabase Realtime + `GET/POST /api/connections/:id/messages` |
+| `/daily` | Daily Feed (3 Cards) | Done | **Done** | 已串接 `GET /api/matches/daily` + Accept/Pass 動作，含 loading/empty state |
+| `/connections` | Connections List | Done | **Done** | 已串接 `GET /api/connections`，真實資料 + loading/empty state + 模糊照片 |
+| `/connections/[id]` | Chat Room | Done | **Done** | 已串接 `GET/POST /api/connections/:id/messages` + Supabase Realtime + 樂觀更新 |
 | `/profile` | Self-View Profile + Edit | Done | **Done** | 已串接 `GET/PATCH /api/profile/me` + 編輯模式 + 照片 signed URL + bio + 興趣標籤 |
 
 ---
@@ -31,6 +31,7 @@
 | Database Schema | **Done** | 5 張表已建立 + RLS + triggers + indexes + storage bucket (`001` → `003` migrations) |
 | Migration 002 | **Done** | `social_energy` 欄位 (high/medium/low) |
 | Migration 003 | **Done** | `bio` (TEXT, 500 字上限) + `interest_tags` (JSONB) 欄位 |
+| Migration 006 | **Done** ✅ | Rectification 欄位（accuracy_type, window_start/end, window_size_minutes, rectification_status, current_confidence, active_range, calibrated_time, active_d9_slot, is_boundary_case, dealbreakers, priorities）+ `rectification_events` 新表 + RLS |
 | Supabase Client | **Done** | `client.ts` (browser) + `server.ts` (SSR) + `middleware.ts` (session) |
 | Auth Middleware | **Done** | `src/middleware.ts` — 自動 redirect 未登入用戶到 /login |
 | Auth Functions | **Done** | `src/lib/auth.ts` — register/login/logout/getCurrentUser + email/password 驗證 |
@@ -38,8 +39,9 @@
 | Onboarding API (4 endpoints) | **Done** | birth-data, rpv-test, photos, soul-report — 全部已實作 + TDD |
 | Image Processing | **Done** | sharp 高斯模糊 + 基本驗證 (MIME type + size limit 10MB) — 詳見 `docs/PHOTO-PIPELINE.md` |
 | Archetype Generator | **Done** | `src/lib/ai/archetype.ts` — 8 組 deterministic 原型 (待升級 Claude API) |
-| API Routes (其餘) | Not Started | Daily matching, connections, chat endpoints |
+| Matches API (Phase C) | **Done** | run + daily + action 端點，含 mutual accept → 建立 connection |
 | Python Microservice | **Done** | `astro-service/` — FastAPI + Swiss Ephemeris + BaZi 八字四柱 + 真太陽時，30 pytest 通過。已串接 birth-data API 自動回寫 DB。詳見 `docs/ASTRO-SERVICE.md` |
+| Rectification Data Layer | **Done** ✅ | Phase B.5：Migration 006 + types.ts 更新 + birth-data API 接受 accuracy_type/window/fuzzy_period + 初始化 rectification state + log range_initialized event + 4-card 精度 UX + rectification quiz endpoints (next-question + answer) |
 | AI/LLM Integration | Not Started | Claude API 串接 (動態原型、變色龍標籤、破冰題) |
 
 ---
@@ -53,19 +55,23 @@
 - [x] `POST /api/onboarding/photos` — 上傳 2 張照片 + sharp 高斯模糊 + Supabase Storage
 - [x] `GET /api/onboarding/soul-report` — 生成靈魂原型 + base stats + 更新 onboarding_step=complete
 
+### Rectification (Phase B.5 — Done ✅)
+- [x] `GET /api/rectification/next-question` — 取得下一道校正問題（依邊界案例優先度排序：Asc/Dsc 換座優先；4 道題庫：月亮崩潰 coarse + 上升排除 fine + 八字社交 coarse + 八字時柱 fine）
+- [x] `POST /api/rectification/answer` — 提交回答 → Via Negativa 過濾候選時段 → 更新 current_confidence → 信心值 ≥ 0.8 時自動鎖定 calibrated_time + tier_upgraded
+
 ### Daily Destiny
-- [ ] `GET /api/matches/daily` — 取得今日 3 張配對卡（含對方 interest_tags 當話題）
-- [ ] `POST /api/matches/:id/action` — 提交 Accept / Pass
+- [x] `GET /api/matches/daily` — 取得今日 3 張配對卡（含 archetype、tags、radar、blurred_photo、interest_tags）
+- [x] `POST /api/matches/:id/action` — Accept/Pass 邏輯；雙方都 Accept → 自動建立 connections 記錄
+- [x] `POST /api/matches/run` — 每日配對 orchestrator（service role；支援 CRON_SECRET 保護）
 
 ### Connections
-- [ ] `GET /api/connections` — 列出所有活躍連結
-- [ ] `GET /api/connections/:id` — 連結詳情 + sync level
-- [ ] `POST /api/connections/:id/icebreaker-answer` — 提交破冰答案
+- [x] `GET /api/connections` — 列出所有非過期 connections（含 sync_level, last_activity, tags, other_user, blurred_photo_url）
+- [ ] `POST /api/connections/:id/icebreaker-answer` — 提交破冰答案（Phase D 後續）
 
 ### Chat
-- [ ] `GET /api/connections/:id/messages` — 取得訊息 (分頁)
-- [ ] `POST /api/connections/:id/messages` — 發送文字訊息
-- [ ] `POST /api/connections/:id/messages/image` — 發送圖片訊息（上傳至 Storage）
+- [x] `GET /api/connections/:id/messages` — 取得 connection 詳情 + 最近 50 則訊息（含 is_self flag）
+- [x] `POST /api/connections/:id/messages` — 發送文字訊息（DB trigger 自動更新 message_count + sync_level）
+- [ ] `POST /api/connections/:id/messages/image` — 發送圖片訊息（後續 Phase D+ 實作）
 
 ### Profile
 - [x] `GET /api/profile/me` — 自我檢視：所有個人資料 + 照片 signed URL + bio + interest_tags
@@ -99,12 +105,12 @@
 | RPV Test (3 Questions) | **Done** | API + 前端串接，option ID → DB value 映射 |
 | Photo Upload + Blur | **Done** | 真實檔案上傳 + sharp 高斯模糊 + Supabase Storage |
 | Soul Report / Archetype | **Done** | Deterministic 原型生成 (8 組)，待升級 Claude API |
-| Daily Match Cards | UI Done, Data Pending | 需 Python matching + API，卡片上顯示對方 interest_tags 當話題 |
-| Dual Blind Selection (Accept/Pass) | UI Done, Logic Pending | 需 API，雙方都 Accept → 建立 connection |
+| Daily Match Cards | **Done** | GET /api/matches/daily 串接，真實 API 資料 + loading/empty state |
+| Dual Blind Selection (Accept/Pass) | **Done** | POST /api/matches/[id]/action；雙方 Accept → 自動建立 connection |
 | Chameleon Tags | UI Mock Only | 需 AI API 動態生成 |
 | Radar Chart (激情/穩定/溝通) | UI Done (bars), Data Pending | 由 matching algorithm 計算 |
 | Progressive Unlock (Lv.1→2→3) | UI Shown, Logic Pending | 需 DB trigger / API logic |
-| Chat (Text) | UI Done, Realtime Pending | 需 Supabase Realtime |
+| Chat (Text) | **Done** | Supabase Realtime + 樂觀更新 + is_self flag |
 | Chat (Image) | Not Started | 圖片上傳至 Storage + message_type 欄位 |
 | 24hr Auto-Disconnect | Not Started | 需 DB cron/trigger |
 | Ice-breaker (Simplified) | Not Started | UI + AI API |
@@ -123,12 +129,19 @@
 | `src/__tests__/auth.test.ts` | 10 | Auth 邏輯層 (register/login/logout/getCurrentUser + validation) |
 | `src/__tests__/login-page.test.tsx` | 4 | Login 頁面整合 (submit/redirect/error/loading) |
 | `src/__tests__/register-page.test.tsx` | 5 | Register 頁面整合 (submit/redirect/error/mismatch/loading) |
-| `src/__tests__/api/onboarding-birth-data.test.ts` | 5 | Birth data API (tier 3/2/1, 401 unauth, 400 missing) |
+| `src/__tests__/api/onboarding-birth-data.test.ts` | 12 | Birth data API (tier 3/2/1, evening, 401, 400, PRECISE/TWO_HOUR_SLOT/FUZZY_DAY accuracy_type, event logging) |
 | `src/__tests__/api/onboarding-rpv-test.test.ts` | 3 | RPV test API (saves results, 401, 400) |
 | `src/__tests__/api/onboarding-photos.test.ts` | 5 | Photos API (upload+blur, 401, 400 missing, 400 type, 400 size) |
 | `src/__tests__/api/onboarding-soul-report.test.ts` | 3 | Soul report API (archetype gen, onboarding complete, 401) |
+| `src/__tests__/api/matches-daily.test.ts` | 5 | Daily matches API (200 with cards, 401 unauth, empty state, interest_tags) |
+| `src/__tests__/api/matches-action.test.ts` | 7 | Action API (accept, pass, mutual accept → connection, 401, 400, 404, no duplicate) |
+| `src/__tests__/api/connections.test.ts` | 5 | Connections list API (200 with list, 401 unauth, empty state, other_user, tags) |
+| `src/__tests__/api/connections-messages.test.ts` | 8 | Messages API: GET (401, 403, detail+msgs, is_self) + POST (401, 400, 403, insert) |
 | `astro-service/test_chart.py` | 30 | 西洋占星 (12) + 八字四柱 (11) + 五行關係 (7) |
-| **Total** | **65** | All passing (35 JS + 30 Python) |
+| `src/__tests__/api/rectification-next-question.test.ts` | 6 | Rectification next-question API (401, 204 locked, 204 PRECISE, shape, options, boundary priority) |
+| `src/__tests__/api/rectification-answer.test.ts` | 9 | Rectification answer API (401, 400 missing/invalid, 200 state, confidence increase, event log, update users, tier_upgraded) |
+| `astro-service/test_matching.py` | 41 | 配對演算法：sign_aspect(9) + kernel(6) + power(4) + glitch(3) + classify(6) + tags(5) + integration(8) |
+| **Total** | **147** | All passing (82 JS + 71 Python) — +15 rectification tests (B.5) |
 
 ---
 
@@ -145,7 +158,36 @@
 | Storage Bucket | **Done** | `photos` bucket + upload/view/delete policies |
 | `.env.local` | **Done** | SUPABASE_URL + ANON_KEY |
 | Vitest | **Done** | vitest + @testing-library/react + user-event |
-| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + pytest (30 tests) |
+| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + matching algo + pytest (71 tests) |
+
+---
+
+## Deployment
+
+> 完整部署指南見 `docs/DEPLOYMENT.md`
+
+| Service | Platform | Plan | Status | 備註 |
+|---------|----------|------|--------|------|
+| Next.js App | **Vercel** | Hobby (free) | Not deployed | `vercel` CLI 一鍵部署；git push 自動 CI/CD |
+| Python astro-service | **Railway** | Hobby ($5/月) | Not deployed | 支援 pyswisseph C native lib；Procfile: `web: uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| Database + Auth + Storage | **Supabase** | Free tier | **Live** | `masninqgihbazjirweiy.supabase.co` |
+| AI API (Claude / Gemini / OpenAI) | Anthropic / Google / OpenAI | Pay-as-you-go | Not integrated | 從 Vercel API routes 呼叫；注意 Hobby 方案 10s timeout（長生成需用 Streaming） |
+
+**部署環境變數（Vercel Dashboard 設定）：**
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://masninqgihbazjirweiy.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+ASTRO_SERVICE_URL=https://<your-service>.up.railway.app   # Railway 部署後填入
+ANTHROPIC_API_KEY=<key>
+CRON_SECRET=<secret>   # /api/matches/run 保護
+```
+
+**部署順序：**
+1. Railway — 部署 astro-service，取得 Railway URL
+2. Vercel — 部署 Next.js，設定環境變數（含 ASTRO_SERVICE_URL）
+3. Supabase — 執行 Migration 005 + 006（evening fix + Rectification）
+4. 端對端測試：註冊 → 星盤計算 → 配對
 
 ---
 
@@ -153,7 +195,7 @@
 
 1. ~~**照片上傳** — `/onboarding/photos` 目前點擊僅切換 UI 狀態，無真實檔案上傳功能~~ → ✅ Done
 2. ~~**所有表單** — 目前均為 `preventDefault()`，未串接任何 API~~ → ✅ Onboarding 4 步 + Login/Register 全部已串接
-3. **Mock Data** — Daily Feed、Connections、Chat 均使用寫死的 mock data（Profile 已串接真實資料）
+3. ~~**Mock Data** — Daily Feed、Connections、Chat 均使用寫死的 mock data~~ → ✅ Done（全部已串接真實 API）
 4. ~~**Responsive** — 部分頁面在手機尺寸可能需要調整~~ → ✅ Done（全站響應式已完成）
 5. **Radar Chart** — 目前用進度條代替，後續可升級為 Recharts/Nivo radar chart
 6. **Archetype AI** — 目前為 deterministic 映射 (8 組)，待串接 Claude API 動態生成
@@ -168,10 +210,11 @@
 3. ~~**實作 Onboarding API**~~ — ✅ Done (birth-data, rpv-test, photos, soul-report + 14 tests)
 4. ~~**建立 Python Microservice**~~ — ✅ Done (西洋占星 + 八字四柱 + 真太陽時 + 30 tests)
 5. ~~**串接星盤計算到 Next.js**~~ — ✅ Done (birth-data API → astro-service → 回寫 DB，非阻塞式)
-6. **Phase C: Daily Matching** ← **CURRENT**
-7. **Phase D: Connections + Chat (含圖片)**
-8. **Phase E: Progressive Unlock + Auto-Disconnect**
-9. **Phase F: AI/LLM Integration**
+6. ~~**Phase C: Daily Matching**~~ — ✅ Done (matching algo + /compute-match + /run + /daily + /action + 53 new tests)
+7. ~~**Phase B.5: Rectification Data Layer**~~ — ✅ Done (Migration 006 + accuracy_type/window fields + 4-card UX + quiz endpoints + 15 new tests; total 82 JS tests)
+8. ~~**Phase D: Connections + Chat**~~ — ✅ Done (GET /api/connections + GET/POST /api/connections/:id/messages + Realtime + 13 new tests)
+9. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
+10. **Phase F: AI/LLM Integration**
 
 ---
 
@@ -184,7 +227,7 @@
 | Step | Task | 依賴 | 說明 |
 |------|------|------|------|
 | C1 | **Matching Algorithm** | astro-service | Python 配對演算法：西洋占星相位比對 + 八字五行相生相剋 + RPV 權力動力 → Match_Score |
-| C2 | `POST /run-daily-matching` | C1 | Python endpoint：每日生成配對，寫入 `daily_matches` 表 |
+| C2 | `POST /compute-match` | C1 | **Done** ✅ Python endpoint：計算兩人配對分數，回傳完整 match result |
 | C3 | `GET /api/matches/daily` | C2 | Next.js API：取得今日 3 張卡（含 archetype、tags、radar scores、**interest_tags**） |
 | C4 | `POST /api/matches/:id/action` | C3 | Accept/Pass 邏輯：雙方都 Accept → 自動建立 `connections` 記錄 |
 | C5 | **Wire Daily UI** | C3, C4 | 串接 `/daily` 頁面，替換 mock data → 真實 API 資料 |
@@ -214,6 +257,36 @@ Power_Dynamic_Fit:
 Glitch_Tolerance:
   - Mars/Saturn 相位張力 → 衝突容忍度
 ```
+
+---
+
+### Phase B.5: Rectification Data Layer (出生時間校正) — Specced
+
+**目標：** 讓不知道精確出生時間的用戶也能完成註冊，並透過後續問答（Via Negativa 反問法）逐步校正出生時間，解鎖更高精度的配對功能。
+
+**完整 Spec：** `docs/Dynamic_BirthTimeRectification_Spec.md`
+**設計文件：** `docs/plans/2026-02-18-rectification-data-layer-design.md`
+
+| Step | Task | 類型 | 說明 |
+|------|------|------|------|
+| B5-1 | `supabase/migrations/005_rectification.sql` | **New** | 新增欄位（accuracy_type, window_start/end, rectification_status, current_confidence, active_range, calibrated_time, is_boundary_case, dealbreakers）+ `rectification_events` 表 + 修正 evening constraint |
+| B5-2 | `src/lib/supabase/types.ts` | Edit | 新增欄位型別 + rectification_events 表型別 |
+| B5-3 | `src/__tests__/api/onboarding-birth-data.test.ts` | Edit | 新增測試：PRECISE/TWO_HOUR_SLOT/FUZZY_DAY + boundary flag + event log |
+| B5-4 | `src/app/api/onboarding/birth-data/route.ts` | Edit | 接受新欄位、初始化 rectification state、boundary detection、log event |
+| B5-5 | `src/app/onboarding/birth-data/page.tsx` | Rewrite | 4 張卡精度選擇 UX + 12 格 2hr slot grid + FUZZY_DAY 3 選項 |
+| B5-6 | `src/app/api/rectification/next-question/route.ts` | **New** | 選題邏輯（Asc/Dsc 換座優先 > 月亮換座 > 八字時柱 > 資訊增益最大化） |
+| B5-7 | `src/app/api/rectification/answer/route.ts` | **New** | applyNegativeFilter → 更新 confidence → lockIfReady → log event |
+
+**Onboarding UX 精度卡片（card D → accuracy_type 對照）：**
+
+| 卡片 | 精度類型 | 初始信心值 | 下一步 |
+|------|---------|-----------|--------|
+| A — 我有精確時間 | `PRECISE` | 0.90 | time picker (HH:mm) |
+| B — 我知道大概時段 | `TWO_HOUR_SLOT` | 0.30 | 12 格 2hr slot grid |
+| C — 我只知道大概 | `FUZZY_DAY` (period) | 0.15 | 早上/下午/晚上 3 選項 |
+| D — 我完全不知道 | `FUZZY_DAY` (unknown) | 0.05 | 直接進入下一步 |
+
+**注意：** 目前 `birth_time` CHECK constraint 有 bug，缺少 `evening` 值，Migration 005 同時修正此問題。
 
 ---
 
@@ -268,8 +341,9 @@ ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS image_path TEXT;  -- Storag
 |-------|-------|--------|
 | Phase A: Onboarding API | birth-data, rpv-test, photos, soul-report | **Done** ✅ |
 | Phase B: Python Microservice | 西洋占星 + 八字四柱 + 真太陽時 + API 串接 | **Done** ✅ |
-| Phase C: Daily Matching | matching algorithm + daily API + Accept/Pass | **Next** ← |
-| Phase D: Connections + Chat | connections API + text/image chat + Realtime | Pending |
+| Phase C: Daily Matching | matching algorithm + daily API + Accept/Pass | **Done** ✅ |
+| Phase B.5: Rectification Data Layer | Migration 006 + accuracy_type + 4-card UX + quiz API (15 new tests) | **Done** ✅ |
+| Phase D: Connections + Chat | connections API + text/image chat + Realtime | **Done** ✅ |
 | Phase E: Progressive Unlock | sync level + photo unlock + 24hr disconnect | Pending |
 | Phase F: AI/LLM | dynamic archetype + chameleon tags + icebreaker | Pending |
 | ~~Phase E (old): Profile~~ | GET/PATCH API + photos + bio + tags + energy | **Done** ✅ |

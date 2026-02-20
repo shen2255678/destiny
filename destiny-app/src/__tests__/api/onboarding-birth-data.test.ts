@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock global fetch for astro-service call
-const originalFetch = globalThis.fetch
 vi.stubGlobal('fetch', vi.fn(() =>
   Promise.resolve(new Response(JSON.stringify({
     sun_sign: 'capricorn', moon_sign: null, venus_sign: 'aquarius',
@@ -15,6 +14,7 @@ const mockGetUser = vi.fn()
 const mockUpsert = vi.fn()
 const mockUpdate = vi.fn()
 const mockFrom = vi.fn()
+const mockInsertEvent = vi.fn()
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
@@ -33,39 +33,52 @@ function makeRequest(body: Record<string, unknown>) {
   })
 }
 
+const MOCK_USER_DATA = {
+  id: 'user-uuid-123', birth_date: '1990-01-15', data_tier: 3,
+  sun_sign: 'capricorn', moon_sign: null,
+}
+
 describe('POST /api/onboarding/birth-data', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetUser.mockResolvedValue({
-      data: { user: { id: 'user-uuid-123' } },
+      data: { user: { id: 'user-uuid-123', email: 'test@example.com' } },
       error: null,
     })
-    // mockFrom needs to handle: upsert chain, update chain, and select chain
-    const mockUserData = {
-      id: 'user-uuid-123', birth_date: '1990-01-15', data_tier: 3,
-      sun_sign: 'capricorn', moon_sign: null,
-    }
     mockUpdate.mockReturnValue({
-      eq: () => Promise.resolve({ data: mockUserData, error: null }),
+      eq: () => Promise.resolve({ data: MOCK_USER_DATA, error: null }),
     })
-    mockFrom.mockImplementation(() => ({
-      upsert: mockUpsert,
-      update: mockUpdate,
-      select: () => ({
-        eq: () => ({
-          single: () => Promise.resolve({ data: mockUserData, error: null }),
-        }),
-      }),
-    }))
+    mockInsertEvent.mockResolvedValue({ error: null })
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'users') {
+        return {
+          upsert: mockUpsert,
+          update: mockUpdate,
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: MOCK_USER_DATA, error: null }),
+            }),
+          }),
+        }
+      }
+      if (table === 'rectification_events') {
+        return { insert: mockInsertEvent }
+      }
+      return {}
+    })
     mockUpsert.mockReturnValue({
       select: () => ({
         single: () => Promise.resolve({
-          data: mockUserData,
+          data: MOCK_USER_DATA,
           error: null,
         }),
       }),
     })
   })
+
+  // -----------------------------------------------------------------------
+  // Legacy birth_time format (backward compat)
+  // -----------------------------------------------------------------------
 
   it('saves birth data and returns user with data_tier=3 for unknown time', async () => {
     const res = await POST(makeRequest({
@@ -73,7 +86,6 @@ describe('POST /api/onboarding/birth-data', () => {
       birth_time: 'unknown',
       birth_city: '台北市',
     }))
-    const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(mockFrom).toHaveBeenCalledWith('users')
@@ -91,7 +103,7 @@ describe('POST /api/onboarding/birth-data', () => {
   })
 
   it('sets data_tier=2 for fuzzy birth time (morning/afternoon)', async () => {
-    const res = await POST(makeRequest({
+    await POST(makeRequest({
       birth_date: '1990-01-15',
       birth_time: 'morning',
       birth_city: '台北市',
@@ -103,8 +115,21 @@ describe('POST /api/onboarding/birth-data', () => {
     )
   })
 
+  it('sets data_tier=2 for evening birth time', async () => {
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      birth_time: 'evening',
+      birth_city: '台北市',
+    }))
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({ birth_time: 'evening', data_tier: 2 }),
+      expect.anything()
+    )
+  })
+
   it('sets data_tier=1 for precise birth time', async () => {
-    const res = await POST(makeRequest({
+    await POST(makeRequest({
       birth_date: '1990-01-15',
       birth_time: 'precise',
       birth_time_exact: '14:30',
@@ -138,9 +163,143 @@ describe('POST /api/onboarding/birth-data', () => {
   it('returns 400 when required fields are missing', async () => {
     const res = await POST(makeRequest({
       birth_date: '1990-01-15',
-      // missing birth_time and birth_city
+      // missing birth_time/accuracy_type and birth_city
     }))
 
     expect(res.status).toBe(400)
+  })
+
+  // -----------------------------------------------------------------------
+  // New accuracy_type system
+  // -----------------------------------------------------------------------
+
+  it('sets current_confidence=0.90 and rectification_status=collecting_signals for PRECISE', async () => {
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'PRECISE',
+      birth_time_exact: '14:30',
+      birth_city: '台北市',
+    }))
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accuracy_type: 'PRECISE',
+        current_confidence: 0.90,
+        rectification_status: 'collecting_signals',
+        window_size_minutes: 0,
+        birth_time: 'precise',
+        data_tier: 1,
+      }),
+      expect.anything()
+    )
+  })
+
+  it('sets current_confidence=0.30 and window_size_minutes=120 for TWO_HOUR_SLOT', async () => {
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'TWO_HOUR_SLOT',
+      window_start: '13:00',
+      window_end: '15:00',
+      birth_city: '台北市',
+    }))
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accuracy_type: 'TWO_HOUR_SLOT',
+        current_confidence: 0.30,
+        rectification_status: 'collecting_signals',
+        window_size_minutes: 120,
+        window_start: '13:00',
+        window_end: '15:00',
+        data_tier: 2,
+      }),
+      expect.anything()
+    )
+  })
+
+  it('sets current_confidence=0.15 and window_size_minutes=360 for FUZZY_DAY morning', async () => {
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'FUZZY_DAY',
+      fuzzy_period: 'morning',
+      birth_city: '台北市',
+    }))
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accuracy_type: 'FUZZY_DAY',
+        current_confidence: 0.15,
+        rectification_status: 'collecting_signals',
+        window_size_minutes: 360,
+        window_start: '06:00',
+        window_end: '12:00',
+        birth_time: 'morning',
+        data_tier: 2,
+      }),
+      expect.anything()
+    )
+  })
+
+  it('sets current_confidence=0.05 and window_size_minutes=1440 for FUZZY_DAY unknown', async () => {
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'FUZZY_DAY',
+      birth_city: '台北市',
+      // no fuzzy_period → unknown
+    }))
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accuracy_type: 'FUZZY_DAY',
+        current_confidence: 0.05,
+        rectification_status: 'collecting_signals',
+        window_size_minutes: 1440,
+        window_start: '00:00',
+        window_end: '24:00',
+        birth_time: 'unknown',
+        data_tier: 3,
+      }),
+      expect.anything()
+    )
+  })
+
+  it('logs range_initialized event in rectification_events', async () => {
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'PRECISE',
+      birth_time_exact: '14:30',
+      birth_city: '台北市',
+    }))
+
+    expect(mockInsertEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'user-uuid-123',
+        source: 'signup',
+        event_type: 'range_initialized',
+        payload: expect.objectContaining({
+          accuracy_type: 'PRECISE',
+          window_size_minutes: 0,
+        }),
+      })
+    )
+  })
+
+  it('sets window_start and window_end from FUZZY_DAY evening period', async () => {
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'FUZZY_DAY',
+      fuzzy_period: 'evening',
+      birth_city: '台北市',
+    }))
+
+    expect(mockUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        window_start: '18:00',
+        window_end: '24:00',
+        birth_time: 'evening',
+        current_confidence: 0.15,
+      }),
+      expect.anything()
+    )
   })
 })

@@ -6,13 +6,21 @@ const mockFrom = vi.fn()
 const mockUpload = vi.fn()
 const mockInsert = vi.fn()
 const mockUpdate = vi.fn()
+const mockAdminFrom = vi.fn()
+const mockAdminUpload = vi.fn()
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: { getUser: mockGetUser },
     from: mockFrom,
+  })),
+}))
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: mockAdminFrom,
     storage: {
-      from: () => ({ upload: mockUpload }),
+      from: () => ({ upload: mockAdminUpload }),
     },
   })),
 }))
@@ -45,17 +53,30 @@ describe('POST /api/onboarding/photos', () => {
       data: { user: { id: 'user-uuid-123' } },
       error: null,
     })
-    mockUpload.mockResolvedValue({ data: { path: 'photos/user-uuid-123/original_1.jpg' }, error: null })
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'photos') return { insert: mockInsert }
-      if (table === 'users') return { update: mockUpdate }
+    // Admin storage upload succeeds
+    mockAdminUpload.mockResolvedValue({ data: { path: 'user-uuid-123/photo_1.jpg' }, error: null })
+    // Admin from: photos upsert + users update
+    mockAdminFrom.mockImplementation((table: string) => {
+      if (table === 'photos') {
+        return {
+          upsert: () => ({
+            select: () => Promise.resolve({ data: [{ id: 1 }], error: null }),
+          }),
+        }
+      }
+      if (table === 'users') {
+        return {
+          update: () => ({
+            eq: () => Promise.resolve({ data: null, error: null }),
+          }),
+        }
+      }
       return {}
     })
+    // Auth client: only used for auth.getUser (no DB calls)
+    mockFrom.mockImplementation(() => ({}))
     mockInsert.mockReturnValue({
-      select: () => Promise.resolve({
-        data: [{ id: 1 }],
-        error: null,
-      }),
+      select: () => Promise.resolve({ data: [{ id: 1 }], error: null }),
     })
     mockUpdate.mockReturnValue({
       eq: () => Promise.resolve({ data: null, error: null }),
@@ -69,14 +90,14 @@ describe('POST /api/onboarding/photos', () => {
     const res = await POST(makeFormData({ photo1, photo2 }))
     expect(res.status).toBe(200)
 
-    // Should upload 4 files: 2 originals + 2 blurred
-    expect(mockUpload).toHaveBeenCalledTimes(4)
+    // Should upload 2 photos via admin storage
+    expect(mockAdminUpload).toHaveBeenCalledTimes(2)
 
-    // Should insert 2 photo records
-    expect(mockInsert).toHaveBeenCalled()
+    // Should insert photo records via admin from
+    expect(mockAdminFrom).toHaveBeenCalledWith('photos')
 
-    // Should update onboarding_step
-    expect(mockFrom).toHaveBeenCalledWith('users')
+    // Should update onboarding_step via admin from
+    expect(mockAdminFrom).toHaveBeenCalledWith('users')
   })
 
   it('returns 401 when not authenticated', async () => {

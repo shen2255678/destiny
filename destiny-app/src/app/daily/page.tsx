@@ -45,10 +45,27 @@ interface MatchCard {
   icon: string;
   tags: MatchTag[];
   radarScores: { passion: number; stability: number; communication: number };
+  userAction: "pending" | "accept" | "pass";
+  interestTags: string[];
+}
+
+// API card shape from /api/matches/daily
+interface ApiCard {
+  id: string;
+  card_type: "passion" | "wildcard" | "stability";
+  archetype_name: string;
+  label: string;
+  match_pct: string;
+  tags: string[];
+  radar: { passion: number; stability: number; communication: number };
+  card_color: string;
+  user_action: "pending" | "accept" | "pass";
+  interest_tags: string[];
+  blurred_photo_url: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// Mock data
+// Constants
 // ---------------------------------------------------------------------------
 
 const NAV_ITEMS: NavItem[] = [
@@ -58,50 +75,34 @@ const NAV_ITEMS: NavItem[] = [
   { icon: "settings", label: "Config", href: "/profile" },
 ];
 
-const MATCH_CARDS: MatchCard[] = [
-  {
-    id: "passion",
-    type: "passion",
-    archetype: "The Catalyst",
-    label: "High Passion",
-    matchPct: "98%",
-    icon: "lock",
-    tags: [
-      { label: "Magnetic", colorClass: "text-[#b86e7d]", borderClass: "border-[#d98695]/20" },
-      { label: "Intense", colorClass: "text-[#b86e7d]", borderClass: "border-[#d98695]/20" },
-      { label: "Spontaneous", colorClass: "text-[#b86e7d]", borderClass: "border-[#d98695]/20" },
-    ],
-    radarScores: { passion: 95, stability: 62, communication: 80 },
-  },
-  {
-    id: "wildcard",
-    type: "wildcard",
-    archetype: "The Mirror",
-    label: "Tension",
-    matchPct: "87%",
-    icon: "visibility_off",
-    tags: [
-      { label: "Unpredictable", colorClass: "text-[#8b4a6e]", borderClass: "border-[#e6b3cc]/20" },
-      { label: "Reflective", colorClass: "text-[#8b4a6e]", borderClass: "border-[#e6b3cc]/20" },
-      { label: "Transformative", colorClass: "text-[#8b4a6e]", borderClass: "border-[#e6b3cc]/20" },
-    ],
-    radarScores: { passion: 88, stability: 45, communication: 72 },
-  },
-  {
-    id: "stability",
-    type: "stability",
-    archetype: "The Anchor",
-    label: "High Stability",
-    matchPct: "89%",
-    icon: "lock",
-    tags: [
-      { label: "Grounding", colorClass: "text-teal-700", borderClass: "border-teal-200" },
-      { label: "Nurturing", colorClass: "text-teal-700", borderClass: "border-teal-200" },
-      { label: "Devoted", colorClass: "text-teal-700", borderClass: "border-teal-200" },
-    ],
-    radarScores: { passion: 65, stability: 94, communication: 85 },
-  },
-];
+// Tag colour per card type
+const TAG_COLORS: Record<string, { colorClass: string; borderClass: string }> = {
+  passion:   { colorClass: "text-[#b86e7d]", borderClass: "border-[#d98695]/20" },
+  wildcard:  { colorClass: "text-[#8b4a6e]", borderClass: "border-[#e6b3cc]/20" },
+  stability: { colorClass: "text-teal-700",   borderClass: "border-teal-200" },
+};
+
+const CARD_ICON: Record<string, string> = {
+  passion:   "lock",
+  wildcard:  "visibility_off",
+  stability: "lock",
+};
+
+function apiCardToMatchCard(api: ApiCard): MatchCard {
+  const colors = TAG_COLORS[api.card_type] ?? TAG_COLORS.wildcard;
+  return {
+    id: api.id,
+    type: api.card_type,
+    archetype: api.archetype_name,
+    label: api.label,
+    matchPct: api.match_pct,
+    icon: CARD_ICON[api.card_type] ?? "lock",
+    tags: api.tags.map((t) => ({ label: t, ...colors })),
+    radarScores: api.radar,
+    userAction: api.user_action,
+    interestTags: api.interest_tags ?? [],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -310,7 +311,13 @@ function CardIconOverlay({
 }
 
 /** Footer content inside a card */
-function CardFooter({ card }: { card: MatchCard }) {
+function CardFooter({
+  card,
+  onAction,
+}: {
+  card: MatchCard;
+  onAction: (id: string, action: "accept" | "pass") => void;
+}) {
   const isWildcard = card.type === "wildcard";
   const labelColorClass =
     card.type === "stability"
@@ -324,6 +331,8 @@ function CardFooter({ card }: { card: MatchCard }) {
     stability: "#a8e6cf",
     communication: "#f7c5a8",
   };
+
+  const acted = card.userAction !== "pending";
 
   return (
     <div
@@ -373,7 +382,7 @@ function CardFooter({ card }: { card: MatchCard }) {
 
       {/* Chameleon tags */}
       {card.tags && card.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-2">
           {card.tags.map((tag) => (
             <span
               key={tag.label}
@@ -385,28 +394,52 @@ function CardFooter({ card }: { card: MatchCard }) {
         </div>
       )}
 
+      {/* Interest tags (conversation starters) */}
+      {card.interestTags && card.interestTags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-3">
+          {card.interestTags.slice(0, 4).map((tag) => (
+            <span
+              key={tag}
+              className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#d98695]/10 text-[#8c7089] border border-[#d98695]/15"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Accept / Pass buttons */}
-      <div className="flex gap-2 mt-1">
-        <button
-          className="flex-1 py-2 rounded-full glass-panel border border-white/60 text-[10px] uppercase tracking-widest text-[#8c7089] font-medium hover:bg-white/60 transition-colors cursor-pointer"
-          aria-label={`Pass on ${card.archetype}`}
-        >
-          Pass
-        </button>
-        <button
-          className="flex-1 py-2 rounded-full text-[10px] uppercase tracking-widest text-white font-medium shadow-[0_4px_15px_rgba(217,134,149,0.3)] hover:shadow-[0_6px_20px_rgba(217,134,149,0.5)] transition-all cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #d98695, #b86e7d)" }}
-          aria-label={`Accept ${card.archetype}`}
-        >
-          Accept
-        </button>
-      </div>
+      {acted ? (
+        <div className="text-center py-2">
+          <span className="text-xs text-[#8c7089] tracking-wider">
+            {card.userAction === "accept" ? "✓ 已接受" : "已略過"}
+          </span>
+        </div>
+      ) : (
+        <div className="flex gap-2 mt-1">
+          <button
+            onClick={() => onAction(card.id, "pass")}
+            className="flex-1 py-2 rounded-full glass-panel border border-white/60 text-[10px] uppercase tracking-widest text-[#8c7089] font-medium hover:bg-white/60 transition-colors cursor-pointer"
+            aria-label={`Pass on ${card.archetype}`}
+          >
+            Pass
+          </button>
+          <button
+            onClick={() => onAction(card.id, "accept")}
+            className="flex-1 py-2 rounded-full text-[10px] uppercase tracking-widest text-white font-medium shadow-[0_4px_15px_rgba(217,134,149,0.3)] hover:shadow-[0_6px_20px_rgba(217,134,149,0.5)] transition-all cursor-pointer"
+            style={{ background: "linear-gradient(135deg, #d98695, #b86e7d)" }}
+            aria-label={`Accept ${card.archetype}`}
+          >
+            Accept
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 /** Single match card — passion | wildcard | stability */
-function MatchCardItem({ card }: { card: MatchCard }) {
+function MatchCardItem({ card, onAction }: { card: MatchCard; onAction: (id: string, action: "accept" | "pass") => void }) {
   const isWildcard = card.type === "wildcard";
 
   // Halo glow layer — colour differs by type
@@ -460,7 +493,7 @@ function MatchCardItem({ card }: { card: MatchCard }) {
         />
 
         {/* Footer info */}
-        <CardFooter card={card} />
+        <CardFooter card={card} onAction={onAction} />
       </div>
     </div>
   );
@@ -653,6 +686,9 @@ function FloatingNav() {
 
 export default function DailyFeedPage() {
   const [energy, setEnergy] = useState<SocialEnergyLevel>("medium");
+  const [cards, setCards] = useState<MatchCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [noMatches, setNoMatches] = useState(false);
 
   // Load social energy from API
   useEffect(() => {
@@ -662,17 +698,59 @@ export default function DailyFeedPage() {
       .catch(() => {});
   }, []);
 
+  // Load today's match cards
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/matches/daily")
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.cards && data.cards.length > 0) {
+          setCards(data.cards.map(apiCardToMatchCard));
+        } else {
+          setNoMatches(true);
+        }
+      })
+      .catch(() => setNoMatches(true))
+      .finally(() => setLoading(false));
+  }, []);
+
   const handleToggleEnergy = useCallback(() => {
     const currentIdx = ENERGY_CYCLE.indexOf(energy);
     const nextEnergy = ENERGY_CYCLE[(currentIdx + 1) % ENERGY_CYCLE.length];
     setEnergy(nextEnergy);
-    // Persist to DB (fire-and-forget)
     fetch("/api/profile/energy", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ social_energy: nextEnergy }),
     }).catch(() => {});
   }, [energy]);
+
+  const handleAction = useCallback(async (matchId: string, action: "accept" | "pass") => {
+    // Optimistically update UI
+    setCards(prev =>
+      prev.map(c => c.id === matchId ? { ...c, userAction: action } : c)
+    );
+
+    try {
+      const res = await fetch(`/api/matches/${matchId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.matched) {
+          // Both accepted — could show a toast or navigate to connections
+          console.log("雙向配對成功！");
+        }
+      }
+    } catch {
+      // Revert on failure
+      setCards(prev =>
+        prev.map(c => c.id === matchId ? { ...c, userAction: "pending" } : c)
+      );
+    }
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden relative selection:bg-[#d98695] selection:text-white">
@@ -721,9 +799,28 @@ export default function DailyFeedPage() {
             role="list"
             aria-label="Match cards"
           >
-            {MATCH_CARDS.map((card) => (
-              <MatchCardItem key={card.id} card={card} />
-            ))}
+            {loading ? (
+              <div className="flex flex-col items-center gap-4 text-[#8c7089]">
+                <div className="w-10 h-10 border-2 border-[#d98695]/40 border-t-[#d98695] rounded-full animate-spin" />
+                <p className="text-sm tracking-wide">正在召喚今日命運⋯</p>
+              </div>
+            ) : noMatches ? (
+              <div className="flex flex-col items-center gap-3 text-[#8c7089] text-center max-w-sm">
+                <span className="material-symbols-outlined text-4xl text-[#d98695]/40">
+                  hourglass_empty
+                </span>
+                <p className="text-sm leading-relaxed">
+                  今日配對尚未生成，請稍後再回來查看。
+                </p>
+                <p className="text-xs text-[#8c7089]/60">
+                  每日 21:00 更新
+                </p>
+              </div>
+            ) : (
+              cards.map((card) => (
+                <MatchCardItem key={card.id} card={card} onAction={handleAction} />
+              ))
+            )}
           </div>
         </section>
       </main>
