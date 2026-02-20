@@ -280,3 +280,308 @@ def compute_match_score(user_a: dict, user_b: dict) -> dict:
         "card_color": card_color,
         "tags": tags,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase G: Matching v2 — Lust × Soul + Four Tracks
+# ═══════════════════════════════════════════════════════════════════
+
+# AttachmentFit matrix [style_a][style_b] → 0.0-1.0
+ATTACHMENT_FIT: Dict[str, Dict[str, float]] = {
+    "anxious":  {"anxious": 0.50, "avoidant": 0.70, "secure": 0.80},
+    "avoidant": {"anxious": 0.70, "avoidant": 0.55, "secure": 0.75},
+    "secure":   {"anxious": 0.80, "avoidant": 0.75, "secure": 0.90},
+}
+
+NEUTRAL_SIGNAL = 0.65  # default when field is None
+
+TRACK_LABELS = {
+    "friend":  "✦ 朋友型連結",
+    "passion": "✦ 激情型連結",
+    "partner": "✦ 伴侶型連結",
+    "soul":    "✦ 靈魂型連結",
+}
+
+
+def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
+    """Clamp value between lo and hi."""
+    return max(lo, min(hi, value))
+
+
+def _rpv_to_frame(rpv_power: Optional[str], rpv_conflict: Optional[str]) -> float:
+    """Map RPV responses to a frame stability score (centred at 50.0)."""
+    frame = 50.0
+    if rpv_power == "control":
+        frame += 20
+    elif rpv_power == "follow":
+        frame -= 20
+    if rpv_conflict == "cold_war":
+        frame += 10
+    elif rpv_conflict == "argue":
+        frame -= 10
+    return frame
+
+
+def compute_lust_score(user_a: dict, user_b: dict) -> float:
+    """Lust Score (X axis): physical/desire attraction (0-100).
+
+    Weights (Eros-absent):
+      venus     × 0.20
+      mars      × 0.25
+      house8    × 0.15  (0 when tier 2/3, no precise time)
+      pluto     × 0.25
+      power_fit × 0.30
+
+    Multiplier: × 1.2 if bazi elements are in a restriction (clash) relationship.
+    """
+    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"))
+    mars  = compute_sign_aspect(user_a.get("mars_sign"),  user_b.get("mars_sign"))
+    pluto = compute_sign_aspect(user_a.get("pluto_sign"), user_b.get("pluto_sign"))
+
+    h8_a = user_a.get("house8_sign")
+    h8_b = user_b.get("house8_sign")
+    house8 = compute_sign_aspect(h8_a, h8_b) if (h8_a and h8_b) else 0.0
+
+    power_score = compute_power_score(user_a, user_b)
+
+    score = (
+        venus       * 0.20 +
+        mars        * 0.25 +
+        house8      * 0.15 +
+        pluto       * 0.25 +
+        power_score * 0.30
+    )
+
+    elem_a = user_a.get("bazi_element")
+    elem_b = user_b.get("bazi_element")
+    if elem_a and elem_b:
+        rel = analyze_element_relation(elem_a, elem_b)
+        if rel["relation"] in ("a_restricts_b", "b_restricts_a"):
+            score *= 1.2
+
+    return _clamp(score * 100)
+
+
+def compute_soul_score(user_a: dict, user_b: dict) -> float:
+    """Soul Score (Y axis): depth / long-term commitment (0-100).
+
+    Weights:
+      moon       × 0.25
+      mercury    × 0.20
+      house4     × 0.15  (0 when tier 2/3)
+      saturn     × 0.20
+      attachment × 0.20
+      juno       × 0.20
+
+    Multiplier: × 1.2 if bazi elements are in a generation relationship.
+    """
+    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"))
+    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"))
+    saturn  = compute_sign_aspect(user_a.get("saturn_sign"),  user_b.get("saturn_sign"))
+
+    h4_a = user_a.get("house4_sign")
+    h4_b = user_b.get("house4_sign")
+    house4 = compute_sign_aspect(h4_a, h4_b) if (h4_a and h4_b) else 0.0
+
+    juno_a = user_a.get("juno_sign")
+    juno_b = user_b.get("juno_sign")
+    juno = compute_sign_aspect(juno_a, juno_b) if (juno_a and juno_b) else NEUTRAL_SIGNAL
+
+    style_a = user_a.get("attachment_style")
+    style_b = user_b.get("attachment_style")
+    if style_a and style_b and style_a in ATTACHMENT_FIT:
+        attachment = ATTACHMENT_FIT[style_a].get(style_b, NEUTRAL_SIGNAL)
+    else:
+        attachment = NEUTRAL_SIGNAL
+
+    score = (
+        moon       * 0.25 +
+        mercury    * 0.20 +
+        house4     * 0.15 +
+        saturn     * 0.20 +
+        attachment * 0.20 +
+        juno       * 0.20
+    )
+
+    elem_a = user_a.get("bazi_element")
+    elem_b = user_b.get("bazi_element")
+    if elem_a and elem_b:
+        rel = analyze_element_relation(elem_a, elem_b)
+        if rel["relation"] in ("a_generates_b", "b_generates_a"):
+            score *= 1.2
+
+    return _clamp(score * 100)
+
+
+def _check_chiron_triggered(user_a: dict, user_b: dict) -> bool:
+    """Check if A's Mars or Pluto forms a hard aspect (square/opposition) to B's Chiron.
+
+    Uses sign-level approximation: square = 3 signs apart, opposition = 6 apart.
+    """
+    chiron_b = user_b.get("chiron_sign")
+    if not chiron_b or chiron_b not in SIGN_INDEX:
+        return False
+    mars_a  = user_a.get("mars_sign")
+    pluto_a = user_a.get("pluto_sign")
+
+    def is_hard_aspect(sign_x: Optional[str]) -> bool:
+        if not sign_x or sign_x not in SIGN_INDEX:
+            return False
+        dist = abs(SIGN_INDEX[sign_x] - SIGN_INDEX[chiron_b]) % 12
+        if dist > 6:
+            dist = 12 - dist
+        return dist in (3, 6)  # square or opposition
+
+    return is_hard_aspect(mars_a) or is_hard_aspect(pluto_a)
+
+
+def compute_power_v2(
+    user_a: dict,
+    user_b: dict,
+    chiron_triggered: bool = False,
+) -> dict:
+    """Power D/s Frame calculation.
+
+    RPV mapping: rpv_power control → +20, follow → -20
+                 rpv_conflict cold_war → +10, argue → -10
+    Chiron rule: if triggered, frame_B -= 15 (B's stability undermined).
+    Returns: {rpv, frame_break, viewer_role, target_role}
+    """
+    frame_a = _rpv_to_frame(user_a.get("rpv_power"), user_a.get("rpv_conflict"))
+    frame_b = _rpv_to_frame(user_b.get("rpv_power"), user_b.get("rpv_conflict"))
+
+    if chiron_triggered:
+        frame_b -= 15
+
+    rpv = frame_a - frame_b
+
+    if rpv > 15:
+        viewer_role, target_role = "Dom", "Sub"
+    elif rpv < -15:
+        viewer_role, target_role = "Sub", "Dom"
+    else:
+        viewer_role, target_role = "Equal", "Equal"
+
+    return {
+        "rpv":         round(rpv, 1),
+        "frame_break": chiron_triggered,
+        "viewer_role": viewer_role,
+        "target_role": target_role,
+    }
+
+
+def compute_tracks(user_a: dict, user_b: dict, power: dict) -> dict:
+    """Four-track scoring: friend / passion / partner / soul (0-100 each).
+
+    friend:  mercury × 0.40 + jupiter × 0.40 + bazi_harmony × 0.20
+    passion: mars × 0.30 + venus × 0.30 + passion_extremity × 0.10 + bazi_clash × 0.30
+    partner: moon × 0.35 + juno × 0.35 + bazi_generation × 0.30
+    soul:    chiron × 0.40 + pluto × 0.40 + bazi_harmony × 0.20 (+0.10 if frame_break)
+    """
+    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"))
+    jupiter = compute_sign_aspect(user_a.get("jupiter_sign"), user_b.get("jupiter_sign"))
+    mars    = compute_sign_aspect(user_a.get("mars_sign"),    user_b.get("mars_sign"))
+    venus   = compute_sign_aspect(user_a.get("venus_sign"),   user_b.get("venus_sign"))
+    pluto   = compute_sign_aspect(user_a.get("pluto_sign"),   user_b.get("pluto_sign"))
+    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"))
+
+    h8_a, h8_b = user_a.get("house8_sign"), user_b.get("house8_sign")
+    house8 = compute_sign_aspect(h8_a, h8_b) if (h8_a and h8_b) else 0.0
+
+    juno_a, juno_b = user_a.get("juno_sign"), user_b.get("juno_sign")
+    juno = compute_sign_aspect(juno_a, juno_b) if (juno_a and juno_b) else NEUTRAL_SIGNAL
+
+    chiron_a, chiron_b = user_a.get("chiron_sign"), user_b.get("chiron_sign")
+    chiron = compute_sign_aspect(chiron_a, chiron_b) if (chiron_a and chiron_b) else NEUTRAL_SIGNAL
+
+    elem_a = user_a.get("bazi_element")
+    elem_b = user_b.get("bazi_element")
+    bazi_harmony = bazi_clash = bazi_generation = False
+    if elem_a and elem_b:
+        rel = analyze_element_relation(elem_a, elem_b)
+        bazi_harmony    = rel["relation"] == "same"
+        bazi_clash      = rel["relation"] in ("a_restricts_b", "b_restricts_a")
+        bazi_generation = rel["relation"] in ("a_generates_b", "b_generates_a")
+
+    passion_extremity = max(pluto, house8)
+
+    friend = (
+        0.40 * mercury +
+        0.40 * jupiter +
+        0.20 * (1.0 if bazi_harmony else 0.0)
+    )
+    passion = (
+        0.30 * mars +
+        0.30 * venus +
+        0.10 * passion_extremity +
+        0.30 * (1.0 if bazi_clash else 0.0)
+    )
+    partner = (
+        0.35 * moon +
+        0.35 * juno +
+        0.30 * (1.0 if bazi_generation else 0.0)
+    )
+    soul_track = (
+        0.40 * chiron +
+        0.40 * pluto +
+        0.20 * (1.0 if bazi_harmony else 0.0)
+    )
+    if power["frame_break"]:
+        soul_track += 0.10
+
+    return {
+        "friend":  round(_clamp(friend    * 100), 1),
+        "passion": round(_clamp(passion   * 100), 1),
+        "partner": round(_clamp(partner   * 100), 1),
+        "soul":    round(_clamp(soul_track * 100), 1),
+    }
+
+
+def classify_quadrant(lust_score: float, soul_score: float, threshold: float = 60.0) -> str:
+    """Classify Lust × Soul quadrant.
+
+    lust ≥ threshold AND soul ≥ threshold → soulmate
+    lust ≥ threshold AND soul <  threshold → lover
+    lust <  threshold AND soul ≥ threshold → partner
+    lust <  threshold AND soul <  threshold → colleague
+    """
+    if lust_score >= threshold and soul_score >= threshold:
+        return "soulmate"
+    if lust_score >= threshold:
+        return "lover"
+    if soul_score >= threshold:
+        return "partner"
+    return "colleague"
+
+
+def compute_match_v2(user_a: dict, user_b: dict) -> dict:
+    """Compute full Phase G v2 match score.
+
+    Returns:
+      lust_score    (0-100)
+      soul_score    (0-100)
+      power         {rpv, frame_break, viewer_role, target_role}
+      tracks        {friend, passion, partner, soul}  (0-100 each)
+      primary_track  argmax of tracks
+      quadrant      soulmate | lover | partner | colleague
+      labels        [primary_track display label in Traditional Chinese]
+    """
+    chiron_triggered = _check_chiron_triggered(user_a, user_b)
+    power  = compute_power_v2(user_a, user_b, chiron_triggered)
+    lust   = compute_lust_score(user_a, user_b)
+    soul   = compute_soul_score(user_a, user_b)
+    tracks = compute_tracks(user_a, user_b, power)
+
+    primary_track = max(tracks, key=lambda k: tracks[k])
+    quadrant      = classify_quadrant(lust, soul)
+    label         = TRACK_LABELS.get(primary_track, primary_track)
+
+    return {
+        "lust_score":    round(lust, 1),
+        "soul_score":    round(soul, 1),
+        "power":         power,
+        "tracks":        tracks,
+        "primary_track": primary_track,
+        "quadrant":      quadrant,
+        "labels":        [label],
+    }
