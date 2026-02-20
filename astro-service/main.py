@@ -209,3 +209,62 @@ def generate_archetype(req: ArchetypeRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+PROFILE_CARD_PROMPT = """\
+你是一個精通心理學與占星八字的現代交友顧問。請根據以下使用者的命理特徵參數，生成一份適合在交友軟體上展示的個人名片。
+文案需要生活化、有吸引力，絕對不要使用生硬的算命術語（如：食神、七殺、刑衝剋害），請轉化為白話的性格描述。必須以 JSON 格式回傳。
+
+使用者特徵：
+- 太陽星座: {sun_sign}
+- 月亮星座: {moon_sign}
+- 上升星座: {ascendant_sign}
+- 八字日主五行: {bazi_element}
+- 依戀風格: {attachment_style}
+- 衝突處理: {rpv_conflict}
+- 權力偶好: {rpv_power}
+- 能量模式: {rpv_energy}
+
+請只回傳以下 JSON 格式，不要包含任何其他文字：
+{{
+  "headline": "3-6字的人格標題（例：靈魂探索者、溫柔颶風）",
+  "tags": ["標籤1", "標籤2", "標籤3", "標籤4"],
+  "bio": "約80字的交友自介，第一人稱，生活化，有個性",
+  "vibe_keywords": ["氛圍關鍵字1", "氛圍關鍵字2", "氛圍關鍵字3"]
+}}
+"""
+
+
+class ProfileCardRequest(BaseModel):
+    chart_data: dict
+    rpv_data: dict
+    attachment_style: str = "secure"
+    person_name: str = "User"
+    provider: str = "anthropic"  # "anthropic" | "gemini"
+
+
+@app.post("/generate-profile-card")
+def generate_profile_card(req: ProfileCardRequest):
+    """Generate a dating-app profile card via Claude or Gemini."""
+    cd = req.chart_data
+    rpv = req.rpv_data
+    prompt = PROFILE_CARD_PROMPT.format(
+        sun_sign=cd.get("sun_sign", "unknown"),
+        moon_sign=cd.get("moon_sign", "unknown"),
+        ascendant_sign=cd.get("ascendant_sign", "unknown"),
+        bazi_element=cd.get("bazi_element", "unknown"),
+        attachment_style=req.attachment_style,
+        rpv_conflict=rpv.get("rpv_conflict", "unknown"),
+        rpv_power=rpv.get("rpv_power", "unknown"),
+        rpv_energy=rpv.get("rpv_energy", "unknown"),
+    )
+
+    try:
+        raw = call_llm(prompt, provider=req.provider, max_tokens=500)
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

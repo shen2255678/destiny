@@ -261,10 +261,36 @@
 <div id="tab-c" class="tab-content">
   <div class="mech-b-card" style="max-width:480px">
     <h3>&#20491;&#20154;&#21517;&#29255;&#29983;&#25104;&#22120;</h3>
-    <p style="color:#6b7280;font-size:11px;margin-bottom:12px">Coming soon &#8212; &#36749;&#20837;&#21934;&#20154;&#26143;&#31295;&#36039;&#26009;&#65292;&#29983;&#25104;&#20132;&#21451;&#36719;&#39636;&#39118;&#26684;&#30340;&#20491;&#20154;&#21517;&#29255;&#12290;</p>
-    <p style="color:#4b5563;font-size:11px">&#65288;&#23526;&#20316;&#20013;&#65289;</p>
+    <p style="color:#6b7280;font-size:11px;margin-bottom:12px">&#36749;&#20837;&#21934;&#20154;&#26143;&#31295;&#36039;&#26009;&#65292;&#29983;&#25104;&#20132;&#21451;&#36719;&#39636;&#39118;&#26684;&#30340;&#20491;&#20154;&#21517;&#29255;&#12290;</p>
+    <div class="field"><label>&#20986;&#29983;&#26085;&#26399;</label><input type="date" id="pc_date" value="1990-03-15"></div>
+    <div class="field"><label>&#20986;&#29983;&#26178;&#38291;&#65288;&#21487;&#30041;&#31354;&#65289;</label><input type="time" id="pc_time" value="14:30"></div>
+    <div class="field lat-lng">
+      <div><label>&#32302;&#24230;</label><input type="number" id="pc_lat" value="25.033" step="0.001"></div>
+      <div><label>&#32147;&#24230;</label><input type="number" id="pc_lng" value="121.565" step="0.001"></div>
+    </div>
+    <div class="field"><label>RPV &#34xing;&#31361;&#39118;&#26684;</label>
+      <select id="pc_conflict"><option value="cold_war">&#20919;&#25112;</option><option value="argue">&#38283;&#21438;</option></select>
+    </div>
+    <div class="field"><label>RPV &#27278;&#21147;</label>
+      <select id="pc_power"><option value="control">&#20027;&#23566;</option><option value="follow">&#36319;&#38615;</option></select>
+    </div>
+    <div class="field"><label>RPV &#33021;&#37327;</label>
+      <select id="pc_energy"><option value="home">&#23431;</option><option value="out">&#20806;&#20986;</option></select>
+    </div>
+    <div class="field"><label>&#20381;&#25200;&#39118;&#26684;</label>
+      <select id="pc_attach">
+        <option value="secure">&#23433;&#20840;&#22411;</option>
+        <option value="anxious">&#28124;&#24935;&#22411;</option>
+        <option value="avoidant">&#36801;&#38907;&#22411;</option>
+      </select>
+    </div>
+    <div style="margin-top:12px">
+      <button class="btn" onclick="generateProfileCard()">&#10022; &#29983;&#25104;&#20491;&#20154;&#21517;&#29255;</button>
+      <span id="pc_status" class="loading" style="margin-left:8px"></span>
+    </div>
+    <div id="pc_output" style="margin-top:16px"></div>
   </div>
-</div>
+</div><!-- end tab-c -->
 
 <!-- ═══ TAB D ═══ -->
 <div id="tab-d" class="tab-content">
@@ -671,6 +697,73 @@ function showRectResult() {
         ? '<div style="margin-top:4px;font-size:10px">\u7cbe\u78ba\u6642\u9593\u5728\u8996\u7a97\u5167\u3002</div>'
         : '<div style="margin-top:4px;font-size:10px">\u5efa\u8b70\uff1a\u6aa2\u67e5\u554f\u984c\u8a2d\u8a08\u6216\u8abf\u6574\u8996\u7a97\u7e2e\u5c0f\u7b56\u7565\u3002</div>') +
     '</div>';
+}
+
+async function generateProfileCard() {
+  var status = document.getElementById('pc_status');
+  var out = document.getElementById('pc_output');
+  status.textContent = '\u8a08\u7b97\u661f\u76e4\u4e2d...';
+  out.innerHTML = '';
+
+  try {
+    var date = document.getElementById('pc_date').value;
+    var time = document.getElementById('pc_time').value;
+    var lat  = parseFloat(document.getElementById('pc_lat').value);
+    var lng  = parseFloat(document.getElementById('pc_lng').value);
+
+    var chartBody = { birth_date: date, lat: lat, lng: lng, data_tier: time ? 1 : 3 };
+    if (time) { chartBody.birth_time_exact = time; chartBody.birth_time = 'precise'; }
+
+    var cr = await fetch(BASE + '/calculate-chart', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(chartBody)
+    });
+    if (!cr.ok) throw new Error(await cr.text());
+    var chart = await cr.json();
+
+    var provider = document.getElementById('llmProvider').value;
+    status.textContent = '\u751f\u6210\u540d\u7247\u4e2d (' + provider + ')...';
+
+    var r = await fetch(BASE + '/generate-profile-card', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        chart_data: chart,
+        rpv_data: {
+          rpv_conflict: document.getElementById('pc_conflict').value,
+          rpv_power:    document.getElementById('pc_power').value,
+          rpv_energy:   document.getElementById('pc_energy').value,
+        },
+        attachment_style: document.getElementById('pc_attach').value,
+        provider: provider,
+      })
+    });
+    if (!r.ok) { var e2 = await r.json(); throw new Error(e2.detail || r.statusText); }
+    var data = await r.json();
+
+    var tagsHtml = (data.tags || []).map(function(t) {
+      return '<span class="label-tag">' + t + '</span>';
+    }).join('');
+    var vibeHtml = (data.vibe_keywords || []).map(function(t) {
+      return '<span class="archetype-tag">' + t + '</span>';
+    }).join('');
+
+    out.innerHTML =
+      '<div style="background:#0f172a;border:1px solid #7c3aed;border-radius:10px;padding:16px">' +
+        '<div style="color:#c084fc;font-size:16px;font-weight:bold;margin-bottom:8px">' + (data.headline || '') + '</div>' +
+        '<div class="labels-row" style="margin-bottom:8px">' + tagsHtml + '</div>' +
+        '<div class="report-text" style="margin-bottom:10px">' + (data.bio || '') + '</div>' +
+        '<div style="color:#6b7280;font-size:10px;margin-bottom:4px">\u6c1b\u570d\u95dc\u9375\u5b57</div>' +
+        '<div class="archetype-tags">' + vibeHtml + '</div>' +
+      '</div>';
+    status.textContent = '';
+  } catch(err) {
+    var errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = 'Error: ' + err.message;
+    out.innerHTML = '';
+    out.appendChild(errDiv);
+    status.textContent = '';
+  }
 }
 </script>
 </body>

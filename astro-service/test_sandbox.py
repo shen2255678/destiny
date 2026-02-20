@@ -68,3 +68,35 @@ def test_generate_archetype_no_api_key_returns_400():
         })
     assert resp.status_code == 400
     assert "ANTHROPIC_API_KEY" in resp.json()["detail"]
+
+
+def test_generate_profile_card_returns_card():
+    """Profile card endpoint returns required fields."""
+    fake_json = '{"headline": "\u63a2\u7d22\u8005\u578b", "tags": ["\u76f4\u89ba\u654f\u9280", "\u60c5\u611f\u6df1\u5ea6", "\u559c\u6b61\u5b89\u975c\u7684\u9a5a\u559c"], "bio": "\u4f60\u662f\u90a3\u7a2e\u559c\u6b61\u7dca\u8ddf\u6642\u4ee3\u4f46\u4e0d\u8ddf\u6e6e\u6d41\u884c\u7684\u4eba\u3002\u6df1\u5ea6\u3001\u76f4\u89ba\u3001\u81ea\u5c71\u3002", "vibe_keywords": ["\u795e\u79d8", "\u6eab\u67d4", "\u7368\u7acb"]}'
+
+    with patch("main.call_llm", return_value=fake_json):
+        resp = client.post("/generate-profile-card", json={
+            "chart_data": {
+                "sun_sign": "gemini", "moon_sign": "pisces",
+                "ascendant_sign": "virgo", "bazi_element": "wood",
+                "data_tier": 1
+            },
+            "rpv_data": {
+                "rpv_conflict": "cold_war",
+                "rpv_power": "control",
+                "rpv_energy": "home"
+            },
+            "attachment_style": "anxious",
+            "provider": "anthropic",
+        })
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "headline" in data
+    assert "tags" in data
+    assert "bio" in data
+    assert "vibe_keywords" in data
+    assert isinstance(data["tags"], list)
+    assert len(data["tags"]) >= 3
+    assert isinstance(data["bio"], str)
+    assert len(data["bio"]) > 10
