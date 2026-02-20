@@ -41,7 +41,15 @@ export interface Database {
           mars_sign: string | null
           saturn_sign: string | null
           ascendant_sign: string | null
+          mercury_sign: string | null
+          jupiter_sign: string | null
+          pluto_sign: string | null
+          chiron_sign: string | null
+          juno_sign: string | null
+          house4_sign: string | null
+          house8_sign: string | null
           attachment_style: 'anxious' | 'avoidant' | 'secure' | 'disorganized' | null
+          attachment_role: 'dom_secure' | 'sub_secure' | 'balanced' | null
           power_dynamic: 'dominant' | 'submissive' | 'switch' | null
           energy_level: number | null
           element_primary: 'fire' | 'earth' | 'air' | 'water' | null
@@ -92,7 +100,15 @@ export interface Database {
           mars_sign?: string | null
           saturn_sign?: string | null
           ascendant_sign?: string | null
+          mercury_sign?: string | null
+          jupiter_sign?: string | null
+          pluto_sign?: string | null
+          chiron_sign?: string | null
+          juno_sign?: string | null
+          house4_sign?: string | null
+          house8_sign?: string | null
           attachment_style?: 'anxious' | 'avoidant' | 'secure' | 'disorganized' | null
+          attachment_role?: 'dom_secure' | 'sub_secure' | 'balanced' | null
           power_dynamic?: 'dominant' | 'submissive' | 'switch' | null
           energy_level?: number | null
           element_primary?: 'fire' | 'earth' | 'air' | 'water' | null
