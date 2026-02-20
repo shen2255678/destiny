@@ -363,6 +363,26 @@ ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS image_path TEXT;  -- Storag
 
 ---
 
+### Dev Tools
+
+#### Algorithm Validation Sandbox (`astro-service/sandbox.html`)
+
+✅ **Done** — Standalone browser-based dev tool for manual algorithm testing and validation.
+
+- **Mechanism A: Partner validation (positive control)** — Input two profiles and compare MATCH/MISMATCH vs ground truth to verify the matching algorithm produces expected results.
+- **Mechanism B: Birth time rectification simulation** — Run 5 Via Negativa questions interactively to simulate the rectification flow and verify confidence convergence.
+- **`/generate-archetype` endpoint** — AI archetype tags + soul report generation via Anthropic Claude / Gemini.
+- CORS enabled on `astro-service` for browser `file://` access.
+
+**Running the sandbox:**
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+uvicorn main:app --port 8001
+# Then open astro-service/sandbox.html in browser
+```
+
+---
+
 ### Phase F: AI/LLM Integration (後續)
 
 | Step | Task | 說明 |
@@ -386,3 +406,4 @@ ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS image_path TEXT;  -- Storag
 | Phase F: AI/LLM | dynamic archetype + chameleon tags + icebreaker | Pending |
 | **Phase G: Matching v2** | Lust/Soul 雙軸 + 四軌（friend/passion/partner/soul）+ Power D/s frame + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；Migration 007；110 Python + 89 JS tests | **Done ✅** |
 | ~~Phase E (old): Profile~~ | GET/PATCH API + photos + bio + tags + energy | **Done** ✅ |
+| **Algorithm Validation Sandbox** | `astro-service/sandbox.html` — standalone dev tool for manual algorithm testing | **Done** ✅ |
