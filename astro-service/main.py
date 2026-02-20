@@ -118,23 +118,35 @@ def compute_match(req: MatchRequest):
 # ── Algorithm Validation Sandbox Endpoints ─────────────────────────────────
 
 
-def call_llm(prompt: str, provider: str = "anthropic", max_tokens: int = 600) -> str:
+def call_llm(
+    prompt: str,
+    provider: str = "anthropic",
+    max_tokens: int = 600,
+    api_key: str = "",
+    gemini_model: str = "",
+) -> str:
     """Call Claude (Anthropic) or Gemini based on provider.
 
-    Raises HTTPException 400 if the required API key is not set.
+    api_key: if provided, overrides the server environment variable.
+    gemini_model: Gemini model name; defaults to gemini-1.5-flash.
+    Raises HTTPException 400 if no API key is available.
     Returns raw text from the model.
     """
     if provider == "gemini":
-        if not os.environ.get("GEMINI_API_KEY"):
+        key = api_key or os.environ.get("GEMINI_API_KEY", "")
+        if not key:
             raise HTTPException(status_code=400, detail="GEMINI_API_KEY not set")
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model_name = gemini_model or "gemini-1.5-flash"
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel(model_name)
         response = model.generate_content(prompt)
         return response.text
     else:  # anthropic (default)
-        if not os.environ.get("ANTHROPIC_API_KEY"):
+        key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        if not key:
             raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY not set")
-        message = anthropic_client.messages.create(
+        client = Anthropic(api_key=key) if api_key else anthropic_client
+        message = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
@@ -173,6 +185,8 @@ class ArchetypeRequest(BaseModel):
     person_b_name: str = "B"
     language: str = "zh-TW"
     provider: str = "anthropic"  # "anthropic" | "gemini"
+    api_key: str = ""            # overrides server env var when provided
+    gemini_model: str = "gemini-1.5-flash"  # used only when provider="gemini"
 
 
 @app.post("/generate-archetype")
@@ -202,7 +216,7 @@ def generate_archetype(req: ArchetypeRequest):
 
     raw = ""
     try:
-        raw = call_llm(prompt, provider=req.provider, max_tokens=600)
+        raw = call_llm(prompt, provider=req.provider, max_tokens=600, api_key=req.api_key, gemini_model=req.gemini_model)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
@@ -242,6 +256,8 @@ class ProfileCardRequest(BaseModel):
     attachment_style: str = "secure"
     person_name: str = "User"
     provider: str = "anthropic"  # "anthropic" | "gemini"
+    api_key: str = ""            # overrides server env var when provided
+    gemini_model: str = "gemini-1.5-flash"  # used only when provider="gemini"
 
 
 @app.post("/generate-profile-card")
@@ -262,7 +278,7 @@ def generate_profile_card(req: ProfileCardRequest):
 
     raw = ""
     try:
-        raw = call_llm(prompt, provider=req.provider, max_tokens=500)
+        raw = call_llm(prompt, provider=req.provider, max_tokens=500, api_key=req.api_key, gemini_model=req.gemini_model)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
@@ -304,6 +320,8 @@ class MatchReportRequest(BaseModel):
     person_a_name: str = "A"
     person_b_name: str = "B"
     provider: str = "anthropic"  # "anthropic" | "gemini"
+    api_key: str = ""            # overrides server env var when provided
+    gemini_model: str = "gemini-1.5-flash"  # used only when provider="gemini"
 
 
 @app.post("/generate-match-report")
@@ -332,7 +350,7 @@ def generate_match_report(req: MatchReportRequest):
 
     raw = ""
     try:
-        raw = call_llm(prompt, provider=req.provider, max_tokens=700)
+        raw = call_llm(prompt, provider=req.provider, max_tokens=700, api_key=req.api_key, gemini_model=req.gemini_model)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")

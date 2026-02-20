@@ -57,7 +57,7 @@ def test_generate_archetype_gemini_provider():
     data = resp.json()
     assert len(data["archetype_tags"]) == 3
     # Verify provider was passed through to call_llm
-    mock_llm.assert_called_once_with(ANY, provider="gemini", max_tokens=ANY)
+    mock_llm.assert_called_once_with(ANY, provider="gemini", max_tokens=ANY, api_key=ANY, gemini_model=ANY)
 
 
 def test_generate_archetype_no_api_key_returns_400():

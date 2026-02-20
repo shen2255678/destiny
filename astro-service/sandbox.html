@@ -97,14 +97,26 @@
 <h1>&#11041; DESTINY &#8212; Algorithm Validation Sandbox</h1>
 <p class="subtitle">Internal tool &middot; Phase G matching algorithm validation &middot; Not for production</p>
 
-<!-- Provider Selector (shared across all LLM tabs) -->
-<div class="provider-row">
+<!-- Provider + API Key Row (shared across all LLM tabs) -->
+<div class="provider-row" style="flex-wrap:wrap;gap:8px;align-items:center">
   <label>LLM Provider:</label>
-  <select id="llmProvider">
+  <select id="llmProvider" onchange="toggleApiKeyFields()" style="background:#1f2937;border:1px solid #374151;color:#e0dff8;padding:4px 8px;border-radius:4px;font-size:12px;font-family:inherit">
     <option value="anthropic">Anthropic (Claude Haiku)</option>
-    <option value="gemini">Google (Gemini 1.5 Flash)</option>
+    <option value="gemini">Google Gemini</option>
   </select>
-  <span class="provider-note">Set ANTHROPIC_API_KEY or GEMINI_API_KEY in server env before starting astro-service</span>
+  <span id="anthropic-key-group" style="display:flex;align-items:center;gap:6px">
+    <label style="white-space:nowrap;color:#6b7280;font-size:11px">API Key:</label>
+    <input type="password" id="anthropicKey" placeholder="sk-ant-..." autocomplete="off"
+      style="background:#0f172a;border:1px solid #374151;color:#9ca3af;padding:4px 8px;border-radius:4px;font-size:11px;font-family:monospace;width:230px">
+  </span>
+  <span id="gemini-key-group" style="display:none;align-items:center;gap:6px">
+    <label style="white-space:nowrap;color:#6b7280;font-size:11px">API Key:</label>
+    <input type="password" id="geminiKey" placeholder="AIza..." autocomplete="off"
+      style="background:#0f172a;border:1px solid #374151;color:#9ca3af;padding:4px 8px;border-radius:4px;font-size:11px;font-family:monospace;width:230px">
+    <label style="white-space:nowrap;color:#6b7280;font-size:11px;margin-left:8px">Model:</label>
+    <input type="text" id="geminiModel" value="gemini-1.5-flash"
+      style="background:#0f172a;border:1px solid #374151;color:#9ca3af;padding:4px 8px;border-radius:4px;font-size:11px;font-family:monospace;width:160px">
+  </span>
 </div>
 
 <div class="tabs">
@@ -334,6 +346,25 @@
 
 <script>
 const BASE = 'http://localhost:8001';
+
+// ── API key / model helpers ─────────────────────────────────────
+function toggleApiKeyFields() {
+  var provider = document.getElementById('llmProvider').value;
+  var isGemini = provider === 'gemini';
+  document.getElementById('anthropic-key-group').style.display = isGemini ? 'none' : 'flex';
+  document.getElementById('gemini-key-group').style.display   = isGemini ? 'flex' : 'none';
+}
+
+function getApiKey() {
+  var provider = document.getElementById('llmProvider').value;
+  return provider === 'gemini'
+    ? document.getElementById('geminiKey').value
+    : document.getElementById('anthropicKey').value;
+}
+
+function getGeminiModel() {
+  return document.getElementById('geminiModel').value || 'gemini-1.5-flash';
+}
 
 const SIGNS = ["aries","taurus","gemini","cancer","leo","virgo",
                "libra","scorpio","sagittarius","capricorn","aquarius","pisces"];
@@ -571,6 +602,8 @@ async function generateArchetype() {
         person_a_name: window._lastNameA || 'A',
         person_b_name: window._lastNameB || 'B',
         provider: provider,
+        api_key: getApiKey(),
+        gemini_model: getGeminiModel(),
       })
     });
     if (!r.ok) { var e = await r.json(); throw new Error(e.detail || r.statusText); }
@@ -766,6 +799,8 @@ async function generateProfileCard() {
         },
         attachment_style: document.getElementById('pc_attach').value,
         provider: provider,
+        api_key: getApiKey(),
+        gemini_model: getGeminiModel(),
       })
     });
     if (!r.ok) { var e2 = await r.json(); throw new Error(e2.detail || r.statusText); }
@@ -851,6 +886,8 @@ async function generateMatchReport() {
         person_a_name: document.getElementById('mr_name_a').value,
         person_b_name: document.getElementById('mr_name_b').value,
         provider: provider,
+        api_key: getApiKey(),
+        gemini_model: getGeminiModel(),
       })
     });
     if (!r.ok) { var e = await r.json(); throw new Error(e.detail || r.statusText); }

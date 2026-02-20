@@ -12,17 +12,7 @@
 
 ### 1. 啟動 astro-service
 
-在啟動服務前，先在 shell 中設定 API key（至少需要一組）：
-
-```bash
-# 使用 Anthropic Claude
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# 或使用 Google Gemini（可同時設定兩者）
-export GEMINI_API_KEY=AIza...
-```
-
-然後啟動服務：
+直接啟動即可，不需要預先設定環境變數：
 
 ```bash
 cd astro-service
@@ -35,6 +25,9 @@ uvicorn main:app --port 8001
 INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
 ```
 
+> **Note:** API key 直接在 sandbox 頁面填入（見下方步驟 3），不需要設定在 server
+> 環境變數中。若環境變數已設定，頁面留空時 server 會自動使用環境變數作為 fallback。
+
 ### 2. 開啟 sandbox
 
 在 `astro-service/sandbox.html` 上直接以瀏覽器開啟（Chrome 或 Edge 皆可）：
@@ -44,16 +37,22 @@ INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
 
 瀏覽器載入後，沙盒會自動連線至 `http://localhost:8001`。
 
-### 3. 選擇 LLM Provider
+### 3. 填入 API Key 並選擇 Provider
 
-頁面頂端有一個全局的 **LLM Provider** 下拉選單，套用於所有 AI 生成功能（Tab A、C、D）：
+頁面頂端有一列全局設定，套用於所有 AI 生成功能（Tab A、C、D）：
 
-| 選項 | 模型 | 所需環境變數 |
+1. 在 **LLM Provider** 下拉選單選擇目標 AI 服務。
+2. 在 **API Key** 欄位貼上對應的金鑰（以 `password` 輸入框顯示，不會明文顯示）。
+3. 若選擇 **Google Gemini**，還可在 **Model** 欄位自訂模型版本（預設
+   `gemini-1.5-flash`，可改為 `gemini-1.5-pro`、`gemini-2.0-flash` 等）。
+
+| Provider | 欄位 | 說明 |
 |---|---|---|
-| Anthropic (Claude Haiku) | `claude-haiku-4-5-20251001` | `ANTHROPIC_API_KEY` |
-| Google (Gemini 1.5 Flash) | `gemini-1.5-flash` | `GEMINI_API_KEY` |
+| Anthropic (Claude Haiku) | **API Key** | `sk-ant-...` 開頭 |
+| Google Gemini | **API Key** + **Model** | `AIza...` 開頭；Model 可自訂版本 |
 
-若所選 provider 的 API key 未設定，呼叫 AI 功能時會收到 HTTP 400 錯誤。
+Key 隨每次 AI 請求傳送至 astro-service（localhost only），不會傳到其他地方。若欄位
+留空且 server 也未設定對應環境變數，呼叫 AI 功能時會收到 HTTP 400 錯誤。
 
 ---
 
@@ -207,28 +206,30 @@ AI 返回並渲染：
 ## Gemini API 支援
 
 沙盒的三個 AI 端點（`/generate-archetype`、`/generate-profile-card`、
-`/generate-match-report`）全部支援在 Anthropic Claude 和 Google Gemini 之間切換。
-
-切換方式：在頁面頂端的 **LLM Provider** 下拉選單中選擇目標 provider，之後所有 AI
-呼叫都會使用該 provider，直到下次切換。
+`/generate-match-report`）全部支援在 Anthropic Claude 和 Google Gemini 之間切換，
+並支援自訂 Gemini 模型版本。
 
 **Anthropic 路徑：**
 
 ```
-browser → POST /generate-archetype { provider: "anthropic" }
-        → call_llm(prompt, provider="anthropic")
+browser → POST /generate-archetype { provider: "anthropic", api_key: "sk-ant-..." }
+        → call_llm(prompt, provider="anthropic", api_key="sk-ant-...")
         → Anthropic SDK → claude-haiku-4-5-20251001
 ```
 
-**Gemini 路徑：**
+**Gemini 路徑（自訂 model）：**
 
 ```
-browser → POST /generate-archetype { provider: "gemini" }
-        → call_llm(prompt, provider="gemini")
-        → google-generativeai SDK → gemini-1.5-flash
+browser → POST /generate-archetype { provider: "gemini",
+                                     api_key: "AIza...",
+                                     gemini_model: "gemini-2.0-flash" }
+        → call_llm(prompt, provider="gemini", api_key="AIza...", gemini_model="gemini-2.0-flash")
+        → google-generativeai SDK → gemini-2.0-flash
 ```
 
-兩條路徑使用完全相同的 prompt 和輸出 JSON schema，結果格式一致。
+兩條路徑使用完全相同的 prompt 和輸出 JSON schema，結果格式一致。api_key 欄位可為
+空字串，server 此時自動 fallback 至環境變數（`ANTHROPIC_API_KEY` 或
+`GEMINI_API_KEY`）。
 
 > **Note:** `google-generativeai` SDK 目前顯示棄用警告，將在 Phase E 開始前遷移至
 > `google-genai` 新套件（issue 已記錄）。現有功能不受影響。
