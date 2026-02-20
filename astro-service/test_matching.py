@@ -325,3 +325,280 @@ class TestComputeMatchScore:
         result = compute_match_score(a, b)
         assert "total_score" in result
         assert 0.0 <= result["total_score"] <= 1.0
+
+
+# ════════════════════════════════════════════════════════════════
+# Phase G: Matching v2 Tests
+# ════════════════════════════════════════════════════════════════
+
+from matching import (
+    compute_lust_score,
+    compute_soul_score,
+    compute_power_v2,
+    compute_tracks,
+    classify_quadrant,
+    _check_chiron_triggered,
+    compute_match_v2,
+    ATTACHMENT_FIT,
+)
+
+
+# ── compute_lust_score ────────────────────────────────────────
+
+class TestLustScore:
+    def _user(self, venus="aries", mars="aries", pluto="scorpio",
+              house8=None, bazi_elem=None, rpv_power=None, rpv_conflict=None):
+        return {
+            "venus_sign": venus, "mars_sign": mars, "pluto_sign": pluto,
+            "house8_sign": house8, "bazi_element": bazi_elem,
+            "rpv_power": rpv_power, "rpv_conflict": rpv_conflict,
+        }
+
+    def test_score_in_range(self):
+        a = self._user(rpv_power="control")
+        b = self._user(rpv_power="follow")
+        assert 0 <= compute_lust_score(a, b) <= 100
+
+    def test_bazi_clash_multiplier_increases_score(self):
+        """Metal restricts Wood → × 1.2 multiplier raises lust above baseline."""
+        base_a = self._user()
+        base_b = self._user()
+        a_clash = self._user(bazi_elem="metal")
+        b_clash = self._user(bazi_elem="wood")
+        score_no_clash = compute_lust_score(base_a, base_b)
+        score_clash = compute_lust_score(a_clash, b_clash)
+        assert score_clash > score_no_clash
+
+    def test_no_house8_gives_lower_score_than_matching_house8(self):
+        """When house8_sign is present and matching (conjunction), score should be higher."""
+        a_no  = self._user(house8=None)
+        b_no  = self._user(house8=None)
+        a_yes = self._user(house8="scorpio")
+        b_yes = self._user(house8="scorpio")
+        score_without = compute_lust_score(a_no, b_no)
+        score_with    = compute_lust_score(a_yes, b_yes)
+        # conjunction = 0.90, 0.0 < 0.90 → having house8 raises score
+        assert score_with > score_without
+
+    def test_power_control_follow_increases_lust(self):
+        """Complementary RPV power → higher power_fit → higher lust score."""
+        a_comp = self._user(rpv_power="control")
+        b_comp = self._user(rpv_power="follow")
+        a_same = self._user(rpv_power="control")
+        b_same = self._user(rpv_power="control")
+        assert compute_lust_score(a_comp, b_comp) > compute_lust_score(a_same, b_same)
+
+
+# ── compute_soul_score ────────────────────────────────────────
+
+class TestSoulScore:
+    def _user(self, moon="cancer", mercury="gemini", saturn="capricorn",
+              house4=None, juno=None, bazi_elem=None, attachment=None):
+        return {
+            "moon_sign": moon, "mercury_sign": mercury, "saturn_sign": saturn,
+            "house4_sign": house4, "juno_sign": juno,
+            "bazi_element": bazi_elem, "attachment_style": attachment,
+        }
+
+    def test_score_in_range(self):
+        a = self._user()
+        b = self._user()
+        assert 0 <= compute_soul_score(a, b) <= 100
+
+    def test_bazi_generation_multiplier(self):
+        """Wood generates Fire → × 1.2 multiplier raises soul above baseline."""
+        a_gen = self._user(bazi_elem="wood")
+        b_gen = self._user(bazi_elem="fire")
+        a_no  = self._user()
+        b_no  = self._user()
+        assert compute_soul_score(a_gen, b_gen) > compute_soul_score(a_no, b_no)
+
+    def test_secure_secure_highest_attachment(self):
+        """secure+secure = 0.90 (highest fit) → higher soul than anxious+secure (0.80)."""
+        a_ss = self._user(attachment="secure")
+        b_ss = self._user(attachment="secure")
+        a_as = self._user(attachment="anxious")
+        b_as = self._user(attachment="secure")
+        assert compute_soul_score(a_ss, b_ss) > compute_soul_score(a_as, b_as)
+
+    def test_missing_attachment_uses_neutral(self):
+        """No attachment_style → uses NEUTRAL_SIGNAL (0.65), should not crash."""
+        a = self._user(attachment=None)
+        b = self._user(attachment=None)
+        assert 0 <= compute_soul_score(a, b) <= 100
+
+
+# ── compute_power_v2 ──────────────────────────────────────────
+
+class TestComputePowerV2:
+    def test_control_vs_follow_gives_dom_sub(self):
+        """control (+20) vs follow (-20) → frame diff = 40 → Dom/Sub."""
+        a = {"rpv_power": "control", "rpv_conflict": None}
+        b = {"rpv_power": "follow",  "rpv_conflict": None}
+        result = compute_power_v2(a, b)
+        assert result["viewer_role"] == "Dom"
+        assert result["target_role"] == "Sub"
+        assert result["rpv"] == pytest.approx(40.0)
+
+    def test_equal_rpv_gives_equal_roles(self):
+        """Same RPV → frame_A == frame_B → rpv = 0 → Equal/Equal."""
+        a = {"rpv_power": "control", "rpv_conflict": "cold_war"}
+        b = {"rpv_power": "control", "rpv_conflict": "cold_war"}
+        result = compute_power_v2(a, b)
+        assert result["viewer_role"] == "Equal"
+        assert result["rpv"] == pytest.approx(0.0)
+
+    def test_chiron_triggered_sets_frame_break_true(self):
+        """chiron_triggered=True → frame_break=True in output."""
+        a = {"rpv_power": None, "rpv_conflict": None}
+        b = {"rpv_power": None, "rpv_conflict": None}
+        result = compute_power_v2(a, b, chiron_triggered=True)
+        assert result["frame_break"] is True
+
+    def test_chiron_trigger_shifts_rpv_by_15(self):
+        """Chiron trigger reduces frame_b by 15 → rpv increases by 15 vs no trigger."""
+        a = {"rpv_power": None, "rpv_conflict": None}
+        b = {"rpv_power": None, "rpv_conflict": None}
+        no_trigger   = compute_power_v2(a, b, chiron_triggered=False)
+        with_trigger = compute_power_v2(a, b, chiron_triggered=True)
+        assert with_trigger["rpv"] == pytest.approx(no_trigger["rpv"] + 15)
+
+
+# ── _check_chiron_triggered ───────────────────────────────────
+
+class TestChironTriggered:
+    def test_mars_square_chiron_triggers(self):
+        """Aries (0) to Cancer (3): distance = 3 = square → triggered."""
+        a = {"mars_sign": "aries", "pluto_sign": None}
+        b = {"chiron_sign": "cancer"}
+        assert _check_chiron_triggered(a, b) is True
+
+    def test_pluto_opposition_chiron_triggers(self):
+        """Aries (0) to Libra (6): distance = 6 = opposition → triggered."""
+        a = {"mars_sign": None, "pluto_sign": "aries"}
+        b = {"chiron_sign": "libra"}
+        assert _check_chiron_triggered(a, b) is True
+
+    def test_trine_does_not_trigger(self):
+        """Aries (0) to Leo (4): distance = 4 = trine → NOT triggered."""
+        a = {"mars_sign": "aries", "pluto_sign": None}
+        b = {"chiron_sign": "leo"}
+        assert _check_chiron_triggered(a, b) is False
+
+    def test_no_chiron_does_not_trigger(self):
+        """Missing chiron_sign → always False."""
+        a = {"mars_sign": "aries", "pluto_sign": "scorpio"}
+        b = {"chiron_sign": None}
+        assert _check_chiron_triggered(a, b) is False
+
+
+# ── classify_quadrant ─────────────────────────────────────────
+
+class TestClassifyQuadrant:
+    def test_soulmate_both_above_threshold(self):
+        assert classify_quadrant(75, 80) == "soulmate"
+
+    def test_lover_high_lust_low_soul(self):
+        assert classify_quadrant(70, 40) == "lover"
+
+    def test_partner_low_lust_high_soul(self):
+        assert classify_quadrant(40, 70) == "partner"
+
+    def test_colleague_both_below_threshold(self):
+        assert classify_quadrant(40, 40) == "colleague"
+
+    def test_boundary_exactly_at_threshold(self):
+        """Exactly 60 is included in the high category."""
+        assert classify_quadrant(60, 60) == "soulmate"
+        assert classify_quadrant(60, 59) == "lover"
+        assert classify_quadrant(59, 60) == "partner"
+        assert classify_quadrant(59, 59) == "colleague"
+
+
+# ── AttachmentFit matrix ──────────────────────────────────────
+
+class TestAttachmentFit:
+    def test_secure_secure_highest(self):
+        assert ATTACHMENT_FIT["secure"]["secure"] == pytest.approx(0.90)
+
+    def test_anxious_anxious_lowest(self):
+        assert ATTACHMENT_FIT["anxious"]["anxious"] == pytest.approx(0.50)
+
+    def test_anxious_avoidant_symmetric(self):
+        """Tension attraction: anxious→avoidant == avoidant→anxious."""
+        assert ATTACHMENT_FIT["anxious"]["avoidant"] == ATTACHMENT_FIT["avoidant"]["anxious"]
+
+
+# ── compute_match_v2 integration ─────────────────────────────
+
+class TestComputeMatchV2Integration:
+    def _user(self, **kwargs):
+        defaults = {
+            "data_tier": 3,
+            "sun_sign": "aries", "moon_sign": None, "venus_sign": "taurus",
+            "mars_sign": "gemini", "saturn_sign": "cancer",
+            "mercury_sign": "aries", "jupiter_sign": "taurus",
+            "pluto_sign": "scorpio",
+            "chiron_sign": None, "juno_sign": None,
+            "house4_sign": None, "house8_sign": None,
+            "ascendant_sign": None,
+            "bazi_element": None,
+            "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+            "attachment_style": None,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_returns_all_required_keys(self):
+        a = self._user()
+        b = self._user(venus_sign="leo")
+        result = compute_match_v2(a, b)
+        required = {"lust_score", "soul_score", "power", "tracks",
+                    "primary_track", "quadrant", "labels"}
+        assert required.issubset(result.keys())
+
+    def test_lust_score_in_range(self):
+        a = self._user(rpv_power="control")
+        b = self._user(rpv_power="follow")
+        assert 0 <= compute_match_v2(a, b)["lust_score"] <= 100
+
+    def test_soul_score_in_range(self):
+        a = self._user()
+        b = self._user()
+        assert 0 <= compute_match_v2(a, b)["soul_score"] <= 100
+
+    def test_primary_track_is_valid(self):
+        a = self._user()
+        b = self._user()
+        assert compute_match_v2(a, b)["primary_track"] in (
+            "friend", "passion", "partner", "soul"
+        )
+
+    def test_quadrant_is_valid(self):
+        a = self._user()
+        b = self._user()
+        assert compute_match_v2(a, b)["quadrant"] in (
+            "soulmate", "lover", "partner", "colleague"
+        )
+
+    def test_power_has_required_keys(self):
+        a = self._user()
+        b = self._user()
+        power = compute_match_v2(a, b)["power"]
+        assert "rpv" in power
+        assert "frame_break" in power
+        assert "viewer_role" in power
+        assert "target_role" in power
+
+    def test_tracks_has_four_keys(self):
+        a = self._user()
+        b = self._user()
+        tracks = compute_match_v2(a, b)["tracks"]
+        assert set(tracks.keys()) == {"friend", "passion", "partner", "soul"}
+
+    def test_all_track_values_in_range(self):
+        a = self._user(bazi_element="wood", rpv_power="control")
+        b = self._user(bazi_element="fire", rpv_power="follow")
+        tracks = compute_match_v2(a, b)["tracks"]
+        for key, val in tracks.items():
+            assert 0 <= val <= 100, f"track {key} out of range: {val}"
