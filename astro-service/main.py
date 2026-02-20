@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 DESTINY — Astrology Microservice
 FastAPI server for natal chart calculation.
@@ -9,6 +10,8 @@ Endpoints:
 
 from __future__ import annotations
 
+import os
+import json
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
@@ -18,6 +21,10 @@ from pydantic import BaseModel
 from chart import calculate_chart
 from bazi import analyze_element_relation
 from matching import compute_match_score, compute_match_v2
+from anthropic import Anthropic
+import google.generativeai as genai
+
+anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
 # Ensure Chinese characters are returned as-is (not escaped as \uXXXX)
 class UTF8JSONResponse(JSONResponse):
@@ -106,3 +113,99 @@ def compute_match(req: MatchRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── Algorithm Validation Sandbox Endpoints ─────────────────────────────────
+
+
+def call_llm(prompt: str, provider: str = "anthropic", max_tokens: int = 600) -> str:
+    """Call Claude (Anthropic) or Gemini based on provider.
+
+    Raises HTTPException 400 if the required API key is not set.
+    Returns raw text from the model.
+    """
+    if provider == "gemini":
+        if not os.environ.get("GEMINI_API_KEY"):
+            raise HTTPException(status_code=400, detail="GEMINI_API_KEY not set")
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        return response.text
+    else:  # anthropic (default)
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY not set")
+        message = anthropic_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text
+
+
+ARCHETYPE_PROMPT = """\
+你是 DESTINY 平台的靈魂分析師。根據以下兩人的星盤相容性數據，生成配對解讀。
+
+數據：
+- VibeScore（肉體吸引力）: {lust_score}/100
+- ChemistryScore（靈魂深度）: {soul_score}/100
+- 主要連結類型: {primary_track}
+- 四象限: {quadrant}
+- 標籤: {labels}
+- 四軌分數: friend={friend} passion={passion} partner={partner} soul={soul}
+- 權力動態: {viewer_role}（{person_a}）→ {target_role}（{person_b}），RPV={rpv}
+- 框架崩潰（Chiron觸發）: {frame_break}
+
+請只回傳以下 JSON 格式，不要包含任何其他文字或 markdown：
+{{
+  "archetype_tags": ["tag1", "tag2", "tag3"],
+  "report": "約150字的繁體中文解讀報告"
+}}
+
+規則：
+- archetype_tags 為 3 個英文詞組（每個 2-4 個字），描述這段關係的本質
+- report 用自然、有溫度的繁體中文，直接描述這兩人的連結特質
+"""
+
+
+class ArchetypeRequest(BaseModel):
+    match_data: dict
+    person_a_name: str = "A"
+    person_b_name: str = "B"
+    language: str = "zh-TW"
+    provider: str = "anthropic"  # "anthropic" | "gemini"
+
+
+@app.post("/generate-archetype")
+def generate_archetype(req: ArchetypeRequest):
+    """Generate AI archetype tags + interpretation report via Claude or Gemini."""
+    md = req.match_data
+    tracks = md.get("tracks", {})
+    power = md.get("power", {})
+
+    prompt = ARCHETYPE_PROMPT.format(
+        lust_score=round(md.get("lust_score", 0), 1),
+        soul_score=round(md.get("soul_score", 0), 1),
+        primary_track=md.get("primary_track", "unknown"),
+        quadrant=md.get("quadrant", "unknown"),
+        labels=", ".join(md.get("labels", [])),
+        friend=tracks.get("friend", 0),
+        passion=tracks.get("passion", 0),
+        partner=tracks.get("partner", 0),
+        soul=tracks.get("soul", 0),
+        viewer_role=power.get("viewer_role", "Equal"),
+        target_role=power.get("target_role", "Equal"),
+        person_a=req.person_a_name,
+        person_b=req.person_b_name,
+        rpv=power.get("rpv", 0),
+        frame_break=power.get("frame_break", False),
+    )
+
+    try:
+        raw = call_llm(prompt, provider=req.provider, max_tokens=600)
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
