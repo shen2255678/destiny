@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from chart import calculate_chart
 from bazi import analyze_element_relation
-from matching import compute_match_score
+from matching import compute_match_score, compute_match_v2
 
 # Ensure Chinese characters are returned as-is (not escaped as \uXXXX)
 class UTF8JSONResponse(JSONResponse):
@@ -82,14 +82,19 @@ class MatchRequest(BaseModel):
 
 @app.post("/compute-match")
 def compute_match(req: MatchRequest):
-    """Compute match score between two user profiles.
+    """Compute Phase G v2 match score between two user profiles.
 
     user_a / user_b should contain flat profile fields:
-      data_tier, sun_sign, moon_sign, venus_sign, mars_sign, saturn_sign,
-      ascendant_sign, bazi_element, rpv_conflict, rpv_power, rpv_energy
+      Core:    data_tier, sun_sign, moon_sign, venus_sign, mars_sign, saturn_sign,
+               ascendant_sign, bazi_element, rpv_conflict, rpv_power, rpv_energy
+      Phase G: mercury_sign, jupiter_sign, pluto_sign, chiron_sign, juno_sign,
+               house4_sign, house8_sign, attachment_style
+
+    Returns: lust_score, soul_score, power {rpv, frame_break, viewer_role, target_role},
+             tracks {friend, passion, partner, soul}, primary_track, quadrant, labels
     """
     try:
-        result = compute_match_score(req.user_a, req.user_b)
+        result = compute_match_v2(req.user_a, req.user_b)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
