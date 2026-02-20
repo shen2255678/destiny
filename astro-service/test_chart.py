@@ -248,6 +248,27 @@ def test_bazi_day_pillar_2000_jan_01():
     assert day["full"] == "戊午"
 
 
+def test_bazi_early_morning_1996_02_12():
+    """1996-02-12 01:45 (clock) should be 丙子 庚寅 己卯 乙丑 (節氣四柱).
+    Early-morning birth: 01:45 local = -6.25 UT (crosses UTC date boundary).
+    Day pillar must use local calendar date, not UTC date. Verified by user."""
+    bazi = calculate_bazi(
+        "1996-02-12",
+        birth_time="precise",
+        birth_time_exact="01:45",
+        lat=25.033,
+        lng=121.565,
+        data_tier=1,
+    )
+    p = bazi["four_pillars"]
+    assert p["year"]["full"] == "丙子", f"year: got {p['year']['full']}"
+    assert p["month"]["full"] == "庚寅", f"month: got {p['month']['full']}"
+    assert p["day"]["full"] == "己卯", f"day: got {p['day']['full']}"
+    assert p["hour"]["full"] == "乙丑", f"hour: got {p['hour']['full']}"
+    assert bazi["day_master"] == "己"
+    assert bazi["day_master_element"] == "earth"
+
+
 def test_bazi_full_case_1997_03_07():
     """1997-03-07 10:59 (clock) should be 丁丑 癸卯 戊申 丁巳.
     True solar time ~10:47 (Taipei). Verified by user."""
@@ -334,3 +355,74 @@ def test_relation_all_restriction_pairs():
     for a, b in cycle:
         rel = analyze_element_relation(a, b)
         assert rel["relation"] == "a_restricts_b", f"{a}→{b} should be restriction"
+
+
+# ── Phase G: New Planets ──────────────────────────────────────
+
+def test_tier1_has_mercury_jupiter_pluto():
+    """Tier 1 chart should include mercury, jupiter, pluto signs."""
+    result = calculate_chart(
+        birth_date="1995-06-15",
+        birth_time="precise",
+        birth_time_exact="14:30",
+        lat=25.033,
+        lng=121.565,
+        data_tier=1,
+    )
+    assert result["mercury_sign"] is not None
+    assert result["jupiter_sign"] is not None
+    assert result["pluto_sign"] is not None
+    assert result["mercury_sign"] in (
+        "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+        "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
+    )
+
+def test_tier3_has_mercury_jupiter_pluto():
+    """Even Tier 3 (date-only) should return mercury/jupiter/pluto (slow planets)."""
+    result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+    assert result["mercury_sign"] is not None
+    assert result["jupiter_sign"] is not None
+    assert result["pluto_sign"] is not None
+
+def test_tier1_has_chiron_juno():
+    """Tier 1 should include chiron and juno signs (requires ephe files)."""
+    result = calculate_chart(
+        birth_date="1995-06-15",
+        birth_time="precise",
+        birth_time_exact="14:30",
+        lat=25.033,
+        lng=121.565,
+        data_tier=1,
+    )
+    assert result["chiron_sign"] is not None
+    assert result["juno_sign"] is not None
+
+def test_tier1_has_house4_house8():
+    """Tier 1 (precise time) should include house 4 and 8 signs."""
+    result = calculate_chart(
+        birth_date="1995-06-15",
+        birth_time="precise",
+        birth_time_exact="14:30",
+        lat=25.033,
+        lng=121.565,
+        data_tier=1,
+    )
+    assert result["house4_sign"] is not None
+    assert result["house8_sign"] is not None
+
+def test_tier2_house4_house8_are_null():
+    """Tier 2/3 should NOT have house 4/8 (requires precise time)."""
+    result = calculate_chart(
+        birth_date="1995-06-15",
+        birth_time="morning",
+        lat=25.033,
+        lng=121.565,
+        data_tier=2,
+    )
+    assert result["house4_sign"] is None
+    assert result["house8_sign"] is None
+
+def test_tier3_house4_house8_are_null():
+    result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+    assert result["house4_sign"] is None
+    assert result["house8_sign"] is None

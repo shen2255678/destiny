@@ -10,10 +10,44 @@ Data Tier behaviour:
 
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import Dict, Optional
 
 import swisseph as swe
+
+def _resolve_ephe_path() -> str:
+    """Return an ASCII-safe path to the ephemeris directory.
+
+    pyswisseph passes the path to a C library that cannot handle non-ASCII
+    characters on Windows. If the repo lives inside a directory whose path
+    contains Unicode characters (e.g. Chinese), we copy the small .se1 files
+    to a stable ASCII temp location and use that instead.
+    """
+    ephe_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ephe")
+    try:
+        ephe_src.encode("ascii")
+        return ephe_src  # All-ASCII — use directly
+    except UnicodeEncodeError:
+        pass
+
+    # Path contains non-ASCII characters; copy files to an ASCII temp location.
+    import shutil, tempfile, atexit
+
+    dest = os.path.join(tempfile.gettempdir(), "destiny_swe_ephe")
+    os.makedirs(dest, exist_ok=True)
+
+    for fname in os.listdir(ephe_src):
+        src_file = os.path.join(ephe_src, fname)
+        dst_file = os.path.join(dest, fname)
+        if not os.path.exists(dst_file):
+            shutil.copy2(src_file, dst_file)
+
+    return dest
+
+
+_EPHE_DIR = _resolve_ephe_path()
+swe.set_ephe_path(_EPHE_DIR)
 
 # ── Zodiac constants ────────────────────────────────────────────────
 
@@ -32,11 +66,20 @@ ELEMENT_MAP = {
 
 # Planet IDs in swisseph
 PLANETS = {
-    "sun":    swe.SUN,
-    "moon":   swe.MOON,
-    "venus":  swe.VENUS,
-    "mars":   swe.MARS,
-    "saturn": swe.SATURN,
+    "sun":     swe.SUN,
+    "moon":    swe.MOON,
+    "mercury": swe.MERCURY,
+    "venus":   swe.VENUS,
+    "mars":    swe.MARS,
+    "jupiter": swe.JUPITER,
+    "saturn":  swe.SATURN,
+    "pluto":   swe.PLUTO,
+}
+
+# Asteroid IDs (requires seas_18.se1 in ./ephe/)
+ASTEROIDS = {
+    "chiron": swe.CHIRON,
+    "juno":   swe.AST_OFFSET + 3,
 }
 
 # Fuzzy time-slot mid-points (local time hours)
@@ -116,19 +159,31 @@ def calculate_chart(
         sign = longitude_to_sign(pos[0])
         result[f"{name}_sign"] = sign
 
+    # ── Asteroids (Chiron, Juno) ─────────────────────────────────
+    for name, asteroid_id in ASTEROIDS.items():
+        try:
+            pos, _ret = swe.calc_ut(jd, asteroid_id)
+            result[f"{name}_sign"] = longitude_to_sign(pos[0])
+        except Exception:
+            result[f"{name}_sign"] = None  # ephe file missing — degrade gracefully
+
     # ── Tier-based restrictions ──────────────────────────────────
     if data_tier == 3:
-        # Bronze: Moon is unreliable without time, Ascendant impossible
+        # Bronze: Moon is unreliable without time
         result["moon_sign"] = None
 
     if data_tier >= 2:
-        # Silver & Bronze: no Ascendant (requires precise time)
+        # Silver & Bronze: no Ascendant, no House cusps (requires precise time)
         result["ascendant_sign"] = None
+        result["house4_sign"] = None
+        result["house8_sign"] = None
     else:
-        # Tier 1 (Gold): calculate Ascendant via house cusps
+        # Tier 1 (Gold): calculate Ascendant + House 4/8 via Placidus cusps
         cusps, ascmc = swe.houses(jd, lat, lng, b"P")
-        asc_longitude = ascmc[0]  # ascmc[0] = Ascendant
-        result["ascendant_sign"] = longitude_to_sign(asc_longitude)
+        result["ascendant_sign"] = longitude_to_sign(ascmc[0])
+        # cusps is 1-indexed in Swiss Ephemeris: cusps[0]=H1, cusps[3]=H4, cusps[7]=H8
+        result["house4_sign"] = longitude_to_sign(cusps[3])
+        result["house8_sign"] = longitude_to_sign(cusps[7])
 
     # ── Element from Sun sign ────────────────────────────────────
     sun_sign = result.get("sun_sign")
