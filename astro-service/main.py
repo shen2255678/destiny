@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from chart import calculate_chart
@@ -28,6 +29,14 @@ app = FastAPI(
     title="DESTINY Astro Service",
     version="0.3.0",
     default_response_class=UTF8JSONResponse,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
