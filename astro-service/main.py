@@ -14,9 +14,11 @@ import os
 import json
 from typing import Optional
 
+import pathlib
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from chart import calculate_chart
 from bazi import analyze_element_relation
@@ -58,6 +60,13 @@ class ChartRequest(BaseModel):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/sandbox")
+def serve_sandbox():
+    """Serve sandbox.html at http://localhost:8001/sandbox (same-origin, no CORS needed)."""
+    html_path = pathlib.Path(__file__).parent / "sandbox.html"
+    return FileResponse(str(html_path), media_type="text/html")
 
 
 @app.post("/calculate-chart")

@@ -30,12 +30,15 @@ INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
 
 ### 2. 開啟 sandbox
 
-在 `astro-service/sandbox.html` 上直接以瀏覽器開啟（Chrome 或 Edge 皆可）：
+astro-service 啟動後，直接在瀏覽器開啟：
 
-- **Windows：** 在檔案總管中雙擊 `sandbox.html`
-- **或在終端機：** `start astro-service/sandbox.html`
+```
+http://localhost:8001/sandbox
+```
 
-瀏覽器載入後，沙盒會自動連線至 `http://localhost:8001`。
+> **Note:** 請用 `http://localhost:8001/sandbox` 開啟，**不要**直接雙擊 `sandbox.html`
+> 檔案。從 `file://` 協議呼叫 localhost API 會觸發瀏覽器的 CORS 限制，導致所有請求
+> 失敗。從 `http://localhost:8001/sandbox` 開啟是同源請求，完全不受 CORS 影響。
 
 ### 3. 填入 API Key 並選擇 Provider
 
