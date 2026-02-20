@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-16
+**Last Updated:** 2026-02-20
 
 ---
 
@@ -38,7 +38,7 @@
 | Onboarding API (4 endpoints) | **Done** | birth-data, rpv-test, photos, soul-report — 全部已實作 + TDD |
 | Image Processing | **Done** | sharp 高斯模糊 + 基本驗證 (MIME type + size limit 10MB) — 詳見 `docs/PHOTO-PIPELINE.md` |
 | Archetype Generator | **Done** | `src/lib/ai/archetype.ts` — 8 組 deterministic 原型 (待升級 Claude API) |
-| API Routes (其餘) | Not Started | Daily matching, connections, chat, profile endpoints |
+| API Routes (其餘) | Not Started | Daily matching, connections, chat endpoints |
 | Python Microservice | **Done** | `astro-service/` — FastAPI + Swiss Ephemeris + BaZi 八字四柱 + 真太陽時，30 pytest 通過。已串接 birth-data API 自動回寫 DB。詳見 `docs/ASTRO-SERVICE.md` |
 | AI/LLM Integration | Not Started | Claude API 串接 (動態原型、變色龍標籤、破冰題) |
 
@@ -54,7 +54,7 @@
 - [x] `GET /api/onboarding/soul-report` — 生成靈魂原型 + base stats + 更新 onboarding_step=complete
 
 ### Daily Destiny
-- [ ] `GET /api/matches/daily` — 取得今日 3 張配對卡
+- [ ] `GET /api/matches/daily` — 取得今日 3 張配對卡（含對方 interest_tags 當話題）
 - [ ] `POST /api/matches/:id/action` — 提交 Accept / Pass
 
 ### Connections
@@ -64,7 +64,8 @@
 
 ### Chat
 - [ ] `GET /api/connections/:id/messages` — 取得訊息 (分頁)
-- [ ] `POST /api/connections/:id/messages` — 發送訊息
+- [ ] `POST /api/connections/:id/messages` — 發送文字訊息
+- [ ] `POST /api/connections/:id/messages/image` — 發送圖片訊息（上傳至 Storage）
 
 ### Profile
 - [x] `GET /api/profile/me` — 自我檢視：所有個人資料 + 照片 signed URL + bio + interest_tags
@@ -98,12 +99,13 @@
 | RPV Test (3 Questions) | **Done** | API + 前端串接，option ID → DB value 映射 |
 | Photo Upload + Blur | **Done** | 真實檔案上傳 + sharp 高斯模糊 + Supabase Storage |
 | Soul Report / Archetype | **Done** | Deterministic 原型生成 (8 組)，待升級 Claude API |
-| Daily Match Cards | UI Done, Data Pending | 需 Python matching + API |
-| Dual Blind Selection (Accept/Pass) | UI Done, Logic Pending | 需 API |
+| Daily Match Cards | UI Done, Data Pending | 需 Python matching + API，卡片上顯示對方 interest_tags 當話題 |
+| Dual Blind Selection (Accept/Pass) | UI Done, Logic Pending | 需 API，雙方都 Accept → 建立 connection |
 | Chameleon Tags | UI Mock Only | 需 AI API 動態生成 |
-| Radar Chart (激情/穩定/溝通) | UI Done (bars), Data Pending | 考慮升級為 Recharts radar |
-| Progressive Unlock (Lv.1→2→3) | UI Shown, Logic Pending | 需 DB trigger |
+| Radar Chart (激情/穩定/溝通) | UI Done (bars), Data Pending | 由 matching algorithm 計算 |
+| Progressive Unlock (Lv.1→2→3) | UI Shown, Logic Pending | 需 DB trigger / API logic |
 | Chat (Text) | UI Done, Realtime Pending | 需 Supabase Realtime |
+| Chat (Image) | Not Started | 圖片上傳至 Storage + message_type 欄位 |
 | 24hr Auto-Disconnect | Not Started | 需 DB cron/trigger |
 | Ice-breaker (Simplified) | Not Started | UI + AI API |
 | Self-View Profile + Edit | **Done** | GET/PATCH API + 編輯模式 + 照片重傳 + signed URL 顯示 |
@@ -159,28 +161,115 @@
 
 ---
 
-## Next Steps (建議優先順序)
+## Next Steps (已完成 → 下一步)
 
 1. ~~**建立 Supabase 專案**~~ — ✅ Done
 2. ~~**實作 Auth flow**~~ — ✅ Done (Login/Register + middleware + 19 tests)
 3. ~~**實作 Onboarding API**~~ — ✅ Done (birth-data, rpv-test, photos, soul-report + 14 tests)
-4. ~~**建立 Python Microservice**~~ — ✅ Done (chart calculation + 12 tests)
+4. ~~**建立 Python Microservice**~~ — ✅ Done (西洋占星 + 八字四柱 + 真太陽時 + 30 tests)
 5. ~~**串接星盤計算到 Next.js**~~ — ✅ Done (birth-data API → astro-service → 回寫 DB，非阻塞式)
-6. **實作 Daily Matching** — Python cron + match algorithm ← **NEXT**
-7. **串接 AI/LLM** — 動態原型生成、變色龍標籤
-8. **實作 Chat** — Supabase Realtime WebSocket
-9. **Progressive Unlock Logic** — DB trigger + frontend unlock
+6. **Phase C: Daily Matching** ← **CURRENT**
+7. **Phase D: Connections + Chat (含圖片)**
+8. **Phase E: Progressive Unlock + Auto-Disconnect**
+9. **Phase F: AI/LLM Integration**
 
 ---
 
 ## Implementation Plan
 
-完整實作計劃見：`C:\Users\haowei\.claude\plans\declarative-jingling-dongarra.md`
+### Phase C: Daily Matching (核心配對) ← NEXT
+
+**目標：** 讓用戶每天收到 3 張真實配對卡，可以 Accept/Pass。
+
+| Step | Task | 依賴 | 說明 |
+|------|------|------|------|
+| C1 | **Matching Algorithm** | astro-service | Python 配對演算法：西洋占星相位比對 + 八字五行相生相剋 + RPV 權力動力 → Match_Score |
+| C2 | `POST /run-daily-matching` | C1 | Python endpoint：每日生成配對，寫入 `daily_matches` 表 |
+| C3 | `GET /api/matches/daily` | C2 | Next.js API：取得今日 3 張卡（含 archetype、tags、radar scores、**interest_tags**） |
+| C4 | `POST /api/matches/:id/action` | C3 | Accept/Pass 邏輯：雙方都 Accept → 自動建立 `connections` 記錄 |
+| C5 | **Wire Daily UI** | C3, C4 | 串接 `/daily` 頁面，替換 mock data → 真實 API 資料 |
+
+**配對卡資訊（含 interest_tags）：**
+```
+{
+  archetype_name, match_type, total_score,
+  tags: [...chameleon_tags],
+  interest_tags: ["攝影", "咖啡", "登山"],   // ← 對方的興趣標籤，當話題
+  radar: { passion, stability, communication },
+  blurred_photo_url
+}
+```
+
+**Match_Score 公式：**
+```
+Match_Score = Kernel_Compatibility × 0.5 + Power_Dynamic_Fit × 0.3 + Glitch_Tolerance × 0.2
+
+Kernel_Compatibility:
+  - 西洋占星: Sun/Moon/Venus 相位分析 (合/刑/沖/拱/六合)
+  - 八字五行: 日主相生相剋 (harmony_score from analyze_element_relation)
+
+Power_Dynamic_Fit:
+  - RPV conflict × RPV power 交叉對比 (互補 vs 同類)
+
+Glitch_Tolerance:
+  - Mars/Saturn 相位張力 → 衝突容忍度
+```
+
+---
+
+### Phase D: Connections + Chat (含圖片訊息)
+
+**目標：** 雙向 Accept 後進入聊天室，支援文字 + 圖片訊息，Supabase Realtime 即時更新。
+
+| Step | Task | 依賴 | 說明 |
+|------|------|------|------|
+| D1 | `GET /api/connections` | C4 | 列出所有活躍 connections（含 sync_level, last_message, status） |
+| D2 | `GET /api/connections/:id` | D1 | 單一 connection 詳情 + 對方 profile（blurred photo, tags） |
+| D3 | **Icebreaker** | D2 | 破冰題生成 + `POST /api/connections/:id/icebreaker-answer` |
+| D4 | `GET /api/connections/:id/messages` | D2 | 分頁載入訊息 (cursor-based pagination) |
+| D5 | `POST /api/connections/:id/messages` | D4 | 發送文字訊息，更新 message_count + sync_level |
+| D6 | **圖片訊息** | D5 | `POST /api/connections/:id/messages/image`：上傳圖片至 Storage → 存 message record（type=image） |
+| D7 | **Supabase Realtime** | D5 | 訂閱 `messages` 表 INSERT → 即時顯示新訊息（不需重新整理） |
+| D8 | **Wire Chat UI** | D4-D7 | 串接 `/connections` + `/connections/[id]` 頁面 |
+
+**DB 變更（messages 表增加圖片支援）：**
+```sql
+-- Migration 005: Chat image support
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS message_type TEXT DEFAULT 'text'
+  CHECK (message_type IN ('text', 'image'));
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS image_path TEXT;  -- Storage path
+```
+
+---
+
+### Phase E: Progressive Unlock + Auto-Disconnect
+
+| Step | Task | 依賴 | 說明 |
+|------|------|------|------|
+| E1 | **Sync Level Logic** | D5 | message_count → 自動升級 sync_level (0-10: Lv.1, 10-50: Lv.2, 50+: Lv.3) |
+| E2 | **Photo Unlock** | E1 | Lv.1: 全模糊, Lv.2: 50% 清晰 (half_blurred_path), Lv.3: 完整 HD |
+| E3 | **24hr Auto-Disconnect** | D1 | DB cron/trigger：24hr 無活動 → status='expired'，前端顯示過期狀態 |
+
+---
+
+### Phase F: AI/LLM Integration (後續)
+
+| Step | Task | 說明 |
+|------|------|------|
+| F1 | **Dynamic Archetype** | Claude API → 根據完整 profile 動態生成靈魂原型（取代 8 組 deterministic） |
+| F2 | **Chameleon Tags** | Claude API → 根據配對雙方 profile 動態生成 3-5 個關係標籤 |
+| F3 | **Icebreaker Questions** | Claude API → 根據雙方 profile + 配對類型生成個性化破冰題 |
+
+---
+
+### Phase Summary
 
 | Phase | Tasks | Status |
 |-------|-------|--------|
-| Phase A: Onboarding API | Tasks 1-4 (birth-data, rpv-test, photos, soul-report) | **Done** ✅ |
-| Phase B: Python Microservice | Tasks 5-6 (chart calc, BaZi, wire to API) | **Done** ✅ 西洋占星 + 八字四柱 + 真太陽時 + API 串接 |
-| Phase C: Daily Matching | Tasks 7-10 (matching, daily feed, actions, AI tags) | Pending |
-| Phase D: Connections + Chat | Tasks 11-13 (connections, icebreaker, realtime chat) | Pending |
-| Phase E: Profile + Finishing | Tasks 14-15 (profile API, 24hr auto-disconnect) | **Partial** ✅ Profile done, 24hr pending |
+| Phase A: Onboarding API | birth-data, rpv-test, photos, soul-report | **Done** ✅ |
+| Phase B: Python Microservice | 西洋占星 + 八字四柱 + 真太陽時 + API 串接 | **Done** ✅ |
+| Phase C: Daily Matching | matching algorithm + daily API + Accept/Pass | **Next** ← |
+| Phase D: Connections + Chat | connections API + text/image chat + Realtime | Pending |
+| Phase E: Progressive Unlock | sync level + photo unlock + 24hr disconnect | Pending |
+| Phase F: AI/LLM | dynamic archetype + chameleon tags + icebreaker | Pending |
+| ~~Phase E (old): Profile~~ | GET/PATCH API + photos + bio + tags + energy | **Done** ✅ |
