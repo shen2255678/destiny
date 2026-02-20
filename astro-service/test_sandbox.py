@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Tests for sandbox-specific endpoints."""
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException as FastHTTPException
@@ -57,11 +57,7 @@ def test_generate_archetype_gemini_provider():
     data = resp.json()
     assert len(data["archetype_tags"]) == 3
     # Verify provider was passed through to call_llm
-    mock_llm.assert_called_once()
-    call_args = mock_llm.call_args
-    # provider is the second positional arg or keyword arg
-    provider_passed = call_args[1].get("provider") if call_args[1] else call_args[0][1]
-    assert provider_passed == "gemini"
+    mock_llm.assert_called_once_with(ANY, provider="gemini", max_tokens=ANY)
 
 
 def test_generate_archetype_no_api_key_returns_400():
