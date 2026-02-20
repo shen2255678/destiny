@@ -6,7 +6,9 @@
 
 **Architecture:** Single HTML file (`astro-service/sandbox.html`) calls `astro-service:8001` via fetch. Four new capabilities added to FastAPI: CORS middleware + three LLM endpoints (`/generate-archetype`, `/generate-profile-card`, `/generate-match-report`) that proxy to Claude API. Two-tab UI: Mechanism A (positive control) + Mechanism B (rectification simulation).
 
-**Tech Stack:** Vanilla HTML/CSS/JS, FastAPI, Python `anthropic` SDK (>=0.40.0), pyswisseph (already installed), Anthropic claude-haiku-4-5-20251001.
+**Tech Stack:** Vanilla HTML/CSS/JS, FastAPI, Python `anthropic` SDK (>=0.40.0) + `google-generativeai` (>=0.8.0), pyswisseph (already installed). LLM provider is user-selectable: **Anthropic** (`claude-haiku-4-5-20251001`) or **Google Gemini** (`gemini-1.5-flash`).
+
+**Gemini Support:** All three LLM endpoints accept `"provider": "anthropic" | "gemini"`. A shared `call_llm(prompt, provider, max_tokens)` helper in `main.py` handles both. Sandbox HTML has a global provider selector dropdown.
 
 **Design doc:** `docs/plans/2026-02-20-algorithm-validation-sandbox-design.md`
 
@@ -63,20 +65,21 @@ function signAspect(a, b) {
 - Modify: `astro-service/main.py` (add after `app = FastAPI(...)` block ~line 31)
 - Modify: `astro-service/requirements.txt` (append one line)
 
-**Step 1: Add `anthropic` to requirements.txt**
+**Step 1: Add `anthropic` and `google-generativeai` to requirements.txt**
 
-Append this line to `astro-service/requirements.txt`:
+Append these lines to `astro-service/requirements.txt`:
 ```
 anthropic>=0.40.0
+google-generativeai>=0.8.0
 ```
 
-**Step 2: Install the new dependency**
+**Step 2: Install the new dependencies**
 
 ```bash
 cd astro-service
-pip install anthropic
+pip install anthropic google-generativeai
 ```
-Expected: `Successfully installed anthropic-...`
+Expected: `Successfully installed anthropic-... google-generativeai-...`
 
 **Step 3: Add CORS middleware to main.py**
 
@@ -159,16 +162,14 @@ SAMPLE_MATCH_DATA = {
 
 def test_generate_archetype_returns_tags_and_report():
     """Endpoint returns archetype_tags list + report string."""
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text='{"archetype_tags": ["Mirror Twins", "Power Clash", "Slow Burn"], "report": "測試報告內容"}')]
+    fake_json = '{"archetype_tags": ["Mirror Twins", "Power Clash", "Slow Burn"], "report": "測試報告內容"}'
 
-    with patch("main.anthropic_client") as mock_client:
-        mock_client.messages.create.return_value = mock_msg
-
+    with patch("main.call_llm", return_value=fake_json):
         resp = client.post("/generate-archetype", json={
             "match_data": SAMPLE_MATCH_DATA,
             "person_a_name": "Person A",
             "person_b_name": "Person B",
+            "provider": "anthropic",
         })
 
     assert resp.status_code == 200
@@ -181,19 +182,33 @@ def test_generate_archetype_returns_tags_and_report():
     assert len(data["report"]) > 10
 
 
+def test_generate_archetype_gemini_provider():
+    """Endpoint works with gemini provider too."""
+    fake_json = '{"archetype_tags": ["Fire Duo", "Deep Pull", "Mirror Bond"], "report": "Gemini生成報告"}'
+
+    with patch("main.call_llm", return_value=fake_json) as mock_llm:
+        resp = client.post("/generate-archetype", json={
+            "match_data": SAMPLE_MATCH_DATA,
+            "provider": "gemini",
+        })
+
+    assert resp.status_code == 200
+    mock_llm.assert_called_once()
+    # Verify provider was passed through
+    call_kwargs = mock_llm.call_args
+    assert call_kwargs[1].get("provider") == "gemini" or call_kwargs[0][1] == "gemini"
+
+
 def test_generate_archetype_no_api_key_returns_400():
     """Returns 400 when ANTHROPIC_API_KEY is not set."""
     import os
-    original = os.environ.pop("ANTHROPIC_API_KEY", None)
-    try:
+    from fastapi import HTTPException as FastHTTPException
+    with patch("main.call_llm", side_effect=FastHTTPException(status_code=400, detail="ANTHROPIC_API_KEY not set")):
         resp = client.post("/generate-archetype", json={
             "match_data": SAMPLE_MATCH_DATA,
         })
-        assert resp.status_code == 400
-        assert "ANTHROPIC_API_KEY" in resp.json()["detail"]
-    finally:
-        if original:
-            os.environ["ANTHROPIC_API_KEY"] = original
+    assert resp.status_code == 400
+    assert "ANTHROPIC_API_KEY" in resp.json()["detail"]
 ```
 
 **Step 2: Run test to verify it fails**
@@ -211,8 +226,35 @@ At the top of `astro-service/main.py`, add after existing imports:
 import os
 import json
 from anthropic import Anthropic
+import google.generativeai as genai
 
 anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+```
+
+Add a shared `call_llm()` helper right below (used by all three LLM endpoints):
+```python
+def call_llm(prompt: str, provider: str = "anthropic", max_tokens: int = 600) -> str:
+    """Call Claude (Anthropic) or Gemini based on provider.
+
+    Raises HTTPException 400 if the required API key is not set.
+    Returns raw text from the model.
+    """
+    if provider == "gemini":
+        if not os.environ.get("GEMINI_API_KEY"):
+            raise HTTPException(status_code=400, detail="GEMINI_API_KEY not set")
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(prompt)
+        return response.text
+    else:  # anthropic (default)
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY not set")
+        message = anthropic_client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return message.content[0].text
 ```
 
 At the **end** of `astro-service/main.py`, append:
@@ -250,14 +292,12 @@ class ArchetypeRequest(BaseModel):
     person_a_name: str = "A"
     person_b_name: str = "B"
     language: str = "zh-TW"
+    provider: str = "anthropic"  # "anthropic" | "gemini"
 
 
 @app.post("/generate-archetype")
 def generate_archetype(req: ArchetypeRequest):
-    """Generate AI archetype tags + interpretation report via Claude API."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY not set")
-
+    """Generate AI archetype tags + interpretation report via Claude or Gemini."""
     md = req.match_data
     tracks = md.get("tracks", {})
     power = md.get("power", {})
@@ -281,16 +321,12 @@ def generate_archetype(req: ArchetypeRequest):
     )
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=600,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = message.content[0].text
-        result = json.loads(raw)
-        return result
+        raw = call_llm(prompt, provider=req.provider, max_tokens=600)
+        return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 ```
@@ -436,10 +472,14 @@ Key sections:
 <h1>⬡ DESTINY — Algorithm Validation Sandbox</h1>
 <p class="subtitle">Internal tool · Phase G matching algorithm validation · Not for production</p>
 
-<!-- API Key Row (shared) -->
-<div class="api-key-row">
-  <label>ANTHROPIC_API_KEY (for archetype generation):</label>
-  <input type="password" id="apiKeyInput" placeholder="sk-ant-... (optional, only needed for AI archetype generation)" />
+<!-- Provider + API Key Row (shared) -->
+<div class="api-key-row" style="flex-wrap:wrap;gap:8px">
+  <label>LLM Provider:</label>
+  <select id="llmProvider" style="background:#1f2937;border:1px solid #374151;color:#e0dff8;padding:4px 8px;border-radius:4px;font-size:12px;font-family:inherit">
+    <option value="anthropic">Anthropic (Claude Haiku)</option>
+    <option value="gemini">Google (Gemini 1.5 Flash)</option>
+  </select>
+  <label style="margin-left:8px">API Key 由 server 環境變數讀取 (ANTHROPIC_API_KEY / GEMINI_API_KEY)</label>
 </div>
 
 <div class="tabs">
@@ -817,19 +857,18 @@ async function generateArchetype(matchData, nameA, nameB) {
   const btn = document.getElementById('archetype-btn');
   const out = document.getElementById('archetype-output');
   btn.disabled = true;
-  out.innerHTML = '<div class="loading">呼叫 Claude API...</div>';
+  const provider = document.getElementById('llmProvider').value;
+  out.innerHTML = `<div class="loading">呼叫 ${provider === 'gemini' ? 'Gemini' : 'Claude'} API...</div>`;
 
   try {
-    const apiKey = document.getElementById('apiKeyInput').value.trim();
-    const headers = {'Content-Type':'application/json'};
-    // apiKey is passed as a note; actual key used by server env
     const r = await fetch(`${BASE}/generate-archetype`, {
       method: 'POST',
-      headers,
+      headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         match_data: matchData,
         person_a_name: nameA,
         person_b_name: nameB,
+        provider,
       })
     });
     if (!r.ok) {
@@ -1107,12 +1146,9 @@ git commit -m "chore: add sandbox validation tooling — .gitignore + progress u
 Add to `astro-service/test_sandbox.py`:
 ```python
 def test_generate_profile_card_returns_card():
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text='{"headline": "探索者型", "tags": ["直覺敏銳","情感深度","喜歡安靜的驚喜"], "bio": "你是那種...", "vibe_keywords": ["神秘","溫柔","獨立"]}')]
+    fake_json = '{"headline": "探索者型", "tags": ["直覺敏銳","情感深度","喜歡安靜的驚喜"], "bio": "你是那種...", "vibe_keywords": ["神秘","溫柔","獨立"]}'
 
-    with patch("main.anthropic_client") as mock_client:
-        mock_client.messages.create.return_value = mock_msg
-
+    with patch("main.call_llm", return_value=fake_json):
         resp = client.post("/generate-profile-card", json={
             "chart_data": {
                 "sun_sign": "gemini", "moon_sign": "pisces", "bazi_element": "wood",
@@ -1120,6 +1156,7 @@ def test_generate_profile_card_returns_card():
             },
             "rpv_data": {"rpv_conflict": "cold_war", "rpv_power": "control", "rpv_energy": "home"},
             "attachment_style": "anxious",
+            "provider": "anthropic",
         })
 
     assert resp.status_code == 200
@@ -1172,13 +1209,11 @@ class ProfileCardRequest(BaseModel):
     rpv_data: dict
     attachment_style: str = "secure"
     person_name: str = "User"
+    provider: str = "anthropic"  # "anthropic" | "gemini"
 
 @app.post("/generate-profile-card")
 def generate_profile_card(req: ProfileCardRequest):
-    """Generate a dating-app profile card via Claude API."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY not set")
-
+    """Generate a dating-app profile card via Claude or Gemini."""
     cd = req.chart_data
     rpv = req.rpv_data
     prompt = PROFILE_CARD_PROMPT.format(
@@ -1193,15 +1228,12 @@ def generate_profile_card(req: ProfileCardRequest):
     )
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = message.content[0].text
+        raw = call_llm(prompt, provider=req.provider, max_tokens=500)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 ```
@@ -1295,6 +1327,8 @@ async function generateProfileCard() {
     const chart = await cr.json();
 
     status.textContent = '生成名片中...';
+    const provider = document.getElementById('llmProvider').value;
+    status.textContent = `生成名片中 (${provider})...`;
     const r = await fetch(`${BASE}/generate-profile-card`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
@@ -1305,6 +1339,7 @@ async function generateProfileCard() {
           rpv_energy:   document.getElementById('pc_energy').value,
         },
         attachment_style: document.getElementById('pc_attach').value,
+        provider,
       })
     });
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.statusText); }
@@ -1360,16 +1395,14 @@ git commit -m "feat: add /generate-profile-card endpoint + Tab C in sandbox"
 Add to `astro-service/test_sandbox.py`:
 ```python
 def test_generate_match_report_returns_report():
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text='{"title": "激情型連結", "sparks": ["靈魂共鳴深度", "互補的能量流動"], "landmines": ["控制慾張力"], "advice": "保持各自空間，定期深度對話。", "one_liner": "你們是彼此的鏡子，也是彼此的火焰。"}')]
+    fake_json = '{"title": "激情型連結", "sparks": ["靈魂共鳴深度", "互補的能量流動"], "landmines": ["控制慾張力"], "advice": "保持各自空間，定期深度對話。", "one_liner": "你們是彼此的鏡子，也是彼此的火焰。"}'
 
-    with patch("main.anthropic_client") as mock_client:
-        mock_client.messages.create.return_value = mock_msg
-
+    with patch("main.call_llm", return_value=fake_json):
         resp = client.post("/generate-match-report", json={
             "match_data": SAMPLE_MATCH_DATA,
             "person_a_name": "Alice",
             "person_b_name": "Bob",
+            "provider": "anthropic",
         })
 
     assert resp.status_code == 200
@@ -1425,13 +1458,11 @@ class MatchReportRequest(BaseModel):
     match_data: dict
     person_a_name: str = "A"
     person_b_name: str = "B"
+    provider: str = "anthropic"  # "anthropic" | "gemini"
 
 @app.post("/generate-match-report")
 def generate_match_report(req: MatchReportRequest):
-    """Generate a full synastry relationship report via Claude API."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise HTTPException(status_code=400, detail="ANTHROPIC_API_KEY not set")
-
+    """Generate a full synastry relationship report via Claude or Gemini."""
     md = req.match_data
     tracks = md.get("tracks", {})
     power = md.get("power", {})
@@ -1454,15 +1485,12 @@ def generate_match_report(req: MatchReportRequest):
     )
 
     try:
-        message = anthropic_client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=700,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = message.content[0].text
+        raw = call_llm(prompt, provider=req.provider, max_tokens=700)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 ```
@@ -1561,12 +1589,14 @@ async function generateMatchReport() {
   }
 
   try {
+    const provider = document.getElementById('llmProvider').value;
     const r = await fetch(`${BASE}/generate-match-report`, {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         match_data: matchData,
         person_a_name: document.getElementById('mr_name_a').value,
         person_b_name: document.getElementById('mr_name_b').value,
+        provider,
       })
     });
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail || r.statusText); }
