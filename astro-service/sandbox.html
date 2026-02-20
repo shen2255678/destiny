@@ -90,6 +90,10 @@
   .provider-row label { color: #6b7280; font-size: 11px; white-space: nowrap; }
   .provider-row select { background: #1f2937; border: 1px solid #374151; color: #e0dff8; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; }
   .provider-row .provider-note { color: #4b5563; font-size: 10px; }
+  .inferred-display { margin-top: 10px; padding: 8px; background: #0f172a; border-radius: 6px; border: 1px solid #1f2937; }
+  .inferred-display .inf-title { color: #4b5563; font-size: 10px; margin-bottom: 6px; letter-spacing: 0.5px; }
+  .inf-tag { display: inline-flex; align-items: center; gap: 3px; background: #1e1b4b; color: #a78bfa; border: 1px solid #4338ca; padding: 2px 7px; border-radius: 8px; font-size: 10px; margin: 2px; }
+  .inf-tag.pending { color: #4b5563; border-color: #374151; background: #111827; font-style: italic; }
 </style>
 </head>
 <body>
@@ -146,30 +150,9 @@
           <option value="3">Tier 3&#65288;&#21482;&#26377;&#26085;&#26399;&#65289;</option>
         </select>
       </div>
-      <div class="field"><label>RPV &#34ung;&#31361;&#39118;&#26684;</label>
-        <select id="a_rpv_conflict">
-          <option value="cold_war">&#20919;&#25112; (cold_war)</option>
-          <option value="argue">&#30452;&#25509;&#38283;&#21438; (argue)</option>
-        </select>
-      </div>
-      <div class="field"><label>RPV &#27278;&#21147;&#20559;&#22909;</label>
-        <select id="a_rpv_power">
-          <option value="control">&#20027;&#23566; (control)</option>
-          <option value="follow">&#36319;&#38615; (follow)</option>
-        </select>
-      </div>
-      <div class="field"><label>RPV &#33021;&#37327;&#27169;&#24335;</label>
-        <select id="a_rpv_energy">
-          <option value="home">&#23431; (home)</option>
-          <option value="out">&#20986;&#38272; (out)</option>
-        </select>
-      </div>
-      <div class="field"><label>&#20381;&#25200;&#39118;&#26684;</label>
-        <select id="a_attachment_style">
-          <option value="secure">&#23433;&#20840;&#22411; (secure)</option>
-          <option value="anxious">&#28124;&#24935;&#22411; (anxious)</option>
-          <option value="avoidant">&#36801;&#38907;&#22411; (avoidant)</option>
-        </select>
+      <div class="inferred-display" id="a_inferred">
+        <div class="inf-title">&#8594; RPV / &#20381;&#25200;&#39118;&#26684;&#65288;&#30001;&#21629;&#30424;&#33258;&#21160;&#25512;&#31639;&#65289;</div>
+        <span class="inf-tag pending">&#31561;&#24453;&#36939;&#31639;...</span>
       </div>
     </div>
 
@@ -189,30 +172,9 @@
           <option value="3">Tier 3&#65288;&#21482;&#26377;&#26085;&#26399;&#65289;</option>
         </select>
       </div>
-      <div class="field"><label>RPV &#34ung;&#31361;&#39118;&#26684;</label>
-        <select id="b_rpv_conflict">
-          <option value="cold_war">&#20919;&#25112; (cold_war)</option>
-          <option value="argue">&#30452;&#25509;&#38283;&#21438; (argue)</option>
-        </select>
-      </div>
-      <div class="field"><label>RPV &#27278;&#21147;&#20559;&#22909;</label>
-        <select id="b_rpv_power">
-          <option value="control">&#20027;&#23566; (control)</option>
-          <option value="follow" selected>&#36319;&#38615; (follow)</option>
-        </select>
-      </div>
-      <div class="field"><label>RPV &#33021;&#37327;&#27169;&#24335;</label>
-        <select id="b_rpv_energy">
-          <option value="home">&#23431; (home)</option>
-          <option value="out" selected>&#20986;&#38272; (out)</option>
-        </select>
-      </div>
-      <div class="field"><label>&#20381;&#25200;&#39118;&#26684;</label>
-        <select id="b_attachment_style">
-          <option value="secure" selected>&#23433;&#20840;&#22411; (secure)</option>
-          <option value="anxious">&#28124;&#24935;&#22411; (anxious)</option>
-          <option value="avoidant">&#36801;&#38907;&#22411; (avoidant)</option>
-        </select>
+      <div class="inferred-display" id="b_inferred">
+        <div class="inf-title">&#8594; RPV / &#20381;&#25200;&#39118;&#26684;&#65288;&#30001;&#21629;&#30424;&#33258;&#21160;&#25512;&#31639;&#65289;</div>
+        <span class="inf-tag pending">&#31561;&#24453;&#36939;&#31639;...</span>
       </div>
     </div>
   </div>
@@ -366,6 +328,78 @@ function getGeminiModel() {
   return document.getElementById('geminiModel').value || 'gemini-1.5-flash';
 }
 
+// ── RPV / Attachment inference from birth chart ───────────────
+function inferFromChart(chart) {
+  var FIRE  = ['aries','leo','sagittarius'];
+  var WATER = ['cancer','scorpio','pisces'];
+  var EARTH = ['taurus','virgo','capricorn'];
+  var AIR   = ['gemini','libra','aquarius'];
+  var FIXED = ['taurus','leo','scorpio','aquarius'];
+
+  function elem(sign) {
+    if (!sign) return 'unknown';
+    if (FIRE.indexOf(sign)  >= 0) return 'fire';
+    if (WATER.indexOf(sign) >= 0) return 'water';
+    if (EARTH.indexOf(sign) >= 0) return 'earth';
+    if (AIR.indexOf(sign)   >= 0) return 'air';
+    return 'unknown';
+  }
+
+  var moon = chart.moon_sign        || '';
+  var sun  = chart.sun_sign         || '';
+  var mars = chart.mars_sign        || '';
+  var asc  = chart.ascendant_sign   || '';
+  var bazi = chart.bazi_element     || '';
+
+  // Attachment from Moon element
+  var moonElem = elem(moon);
+  var attachment = (moonElem === 'water' || moonElem === 'fire') ? 'anxious'
+                 : (moonElem === 'earth') ? 'avoidant'
+                 : 'secure'; // air or unknown
+
+  // rpv_conflict: fire sun or mars → argue, else cold_war
+  var rpv_conflict = (FIRE.indexOf(sun) >= 0 || FIRE.indexOf(mars) >= 0) ? 'argue' : 'cold_war';
+
+  // rpv_power: fixed sun OR wood/fire bazi → control, else follow
+  var rpv_power = (FIXED.indexOf(sun) >= 0 || bazi === 'wood' || bazi === 'fire') ? 'control' : 'follow';
+
+  // rpv_energy: fire/air ascendant or (if no asc) sun → out, else home
+  var refSign = asc || sun;
+  var rpv_energy = (FIRE.indexOf(refSign) >= 0 || AIR.indexOf(refSign) >= 0) ? 'out' : 'home';
+
+  return { attachment_style: attachment, rpv_conflict: rpv_conflict, rpv_power: rpv_power, rpv_energy: rpv_energy };
+}
+
+function renderInferred(prefix, inferred, chart) {
+  var el = document.getElementById(prefix + '_inferred');
+  if (!el) return;
+  var LABELS = {
+    attachment_style: { anxious: '\u7126\u616e\u4f9d\u6200', avoidant: '\u8fc2\u907f\u4f9d\u6200', secure: '\u5b89\u5168\u4f9d\u6200' },
+    rpv_conflict:     { argue: '\u958b\u5435\u578b', cold_war: '\u51b7\u6230\u578b' },
+    rpv_power:        { control: '\u4e3b\u5c0e\u578b', follow: '\u8ddf\u96a8\u578b' },
+    rpv_energy:       { out: '\u5916\u51fa\u578b', home: '\u5b85\u5bb6\u578b' },
+  };
+  var icons = { attachment_style: '\u2665', rpv_conflict: '\u26a1', rpv_power: '\u2696', rpv_energy: '\u2736' };
+  var html = '<div class="inf-title">\u2192 RPV / \u4f9d\u6200\u98a8\u683c\uff08\u7531\u547d\u76e4\u81ea\u52d5\u63a8\u7b97\uff09</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:4px">';
+  ['attachment_style','rpv_conflict','rpv_power','rpv_energy'].forEach(function(k) {
+    var val = inferred[k];
+    var label = (LABELS[k] && LABELS[k][val]) ? LABELS[k][val] : val;
+    html += '<span class="inf-tag">' + icons[k] + ' ' + label + '</span>';
+  });
+  html += '</div>';
+  if (chart) {
+    html += '<div style="color:#374151;font-size:10px;margin-top:3px">';
+    if (chart.moon_sign)      html += '\u6708\u4eae:' + chart.moon_sign + '\u3000';
+    if (chart.sun_sign)       html += '\u592a\u967d:' + chart.sun_sign  + '\u3000';
+    if (chart.mars_sign)      html += '\u706b\u661f:' + chart.mars_sign + '\u3000';
+    if (chart.ascendant_sign) html += 'ASC:' + chart.ascendant_sign    + '\u3000';
+    if (chart.bazi_element)   html += '\u65e5\u4e3b:' + chart.bazi_element;
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
 const SIGNS = ["aries","taurus","gemini","cancer","leo","virgo",
                "libra","scorpio","sagittarius","capricorn","aquarius","pisces"];
 const ASPECT_SCORES = {0:0.90, 1:0.65, 2:0.75, 3:0.50, 4:0.85, 5:0.65, 6:0.60};
@@ -416,11 +450,12 @@ async function fetchChart(prefix) {
 }
 
 function getRpv(prefix) {
+  var inferred = window['_inferred' + prefix.toUpperCase()] || {};
   return {
-    rpv_conflict:     document.getElementById(prefix + '_rpv_conflict').value,
-    rpv_power:        document.getElementById(prefix + '_rpv_power').value,
-    rpv_energy:       document.getElementById(prefix + '_rpv_energy').value,
-    attachment_style: document.getElementById(prefix + '_attachment_style').value,
+    rpv_conflict:     inferred.rpv_conflict     || 'cold_war',
+    rpv_power:        inferred.rpv_power        || 'follow',
+    rpv_energy:       inferred.rpv_energy       || 'home',
+    attachment_style: inferred.attachment_style || 'secure',
     data_tier:        parseInt(document.getElementById(prefix + '_data_tier').value),
   };
 }
@@ -555,6 +590,12 @@ async function runMatch() {
     var chartB = results[1];
     var nameA = document.getElementById('a_name').value || 'A';
     var nameB = document.getElementById('b_name').value || 'B';
+
+    // Infer RPV + attachment from charts and display
+    window._inferredA = inferFromChart(chartA);
+    window._inferredB = inferFromChart(chartB);
+    renderInferred('a', window._inferredA, chartA);
+    renderInferred('b', window._inferredB, chartB);
 
     var userA = Object.assign({}, chartA, getRpv('a'));
     var userB = Object.assign({}, chartB, getRpv('b'));
