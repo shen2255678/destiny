@@ -268,3 +268,72 @@ def generate_profile_card(req: ProfileCardRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+MATCH_REPORT_PROMPT = """\
+\u4f60\u662f\u4e00\u4f4d\u9ad8\u60c5\u5546\u7684\u95dc\u4fc2\u8ae6\u5546\u5e2b\u3002\u8acb\u6839\u64da {person_a} \u8207 {person_b} \u5169\u4eba\u7684\u5408\u76e4\u5206\u6578\u8207\u4e92\u52d5\u7279\u5fb5\uff0c\
+\u5beb\u51fa\u4e00\u4efd\u96d9\u65b9\u90fd\u80fd\u770b\u61c2\u7684\u300c\u95dc\u4fc2\u6f5b\u529b\u5831\u544a\u300d\u3002
+\u8acb\u5206\u70ba\u300c\u9583\u5149\u9ede\uff08\u9ad8\u5206\u9805\u76ee\uff09\u300d\u8207\u300c\u6f5b\u5728\u96f7\u5340\uff08\u4f4e\u5206\u9805\u76ee\uff09\u300d\uff0c\u4e26\u7d66\u51fa\u5177\u9ad4\u7684\u76f8\u8655\u5efa\u8b70\u3002
+\u8acb\u5ba2\u89c0\u4e14\u5e36\u6709\u6eab\u5ea6\uff0c\u82e5\u6709\u885d\u7a81\u9ede\uff0c\u8acb\u5305\u88dd\u6210\u300c\u6210\u9577\u8ab2\u984c\u300d\u800c\u975e\u7f3a\u9ede\u3002
+
+\u5408\u76e4\u6578\u64da\uff1a
+- VibeScore\uff08\u8089\u9ad4\u5438\u5f15\u529b\uff09: {lust_score}/100
+- ChemistryScore\uff08\u9748\u9b42\u6df1\u5ea6\uff09: {soul_score}/100
+- \u4e3b\u8981\u9023\u7d50\u985e\u578b: {primary_track}
+- \u56db\u8c61\u9650: {quadrant}
+- \u56db\u8ecc: friend={friend} passion={passion} partner={partner} soul={soul}
+- \u6b0a\u529b\u52d5\u614b: {person_a}={viewer_role}\uff0c{person_b}={target_role}\uff0cRPV={rpv}
+- Chiron\u6846\u67b6\u89f8\u767c: {frame_break}
+- \u7cfb\u7d71\u6a19\u7c64: {labels}
+
+\u8acb\u53ea\u56de\u50b3\u4ee5\u4e0b JSON\uff0c\u4e0d\u8981\u5305\u542b\u4efb\u4f55\u5176\u4ed6\u6587\u5b57\uff1a
+{{
+  "title": "\u9019\u6bb5\u95dc\u4fc2\u7684\u6a19\u984c\uff088\u5b57\u4ee5\u5167\uff09",
+  "sparks": ["\u9583\u5149\u96621", "\u9583\u5149\u96622", "\u9583\u5149\u96623"],
+  "landmines": ["\u6210\u9577\u8ab2\u98981", "\u6210\u9577\u8ab2\u98982"],
+  "advice": "\u7d0460\u5b57\u7684\u76f8\u8655\u5efa\u8b70\uff0c\u5177\u9ad4\u53ef\u64cd\u4f5c",
+  "one_liner": "\u4e00\u53e5\u8a71\u63cf\u8ff0\u9019\u6bb5\u95dc\u4fc2\u7684\u672c\u8cea\uff08\u8a69\u610f\u4f46\u76f4\u767d\uff09"
+}}
+"""
+
+
+class MatchReportRequest(BaseModel):
+    match_data: dict
+    person_a_name: str = "A"
+    person_b_name: str = "B"
+    provider: str = "anthropic"  # "anthropic" | "gemini"
+
+
+@app.post("/generate-match-report")
+def generate_match_report(req: MatchReportRequest):
+    """Generate a full synastry relationship report via Claude or Gemini."""
+    md = req.match_data
+    tracks = md.get("tracks", {})
+    power = md.get("power", {})
+    prompt = MATCH_REPORT_PROMPT.format(
+        person_a=req.person_a_name,
+        person_b=req.person_b_name,
+        lust_score=round(md.get("lust_score", 0), 1),
+        soul_score=round(md.get("soul_score", 0), 1),
+        primary_track=md.get("primary_track", "unknown"),
+        quadrant=md.get("quadrant", "unknown"),
+        friend=tracks.get("friend", 0),
+        passion=tracks.get("passion", 0),
+        partner=tracks.get("partner", 0),
+        soul=tracks.get("soul", 0),
+        viewer_role=power.get("viewer_role", "Equal"),
+        target_role=power.get("target_role", "Equal"),
+        rpv=power.get("rpv", 0),
+        frame_break=power.get("frame_break", False),
+        labels=", ".join(md.get("labels", [])),
+    )
+
+    try:
+        raw = call_llm(prompt, provider=req.provider, max_tokens=700)
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

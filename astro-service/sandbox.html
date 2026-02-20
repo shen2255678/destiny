@@ -296,10 +296,41 @@
 <div id="tab-d" class="tab-content">
   <div class="mech-b-card" style="max-width:560px">
     <h3>&#38597;&#30424;&#22909;&#22909;&#20837;&#24178;&#22120;</h3>
-    <p style="color:#6b7280;font-size:11px;margin-bottom:12px">Coming soon &#8212; &#30456;&#23481;&#24615;&#22577;&#21578;&#65292;&#38597;&#20809;&#40670; + &#25104;&#38271;&#35506;&#39064; + &#30456;&#34389;&#24314;&#35336;&#12290;</p>
-    <p style="color:#4b5563;font-size:11px">&#65288;&#23526;&#20316;&#20013;&#65289;</p>
+    <p style="color:#6b7280;font-size:11px;margin-bottom:12px">
+      &#20808;&#22312; Mechanism A &#36319;&#23436;&#21512;&#30424;&#65292;&#20877;&#22238;&#21040;&#27492;&#39006;&#29983;&#25104;&#23436;&#25972;&#38364;&#20418;&#22577;&#21578;&#12290;<br>
+      &#25110;&#30452;&#25509;&#22586;&#20837;&#20998;&#25976;&#25163;&#21205;&#35578;&#30330;&#12290;
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="field"><label>Person A &#21517;&#23383;</label><input type="text" id="mr_name_a" value="Person A"></div>
+      <div class="field"><label>Person B &#21517;&#23383;</label><input type="text" id="mr_name_b" value="Person B"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="field"><label>VibeScore (lust)</label><input type="number" id="mr_lust" value="75" min="0" max="100"></div>
+      <div class="field"><label>ChemistryScore (soul)</label><input type="number" id="mr_soul" value="68" min="0" max="100"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
+      <div class="field"><label>friend</label><input type="number" id="mr_friend" value="45" min="0" max="100"></div>
+      <div class="field"><label>passion</label><input type="number" id="mr_passion" value="72" min="0" max="100"></div>
+      <div class="field"><label>partner</label><input type="number" id="mr_partner" value="60" min="0" max="100"></div>
+      <div class="field"><label>soul</label><input type="number" id="mr_soul_t" value="55" min="0" max="100"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="field"><label>primary_track</label>
+        <select id="mr_primary"><option>passion</option><option>partner</option><option>friend</option><option>soul</option></select>
+      </div>
+      <div class="field"><label>quadrant</label>
+        <select id="mr_quad"><option>lover</option><option>soulmate</option><option>partner</option><option>colleague</option></select>
+      </div>
+      <div class="field"><label>RPV</label><input type="number" id="mr_rpv" value="25"></div>
+    </div>
+    <div>
+      <button class="btn" onclick="fillFromLastMatch()">&#8592; &#24478;&#19978;&#27425;&#21512;&#30424;&#22586;&#20837;</button>
+      <button class="btn" style="margin-left:8px" onclick="generateMatchReport()">&#10022; &#29983;&#25104;&#21512;&#30424;&#22577;&#21578;</button>
+      <span id="mr_status" class="loading" style="margin-left:8px"></span>
+    </div>
+    <div id="mr_output" style="margin-top:16px"></div>
   </div>
-</div>
+</div><!-- end tab-d -->
 
 <script>
 const BASE = 'http://localhost:8001';
@@ -761,6 +792,95 @@ async function generateProfileCard() {
     errDiv.className = 'error-msg';
     errDiv.textContent = 'Error: ' + err.message;
     out.innerHTML = '';
+    out.appendChild(errDiv);
+    status.textContent = '';
+  }
+}
+
+function fillFromLastMatch() {
+  if (!window._lastMatchData) { alert('\u8acb\u5148\u5728 Mechanism A \u8de1\u5b8c\u5408\u76e4'); return; }
+  var md = window._lastMatchData;
+  document.getElementById('mr_lust').value    = md.lust_score.toFixed(0);
+  document.getElementById('mr_soul').value    = md.soul_score.toFixed(0);
+  document.getElementById('mr_friend').value  = md.tracks.friend.toFixed(0);
+  document.getElementById('mr_passion').value = md.tracks.passion.toFixed(0);
+  document.getElementById('mr_partner').value = md.tracks.partner.toFixed(0);
+  document.getElementById('mr_soul_t').value  = md.tracks.soul.toFixed(0);
+  document.getElementById('mr_rpv').value     = md.power.rpv;
+  document.getElementById('mr_primary').value = md.primary_track;
+  document.getElementById('mr_quad').value    = md.quadrant;
+  document.getElementById('mr_name_a').value  = window._lastNameA || 'A';
+  document.getElementById('mr_name_b').value  = window._lastNameB || 'B';
+}
+
+async function generateMatchReport() {
+  var status = document.getElementById('mr_status');
+  var out    = document.getElementById('mr_output');
+  status.textContent = '\u751f\u6210\u5831\u544a\u4e2d...';
+  out.innerHTML = '';
+
+  var matchData = {
+    lust_score:    parseFloat(document.getElementById('mr_lust').value),
+    soul_score:    parseFloat(document.getElementById('mr_soul').value),
+    primary_track: document.getElementById('mr_primary').value,
+    quadrant:      document.getElementById('mr_quad').value,
+    labels:        [],
+    tracks: {
+      friend:  parseFloat(document.getElementById('mr_friend').value),
+      passion: parseFloat(document.getElementById('mr_passion').value),
+      partner: parseFloat(document.getElementById('mr_partner').value),
+      soul:    parseFloat(document.getElementById('mr_soul_t').value),
+    },
+    power: {
+      rpv: parseFloat(document.getElementById('mr_rpv').value),
+      frame_break: false,
+      viewer_role: 'Equal', target_role: 'Equal',
+    },
+  };
+  if (window._lastMatchData) {
+    matchData.labels = window._lastMatchData.labels || [];
+    matchData.power  = window._lastMatchData.power  || matchData.power;
+  }
+
+  try {
+    var provider = document.getElementById('llmProvider').value;
+    var r = await fetch(BASE + '/generate-match-report', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        match_data: matchData,
+        person_a_name: document.getElementById('mr_name_a').value,
+        person_b_name: document.getElementById('mr_name_b').value,
+        provider: provider,
+      })
+    });
+    if (!r.ok) { var e = await r.json(); throw new Error(e.detail || r.statusText); }
+    var data = await r.json();
+
+    var sparksHtml    = (data.sparks    || []).map(function(s) { return '<li style="color:#6ee7b7">&#10022; ' + s + '</li>'; }).join('');
+    var landminesHtml = (data.landmines || []).map(function(s) { return '<li style="color:#fca5a5">&#9889; ' + s + '</li>'; }).join('');
+
+    out.innerHTML =
+      '<div style="background:#0f172a;border:1px solid #7c3aed;border-radius:10px;padding:16px">' +
+        '<div style="color:#c084fc;font-size:15px;font-weight:bold;margin-bottom:12px">' + (data.title || '') + '</div>' +
+        '<div style="font-style:italic;color:#a78bfa;font-size:12px;margin-bottom:14px;padding:8px;background:#1e1b4b;border-radius:6px">&ldquo;' + (data.one_liner || '') + '&rdquo;</div>' +
+        '<div style="margin-bottom:10px">' +
+          '<div style="color:#34d399;font-size:11px;margin-bottom:4px">&#10022; \u9583\u5149\u9ede</div>' +
+          '<ul style="list-style:none;font-size:12px;line-height:2">' + sparksHtml + '</ul>' +
+        '</div>' +
+        '<div style="margin-bottom:10px">' +
+          '<div style="color:#f87171;font-size:11px;margin-bottom:4px">&#9889; \u6210\u9577\u8ab2\u984c</div>' +
+          '<ul style="list-style:none;font-size:12px;line-height:2">' + landminesHtml + '</ul>' +
+        '</div>' +
+        '<div>' +
+          '<div style="color:#6b7280;font-size:11px;margin-bottom:4px">\u76f8\u8655\u5efa\u8b70</div>' +
+          '<div class="report-text">' + (data.advice || '') + '</div>' +
+        '</div>' +
+      '</div>';
+    status.textContent = '';
+  } catch(e) {
+    var errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = 'Error: ' + e.message;
     out.appendChild(errDiv);
     status.textContent = '';
   }

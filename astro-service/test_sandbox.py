@@ -100,3 +100,24 @@ def test_generate_profile_card_returns_card():
     assert len(data["tags"]) >= 3
     assert isinstance(data["bio"], str)
     assert len(data["bio"]) > 10
+
+
+def test_generate_match_report_returns_report():
+    fake_json = '{"title": "\u6fc0\u60c5\u578b\u9023\u7d50", "sparks": ["\u9748\u9b42\u5171\u9cf4\u6df1\u5ea6", "\u4e92\u88dc\u7684\u80fd\u91cf\u6d41\u52d5"], "landmines": ["\u63a7\u5236\u6b32\u5f35\u529b"], "advice": "\u4fdd\u6301\u5404\u81ea\u7a7a\u9593\uff0c\u5b9a\u671f\u6df1\u5ea6\u5c0d\u8a71\u3002", "one_liner": "\u4f60\u5011\u662f\u5f7c\u6b64\u7684\u93e1\u5b50\uff0c\u4e5f\u662f\u5f7c\u6b64\u7684\u706b\u7130\u3002"}'
+
+    with patch("main.call_llm", return_value=fake_json):
+        resp = client.post("/generate-match-report", json={
+            "match_data": SAMPLE_MATCH_DATA,
+            "person_a_name": "Alice",
+            "person_b_name": "Bob",
+            "provider": "anthropic",
+        })
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "title" in data
+    assert "sparks" in data
+    assert "landmines" in data
+    assert "advice" in data
+    assert "one_liner" in data
+    assert len(data["sparks"]) >= 1
