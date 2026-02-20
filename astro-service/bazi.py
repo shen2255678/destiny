@@ -16,10 +16,44 @@ Matching dynamics:
 from __future__ import annotations
 
 import math
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
 import swisseph as swe
+
+def _resolve_ephe_path() -> str:
+    """Return an ASCII-safe path to the ephemeris directory.
+
+    pyswisseph passes the path to a C library that cannot handle non-ASCII
+    characters on Windows. If the repo lives inside a directory whose path
+    contains Unicode characters (e.g. Chinese), we copy the small .se1 files
+    to a stable ASCII temp location and use that instead.
+    """
+    ephe_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ephe")
+    try:
+        ephe_src.encode("ascii")
+        return ephe_src  # All-ASCII — use directly
+    except UnicodeEncodeError:
+        pass
+
+    # Path contains non-ASCII characters; copy files to an ASCII temp location.
+    import shutil, tempfile, atexit
+
+    dest = os.path.join(tempfile.gettempdir(), "destiny_swe_ephe")
+    os.makedirs(dest, exist_ok=True)
+
+    for fname in os.listdir(ephe_src):
+        src_file = os.path.join(ephe_src, fname)
+        dst_file = os.path.join(dest, fname)
+        if not os.path.exists(dst_file):
+            shutil.copy2(src_file, dst_file)
+
+    return dest
+
+
+_EPHE_DIR = _resolve_ephe_path()
+swe.set_ephe_path(_EPHE_DIR)
 
 # ── Constants ───────────────────────────────────────────────────────
 
@@ -342,7 +376,10 @@ def calculate_bazi(
     month_stem, month_branch = calculate_month_pillar(year_stem, month_index)
 
     # ── Day Pillar ──
-    day_stem, day_branch = calculate_day_pillar(jd)
+    # Use local noon (12:00 Taiwan = UT 04:00) so early-morning births (00:00–07:59 local)
+    # don't cross the UTC date boundary and land on the wrong calendar day.
+    jd_local_noon = swe.julday(dt.year, dt.month, dt.day, 4.0)
+    day_stem, day_branch = calculate_day_pillar(jd_local_noon)
 
     # ── Hour Pillar ──
     hour_branch_idx = _hour_branch_index(local_hour)
