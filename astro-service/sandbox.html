@@ -489,7 +489,11 @@ async function runMatch() {
     status.textContent = '';
     var container = document.getElementById('results-a');
     container.className = 'results show';
-    container.innerHTML = '<div class="error-msg">Error: ' + e.message + '</div>';
+    var errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = 'Error: ' + e.message;
+    container.innerHTML = '';
+    container.appendChild(errDiv);
   }
 }
 
@@ -521,7 +525,11 @@ async function generateArchetype() {
       '<div class="archetype-tags">' + tagsHtml + '</div>' +
       '<div class="report-text">' + (data.report || '') + '</div>';
   } catch(e) {
-    out.innerHTML = '<div class="error-msg">Error: ' + e.message + '</div>';
+    var errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = 'Error: ' + e.message;
+    out.innerHTML = '';
+    out.appendChild(errDiv);
   }
   btn.disabled = false;
 }
@@ -552,7 +560,7 @@ function minutesToHHMM(mins) {
 
 function startRectSim() {
   var preciseTime = document.getElementById('b2_precise').value;
-  if (!preciseTime) { alert('\u8acb\u8f38\u5165\u31291;\u30830;\u20986;\u29983;\u26178;\u38291;'); return; }
+  if (!preciseTime) { alert('\u8acb\u8f38\u5165\u7cbe\u78ba\u51fa\u751f\u6642\u9593'); return; }
   var parts = preciseTime.split(':');
   var hh = parseInt(parts[0]);
   var mm = parseInt(parts[1]);
@@ -571,12 +579,12 @@ function startRectSim() {
   var logEl = document.getElementById('rect-log');
   logEl.innerHTML =
     '<div style="margin-bottom:10px;font-size:11px;color:#9ca3af">' +
-      '\u31291;\u30830;\u26178;\u38291;: <b style="color:#e0dff8">' + preciseTime + '</b> \u2192 ' +
-      '\u26178;\u27573;: <b style="color:#c084fc">' + slot.name + '</b> \u2192 ' +
-      '\u521d;\u22987;\u35996;\u21475;: <b style="color:#e0dff8">' +
+      '\u7cbe\u78ba\u6642\u9593: <b style="color:#e0dff8">' + preciseTime + '</b> \u2192 ' +
+      '\u6642\u6bb5: <b style="color:#c084fc">' + slot.name + '</b> \u2192 ' +
+      '\u521d\u59cb\u8996\u7a97: <b style="color:#e0dff8">' +
         minutesToHHMM(slot.center - rectState.halfWindow) + ' ~ ' +
         minutesToHHMM(slot.center + rectState.halfWindow) +
-      '</b> (' + initialWindow + ' \u20998;\u37912;)' +
+      '</b> (' + initialWindow + ' \u5206\u9418)' +
     '</div>' +
     '<div class="conf-bar-wrap">' +
       '<span class="conf-label" id="conf-label-text">Confidence: 0.15</span>' +
@@ -630,8 +638,8 @@ function answerQ(isVN, qIdx) {
       ' <span style="color:' + (isVN ? '#6ee7b7' : '#fca5a5') + '">' +
         (isVN ? '\u2713 \u662f\u7684\uff0c\u6211\u4e0d\u662f' : '\u2717 \u4e0d\u5c0d\uff0c\u6211\u662f') +
       '</span></div>' +
-    '<div class="q-window">\u35996;\u21475;\u7e2e;\u23567;\u81f3;: ' + ws + ' ~ ' + we +
-      ' (' + Math.round(rectState.halfWindow * 2) + ' \u20998;\u37912;)</div>' +
+    '<div class="q-window">\u8996\u7a97\u7e2e\u5c0f\u81f3: ' + ws + ' ~ ' + we +
+      ' (' + Math.round(rectState.halfWindow * 2) + ' \u5206\u9418)</div>' +
     '<div class="q-conf">Confidence: ' + rectState.confidence.toFixed(2) + '</div>';
 
   var confFill = document.getElementById('conf-fill');
@@ -653,15 +661,15 @@ function showRectResult() {
   finalEl.innerHTML =
     '<div class="rect-result ' + (isWithin ? 'pass' : 'fail') + '" style="margin-top:16px">' +
       '<div style="font-weight:bold;margin-bottom:6px">' +
-        (isWithin ? '\u2705 PASS \u2014 \u6821;\u26178;\u6a21;\u64ec;\u6210;\u529f;' : '\u274c FAIL \u2014 \u771f;\u5be6;\u6642;\u9593;\u843d;\u5728;\u8996;\u7a97;\u5916;') +
+        (isWithin ? '\u2705 PASS \u2014 \u6821\u6642\u6a21\u64ec\u6210\u529f' : '\u274c FAIL \u2014 \u771f\u5be6\u6642\u9593\u843d\u5728\u8996\u7a97\u5916') +
       '</div>' +
-      '<div>\u6700;\u7d42;\u8996;\u7a97;: ' + minutesToHHMM(ws) + ' ~ ' + minutesToHHMM(we) +
-        ' (' + Math.round(rectState.halfWindow * 2) + ' \u20998;\u37912;)</div>' +
+      '<div>\u6700\u7d42\u8996\u7a97: ' + minutesToHHMM(ws) + ' ~ ' + minutesToHHMM(we) +
+        ' (' + Math.round(rectState.halfWindow * 2) + ' \u5206\u9418)</div>' +
       '<div>Ground Truth: ' + minutesToHHMM(p) + '</div>' +
-      '<div>\u6700;\u7d42; Confidence: ' + rectState.confidence.toFixed(2) + '</div>' +
+      '<div>\u6700\u7d42 Confidence: ' + rectState.confidence.toFixed(2) + '</div>' +
       (isWithin
-        ? '<div style="margin-top:4px;font-size:10px">\u31291;\u30830;\u26178;\u38291;\u5728;\u8996;\u7a97;\u5167;\u3002;</div>'
-        : '<div style="margin-top:4px;font-size:10px">\u5efa;\u8b70;\uff1a;\u6aa2;\u67e5;\u554f;\u984c;\u8a2d;\u8a08;\u6216;\u8abf;\u6574;\u8996;\u7a97;\u7e2e;\u5c0d;\u7b56;\u7565;\u3002;</div>') +
+        ? '<div style="margin-top:4px;font-size:10px">\u7cbe\u78ba\u6642\u9593\u5728\u8996\u7a97\u5167\u3002</div>'
+        : '<div style="margin-top:4px;font-size:10px">\u5efa\u8b70\uff1a\u6aa2\u67e5\u554f\u984c\u8a2d\u8a08\u6216\u8abf\u6574\u8996\u7a97\u7e2e\u5c0f\u7b56\u7565\u3002</div>') +
     '</div>';
 }
 </script>
