@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **DESTINY** is a precision matchmaking dating platform that combines Vedic Astrology (占星學), Attachment Psychology (依戀心理學), and BDSM Power Dynamics (權力動力學) for deep compatibility matching. The tagline: "We don't match faces, we match Source Codes."
 
-**Status:** Active development — Phase A ✅, Phase B ✅, Phase C (Daily Matching) ✅, Phase B.5 (Rectification Data Layer) Specced → Pending, Phase D (Connections + Chat) **NEXT**.
+**Status:** Active development — Phase A ✅, Phase B ✅, Phase C ✅, Phase D ✅, Phase B.5 ✅, Phase E (AI Archetypes) **NEXT**.
 
 ## Repository Structure
 
@@ -16,9 +16,12 @@ destiny/
 │   ├── src/
 │   │   ├── app/          # Pages + API routes
 │   │   │   ├── api/onboarding/   # birth-data, rpv-test, photos, soul-report
+│   │   │   ├── api/matches/      # action (like/pass), daily (feed)
+│   │   │   ├── api/connections/  # list, [id]/messages
+│   │   │   ├── api/rectification/  # next-question, answer
 │   │   │   ├── login/
 │   │   │   ├── register/
-│   │   │   ├── onboarding/       # 4-step onboarding UI
+│   │   │   ├── onboarding/       # 4-step onboarding UI (birth-data has 4-card precision flow)
 │   │   │   ├── daily/
 │   │   │   ├── connections/
 │   │   │   └── profile/
@@ -27,14 +30,16 @@ destiny/
 │   │   │   ├── auth.ts           # register/login/logout/getCurrentUser
 │   │   │   └── ai/archetype.ts   # Deterministic archetype generator
 │   │   ├── middleware.ts          # Auth guard (redirects to /login)
-│   │   └── __tests__/            # Vitest tests (35 tests, 7 files)
-│   ├── supabase/migrations/      # 001-004 migrations (pushed to remote)
+│   │   └── __tests__/            # Vitest tests (82 tests, 13 files)
+│   ├── supabase/migrations/      # 001-006 migrations (pushed to remote)
 │   └── .env.local                # SUPABASE_URL + ANON_KEY
 ├── astro-service/                # Python microservice (FastAPI + Swiss Ephemeris)
 │   ├── main.py                   # FastAPI server (port 8001)
 │   ├── chart.py                  # Western astrology: planetary positions → zodiac signs
 │   ├── bazi.py                   # BaZi (八字四柱): Four Pillars + Five Elements + true solar time
+│   ├── matching.py               # Compatibility scoring: WesternScore + BaZiScore → Match_Score
 │   ├── test_chart.py             # pytest (30 tests)
+│   ├── test_matching.py          # pytest (41 tests)
 │   └── requirements.txt
 ├── docs/
 │   ├── MVP-PROGRESS.md           # Progress tracker (source of truth)
@@ -67,12 +72,12 @@ destiny/
 ## Technology Stack
 
 - **Frontend:** Next.js 16 App Router, TypeScript, Tailwind CSS v4
-- **Backend:** Next.js API Routes (server-side), Supabase (Auth + PostgreSQL + Storage)
-- **Database:** Supabase PostgreSQL — 5 tables with RLS, triggers, indexes
+- **Backend:** Next.js API Routes (server-side), Supabase (Auth + PostgreSQL + Storage + Realtime)
+- **Database:** Supabase PostgreSQL — 6 tables with RLS, triggers, indexes
 - **Image Processing:** sharp (Gaussian blur for progressive photo reveal)
 - **Testing:** Vitest + @testing-library/react + user-event (TDD workflow); pytest for Python
-- **Astro Service:** Python FastAPI + pyswisseph (Western astrology) + BaZi (八字四柱, true solar time)
-- **Planned:** Claude API (AI archetypes/tags), Supabase Realtime (chat)
+- **Astro Service:** Python FastAPI + pyswisseph (Western astrology) + BaZi (八字四柱, true solar time) + matching.py (compatibility scoring)
+- **Planned:** Claude API (AI archetypes/tags)
 
 ## Development Commands
 
@@ -80,7 +85,7 @@ destiny/
 # Next.js App
 cd destiny-app
 npm run dev          # Start dev server (localhost:3000)
-npm test             # Run Vitest tests (35 tests)
+npm test             # Run Vitest tests (82 tests, 13 files)
 npx vitest run       # Run tests once (CI mode)
 npm run build        # Production build
 
@@ -88,7 +93,9 @@ npm run build        # Production build
 cd astro-service
 pip install -r requirements.txt   # Install dependencies (first time)
 uvicorn main:app --port 8001      # Start service
-pytest test_chart.py -v           # Run tests (30 tests)
+pytest test_chart.py -v           # Run chart tests (30 tests)
+pytest test_matching.py -v        # Run matching tests (41 tests)
+pytest -v                         # Run all Python tests (71 tests)
 ```
 
 ## Architecture
@@ -109,10 +116,15 @@ Kernel_Compatibility 由兩套系統組成：
 - **西洋占星 (Western Astrology)** — 6 行星 + 上升星座 → 吸引的成因
 - **八字四柱 (BaZi)** — 日主五行 + 相生相剋 → 相處的姿態
 
+Implemented in `astro-service/matching.py`:
+- `POST /score-compatibility` — Returns Match_Score + breakdown (western, bazi, power_dynamic, glitch)
+- `POST /analyze-relation` — 五行關係分析（相生/相剋/比和）
+
 ### Astro Service (`astro-service/`)
 
 Python FastAPI 微服務，提供：
 - `POST /calculate-chart` — 西洋占星 + 八字計算（自動呼叫於 birth-data API）
+- `POST /score-compatibility` — 完整相容性評分 → Match_Score
 - `POST /analyze-relation` — 五行關係分析（相生/相剋/比和）
 - `GET /health` — Health check
 - **真太陽時 (True Solar Time):** BaZi 時柱使用經度修正 + 均時差 (Equation of Time)
@@ -124,12 +136,41 @@ Python FastAPI 微服務，提供：
 - **Tier 2 (Silver):** Fuzzy birth time → medium accuracy + 近似時柱
 - **Tier 3 (Bronze):** Birth date only → Sun sign only + 三柱（無時柱）
 
+### Dynamic Birth Time Rectification (Phase B.5)
+
+Via Negativa quiz system — users eliminate what they are NOT to narrow birth time window.
+
+**AccuracyType → Initial Confidence:**
+
+| AccuracyType | Confidence | Window |
+|---|---|---|
+| `PRECISE` | 0.90 | 0 min |
+| `TWO_HOUR_SLOT` | 0.30 | 120 min |
+| `FUZZY_DAY` (morning/afternoon/evening) | 0.15 | 360 min |
+| `FUZZY_DAY` (unknown) | 0.05 | 1440 min |
+
+**RectificationStatus flow:** `unrectified → collecting_signals → narrowed_to_2hr → locked`
+
+- `GET /api/rectification/next-question` — Returns next Via Negativa question (204 if PRECISE/locked)
+- `POST /api/rectification/answer` — Applies +0.10 confidence per answer; locks at ≥ 0.80
+
 ### Onboarding Flow (4 steps, all wired)
 
-1. `/onboarding/birth-data` → `POST /api/onboarding/birth-data` (computes data_tier + auto-calls astro-service)
+1. `/onboarding/birth-data` → `POST /api/onboarding/birth-data` (4-card precision UI: PRECISE/TWO_HOUR_SLOT/FUZZY_DAY/UNKNOWN; computes data_tier + accuracy_type + auto-calls astro-service)
 2. `/onboarding/rpv-test` → `POST /api/onboarding/rpv-test` (maps option IDs to DB values)
 3. `/onboarding/photos` → `POST /api/onboarding/photos` (sharp blur + Supabase Storage)
 4. `/onboarding/soul-report` → `GET /api/onboarding/soul-report` (archetype generation)
+
+### Daily Matches Flow (Phase C)
+
+- `GET /api/matches/daily` — Returns 3 daily candidates with archetype labels (no photos)
+- `POST /api/matches/action` — Records like/pass; triggers connection creation on mutual like
+
+### Connections Flow (Phase D)
+
+- `GET /api/connections` — Lists active connections with unlock level
+- `GET /api/connections/[id]/messages` — Returns message history
+- `POST /api/connections/[id]/messages` — Sends message; Supabase Realtime broadcasts
 
 ### RPV Option Mapping
 
@@ -145,10 +186,12 @@ Python FastAPI 微服務，提供：
 ## Supabase
 
 - **Project ref:** `masninqgihbazjirweiy`
-- **Tables:** users, photos, daily_matches, connections, messages
+- **Tables:** users, photos, daily_matches, connections, messages, rectification_events
+- **Migrations:** 001–006 (all pushed to remote)
 - **RLS:** Enabled on all tables
 - **Storage:** `photos` bucket (original + blurred versions)
 - **Auth:** Email/Password
+- **Realtime:** Enabled on `messages` table
 
 ## Conventions
 

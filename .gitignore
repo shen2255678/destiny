@@ -1,3 +1,4 @@
+# Next.js (root-level fallback, destiny-app/.gitignore is canonical)
 node_modules/
 .next/
 .env*
@@ -6,3 +7,20 @@ node_modules/
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+.venv/
+venv/
+
+# Claude Code (local settings, not for repo)
+.claude/
+.mcp.json
+
+# OS
+Thumbs.db
