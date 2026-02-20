@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>DESTINY — Algorithm Validation Sandbox</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0f; color: #e0dff8; font-family: 'Courier New', monospace; font-size: 13px; padding: 20px; }
+  h1 { color: #c084fc; font-size: 18px; margin-bottom: 4px; letter-spacing: 2px; }
+  .subtitle { color: #6b7280; font-size: 11px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab-btn { background: #1a1a2e; color: #9ca3af; border: 1px solid #374151; padding: 6px 16px; cursor: pointer; border-radius: 4px 4px 0 0; font-size: 12px; }
+  .tab-btn.active { background: #2d1b4e; color: #c084fc; border-color: #7c3aed; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .person-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 14px; }
+  .person-card h3 { color: #818cf8; font-size: 12px; margin-bottom: 10px; letter-spacing: 1px; }
+  .field { margin-bottom: 8px; }
+  .field label { display: block; color: #9ca3af; font-size: 11px; margin-bottom: 2px; }
+  .field input, .field select { width: 100%; background: #1f2937; border: 1px solid #374151; color: #e0dff8; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; }
+  .field input:focus, .field select:focus { outline: none; border-color: #7c3aed; }
+  .lat-lng { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .threshold-row { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 16px; }
+  .threshold-row h3 { color: #6b7280; font-size: 11px; margin-bottom: 8px; }
+  .threshold-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .threshold-item label { color: #6b7280; font-size: 10px; display: block; margin-bottom: 2px; }
+  .threshold-item input { width: 100%; background: #1f2937; border: 1px solid #374151; color: #e0dff8; padding: 3px 6px; border-radius: 4px; font-size: 11px; }
+  .ground-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .ground-row label { color: #9ca3af; font-size: 12px; white-space: nowrap; }
+  .ground-row select { background: #1f2937; border: 1px solid #374151; color: #e0dff8; padding: 6px 10px; border-radius: 4px; font-size: 12px; font-family: inherit; }
+  .btn { background: #7c3aed; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 12px; font-family: inherit; letter-spacing: 1px; }
+  .btn:hover { background: #6d28d9; }
+  .btn-sm { background: #1e3a5f; color: #93c5fd; border: 1px solid #1e40af; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: inherit; }
+  .btn-sm:hover { background: #1e40af; }
+  .btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .results { display: none; background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 16px; margin-top: 16px; }
+  .results.show { display: block; }
+  .result-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #374151; }
+  .test-id { color: #6b7280; font-size: 11px; }
+  .gt-label { color: #d1d5db; font-size: 12px; }
+  .badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; letter-spacing: 1px; }
+  .badge.match { background: #065f46; color: #6ee7b7; border: 1px solid #059669; }
+  .badge.mismatch { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
+  .score-section { margin-bottom: 12px; }
+  .score-label { color: #a78bfa; font-size: 11px; margin-bottom: 4px; }
+  .score-bar-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .score-bar { flex: 1; background: #374151; border-radius: 4px; height: 8px; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+  .score-val { color: #e0dff8; font-size: 13px; font-weight: bold; min-width: 50px; text-align: right; }
+  .score-logs { color: #6b7280; font-size: 10px; line-height: 1.6; margin-top: 2px; }
+  .tracks-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .track-item { text-align: center; }
+  .track-name { color: #6b7280; font-size: 10px; margin-bottom: 3px; }
+  .track-val { font-size: 14px; font-weight: bold; }
+  .track-item.primary .track-name { color: #c084fc; }
+  .track-item.primary .track-val { color: #c084fc; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 11px; }
+  .meta-item .meta-k { color: #6b7280; }
+  .meta-item .meta-v { color: #d1d5db; margin-left: 4px; }
+  .labels-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .label-tag { background: #1e1b4b; color: #a78bfa; border: 1px solid #4338ca; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+  .archetype-section { border-top: 1px solid #374151; padding-top: 12px; }
+  .archetype-section h4 { color: #6b7280; font-size: 11px; margin-bottom: 8px; }
+  .archetype-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .archetype-tag { background: #1f2d4a; color: #60a5fa; border: 1px solid #2563eb; padding: 2px 10px; border-radius: 10px; font-size: 11px; }
+  .report-text { color: #d1d5db; font-size: 12px; line-height: 1.7; background: #0f172a; padding: 10px; border-radius: 6px; border-left: 3px solid #7c3aed; }
+  .loading { color: #6b7280; font-size: 11px; font-style: italic; }
+  .error-msg { color: #fca5a5; font-size: 11px; margin-top: 4px; }
+  .mech-b-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 16px; max-width: 500px; }
+  .mech-b-card h3 { color: #818cf8; font-size: 12px; margin-bottom: 12px; }
+  .rect-log { margin-top: 16px; }
+  .rect-step { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; padding: 8px; background: #0f172a; border-radius: 6px; }
+  .rect-q { color: #d1d5db; font-size: 12px; flex: 1; }
+  .rect-q .q-text { margin-bottom: 6px; }
+  .rect-q .q-window { color: #6b7280; font-size: 10px; }
+  .rect-q .q-conf { color: #a78bfa; font-size: 10px; }
+  .answer-btns { display: flex; gap: 6px; margin-top: 6px; }
+  .answer-btn { padding: 3px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 11px; font-family: inherit; }
+  .answer-btn.yes { background: #064e3b; color: #6ee7b7; border: 1px solid #059669; }
+  .answer-btn.no  { background: #450a0a; color: #fca5a5; border: 1px solid #dc2626; }
+  .rect-result { margin-top: 14px; padding: 10px; border-radius: 6px; font-size: 12px; }
+  .rect-result.pass { background: #065f46; color: #6ee7b7; border: 1px solid #059669; }
+  .rect-result.fail { background: #7f1d1d; color: #fca5a5; border: 1px solid #dc2626; }
+  .conf-bar-wrap { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .conf-label { color: #6b7280; font-size: 10px; min-width: 80px; }
+  .conf-bar { flex: 1; background: #374151; border-radius: 4px; height: 6px; overflow: hidden; }
+  .conf-bar-fill { height: 100%; background: linear-gradient(90deg, #7c3aed, #c084fc); border-radius: 4px; transition: width 0.4s; }
+  .provider-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; padding: 8px 12px; background: #1a1a2e; border-radius: 6px; border: 1px solid #374151; }
+  .provider-row label { color: #6b7280; font-size: 11px; white-space: nowrap; }
+  .provider-row select { background: #1f2937; border: 1px solid #374151; color: #e0dff8; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-family: inherit; }
+  .provider-row .provider-note { color: #4b5563; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<h1>&#11041; DESTINY &#8212; Algorithm Validation Sandbox</h1>
+<p class="subtitle">Internal tool &middot; Phase G matching algorithm validation &middot; Not for production</p>
+
+<!-- Provider Selector (shared across all LLM tabs) -->
+<div class="provider-row">
+  <label>LLM Provider:</label>
+  <select id="llmProvider">
+    <option value="anthropic">Anthropic (Claude Haiku)</option>
+    <option value="gemini">Google (Gemini 1.5 Flash)</option>
+  </select>
+  <span class="provider-note">Set ANTHROPIC_API_KEY or GEMINI_API_KEY in server env before starting astro-service</span>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('a')">Mechanism A &#8212; &#20511;&#20493;&#39511;&#35611;</button>
+  <button class="tab-btn" onclick="switchTab('b')">Mechanism B &#8212; &#26657;&#26178;&#27169;&#25511;</button>
+  <button class="tab-btn" onclick="switchTab('c')">&#20491;&#20154;&#21517;&#29255;&#29983;&#25104;</button>
+  <button class="tab-btn" onclick="switchTab('d')">&#38597;&#30424;&#22909;&#22909;&#20837;&#24178;</button>
+</div>
+
+<!-- ═══ TAB A ═══ -->
+<div id="tab-a" class="tab-content active">
+
+  <div class="two-col">
+    <div class="person-card">
+      <h3>PERSON A</h3>
+      <div class="field"><label>&#39379;&#31034;&#21517;&#31281;</label><input type="text" id="a_name" value="Person A"></div>
+      <div class="field"><label>&#20986;&#29983;&#26085;&#26399;</label><input type="date" id="a_birth_date" value="1990-03-15"></div>
+      <div class="field"><label>&#20986;&#29983;&#26178;&#38291;&#65288;&#31291;&#30830;&#65292;&#21487;&#30041;&#31354;&#65289;</label><input type="time" id="a_birth_time_exact" value="14:30"></div>
+      <div class="field lat-lng">
+        <div><label>&#32302;&#24230;</label><input type="number" id="a_lat" value="25.033" step="0.001"></div>
+        <div><label>&#32147;&#24230;</label><input type="number" id="a_lng" value="121.565" step="0.001"></div>
+      </div>
+      <div class="field"><label>Data Tier</label>
+        <select id="a_data_tier">
+          <option value="1" selected>Tier 1&#65288;&#31291;&#30830;&#20986;&#29983;&#26178;&#38291;&#65289;</option>
+          <option value="2">Tier 2&#65288;&#27169;&#31958;&#26178;&#27573;&#65289;</option>
+          <option value="3">Tier 3&#65288;&#21482;&#26377;&#26085;&#26399;&#65289;</option>
+        </select>
+      </div>
+      <div class="field"><label>RPV &#34ung;&#31361;&#39118;&#26684;</label>
+        <select id="a_rpv_conflict">
+          <option value="cold_war">&#20919;&#25112; (cold_war)</option>
+          <option value="argue">&#30452;&#25509;&#38283;&#21438; (argue)</option>
+        </select>
+      </div>
+      <div class="field"><label>RPV &#27278;&#21147;&#20559;&#22909;</label>
+        <select id="a_rpv_power">
+          <option value="control">&#20027;&#23566; (control)</option>
+          <option value="follow">&#36319;&#38615; (follow)</option>
+        </select>
+      </div>
+      <div class="field"><label>RPV &#33021;&#37327;&#27169;&#24335;</label>
+        <select id="a_rpv_energy">
+          <option value="home">&#23431; (home)</option>
+          <option value="out">&#20986;&#38272; (out)</option>
+        </select>
+      </div>
+      <div class="field"><label>&#20381;&#25200;&#39118;&#26684;</label>
+        <select id="a_attachment_style">
+          <option value="secure">&#23433;&#20840;&#22411; (secure)</option>
+          <option value="anxious">&#28124;&#24935;&#22411; (anxious)</option>
+          <option value="avoidant">&#36801;&#38907;&#22411; (avoidant)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="person-card">
+      <h3>PERSON B</h3>
+      <div class="field"><label>&#39379;&#31034;&#21517;&#31281;</label><input type="text" id="b_name" value="Person B"></div>
+      <div class="field"><label>&#20986;&#29983;&#26085;&#26399;</label><input type="date" id="b_birth_date" value="1992-08-22"></div>
+      <div class="field"><label>&#20986;&#29983;&#26178;&#38291;&#65288;&#31291;&#30830;&#65292;&#21487;&#30041;&#31354;&#65289;</label><input type="time" id="b_birth_time_exact" value="09:15"></div>
+      <div class="field lat-lng">
+        <div><label>&#32302;&#24230;</label><input type="number" id="b_lat" value="25.033" step="0.001"></div>
+        <div><label>&#32147;&#24230;</label><input type="number" id="b_lng" value="121.565" step="0.001"></div>
+      </div>
+      <div class="field"><label>Data Tier</label>
+        <select id="b_data_tier">
+          <option value="1" selected>Tier 1&#65288;&#31291;&#30830;&#20986;&#29983;&#26178;&#38291;&#65289;</option>
+          <option value="2">Tier 2&#65288;&#27169;&#31958;&#26178;&#27573;&#65289;</option>
+          <option value="3">Tier 3&#65288;&#21482;&#26377;&#26085;&#26399;&#65289;</option>
+        </select>
+      </div>
+      <div class="field"><label>RPV &#34ung;&#31361;&#39118;&#26684;</label>
+        <select id="b_rpv_conflict">
+          <option value="cold_war">&#20919;&#25112; (cold_war)</option>
+          <option value="argue">&#30452;&#25509;&#38283;&#21438; (argue)</option>
+        </select>
+      </div>
+      <div class="field"><label>RPV &#27278;&#21147;&#20559;&#22909;</label>
+        <select id="b_rpv_power">
+          <option value="control">&#20027;&#23566; (control)</option>
+          <option value="follow" selected>&#36319;&#38615; (follow)</option>
+        </select>
+      </div>
+      <div class="field"><label>RPV &#33021;&#37327;&#27169;&#24335;</label>
+        <select id="b_rpv_energy">
+          <option value="home">&#23431; (home)</option>
+          <option value="out" selected>&#20986;&#38272; (out)</option>
+        </select>
+      </div>
+      <div class="field"><label>&#20381;&#25200;&#39118;&#26684;</label>
+        <select id="b_attachment_style">
+          <option value="secure" selected>&#23433;&#20840;&#22411; (secure)</option>
+          <option value="anxious">&#28124;&#24935;&#22411; (anxious)</option>
+          <option value="avoidant">&#36801;&#38907;&#22411; (avoidant)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="threshold-row">
+    <h3>MATCH/MISMATCH &#38452;&#20540;&#65288;&#21487;&#35519;&#25972;&#65289;</h3>
+    <div class="threshold-grid">
+      <div class="threshold-item">
+        <label>&#24050;&#23130;&#31281;&#31283;&#23450; min_soul</label>
+        <input type="number" id="th_married_soul" value="65" min="0" max="100">
+      </div>
+      <div class="threshold-item">
+        <label>&#24613;&#28218;&#20998;&#25163; max_avg</label>
+        <input type="number" id="th_bad_avg" value="55" min="0" max="100">
+      </div>
+      <div class="threshold-item">
+        <label>&#21644;&#24179;&#20998;&#25163; max_lust</label>
+        <input type="number" id="th_ok_lust" value="60" min="0" max="100">
+      </div>
+      <div class="threshold-item">
+        <label>&#22909;&#21451; max_lust</label>
+        <input type="number" id="th_friend_lust" value="60" min="0" max="100">
+      </div>
+    </div>
+  </div>
+
+  <div class="ground-row">
+    <label>Ground Truth:</label>
+    <select id="ground_truth">
+      <option value="married_stable">&#24050;&#23130;&#65288;&#31283;&#31283;&#65289;</option>
+      <option value="divorced_ok">&#24050;&#20998;&#25163;&#65288;&#21644;&#24179;&#65289;</option>
+      <option value="divorced_bad">&#24050;&#20998;&#25163;&#65288;&#24613;&#28218;&#65289;</option>
+      <option value="friends">&#33613;&#24180;&#22909;&#21451;</option>
+    </select>
+    <button class="btn" onclick="runMatch()">&#9654; Run Match</button>
+    <span id="run_status" class="loading"></span>
+  </div>
+
+  <div id="results-a" class="results"></div>
+
+</div>
+
+<!-- ═══ TAB B ═══ -->
+<div id="tab-b" class="tab-content">
+  <div class="mech-b-card">
+    <h3>MECHANISM B &#8212; Birth Time Rectification Simulation</h3>
+    <p style="color:#6b7280;font-size:11px;margin-bottom:12px;">&#36664;&#20837;&#19968;&#20491;&#24050;&#30693;&#30340;&#31291;&#30830;&#20986;&#29983;&#26178;&#38291;&#65292;&#27169;&#25511;&#30028;&#31995;&#32113;&#21482;&#30693;&#36947;&#12300;&#26178;&#27573;&#12301;&#26178;&#65292;&#32076;&#36942; Via Negativa &#21839;&#39064;&#24207;&#21015;&#33021;&#21542;&#23559;&#35996;&#21475;&#32553;&#23567;&#20006;&#28925;&#30410;&#21407;&#22987;&#26178;&#38291;&#12290;</p>
+    <div class="field"><label>&#20986;&#29983;&#26085;&#26399;</label><input type="date" id="b2_date" value="1990-03-15"></div>
+    <div class="field"><label>&#31291;&#30830;&#20986;&#29983;&#26178;&#38291;&#65288;Ground Truth&#65289;</label><input type="time" id="b2_precise" value="14:30"></div>
+    <div style="margin-top:12px">
+      <button class="btn" onclick="startRectSim()">&#9654; Simulate Rectification</button>
+    </div>
+    <div id="rect-log" class="rect-log"></div>
+  </div>
+</div>
+
+<!-- ═══ TAB C ═══ -->
+<div id="tab-c" class="tab-content">
+  <div class="mech-b-card" style="max-width:480px">
+    <h3>&#20491;&#20154;&#21517;&#29255;&#29983;&#25104;&#22120;</h3>
+    <p style="color:#6b7280;font-size:11px;margin-bottom:12px">Coming soon &#8212; &#36749;&#20837;&#21934;&#20154;&#26143;&#31295;&#36039;&#26009;&#65292;&#29983;&#25104;&#20132;&#21451;&#36719;&#39636;&#39118;&#26684;&#30340;&#20491;&#20154;&#21517;&#29255;&#12290;</p>
+    <p style="color:#4b5563;font-size:11px">&#65288;&#23526;&#20316;&#20013;&#65289;</p>
+  </div>
+</div>
+
+<!-- ═══ TAB D ═══ -->
+<div id="tab-d" class="tab-content">
+  <div class="mech-b-card" style="max-width:560px">
+    <h3>&#38597;&#30424;&#22909;&#22909;&#20837;&#24178;&#22120;</h3>
+    <p style="color:#6b7280;font-size:11px;margin-bottom:12px">Coming soon &#8212; &#30456;&#23481;&#24615;&#22577;&#21578;&#65292;&#38597;&#20809;&#40670; + &#25104;&#38271;&#35506;&#39064; + &#30456;&#34389;&#24314;&#35336;&#12290;</p>
+    <p style="color:#4b5563;font-size:11px">&#65288;&#23526;&#20316;&#20013;&#65289;</p>
+  </div>
+</div>
+
+<script>
+const BASE = 'http://localhost:8001';
+
+const SIGNS = ["aries","taurus","gemini","cancer","leo","virgo",
+               "libra","scorpio","sagittarius","capricorn","aquarius","pisces"];
+const ASPECT_SCORES = {0:0.90, 1:0.65, 2:0.75, 3:0.50, 4:0.85, 5:0.65, 6:0.60};
+
+function signAspect(a, b) {
+  if (!a || !b) return 0.65;
+  const ia = SIGNS.indexOf(a), ib = SIGNS.indexOf(b);
+  if (ia < 0 || ib < 0) return 0.65;
+  let d = Math.abs(ia - ib) % 12;
+  if (d > 6) d = 12 - d;
+  return ASPECT_SCORES[d] !== undefined ? ASPECT_SCORES[d] : 0.65;
+}
+
+function switchTab(id) {
+  const ids = ['a','b','c','d'];
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', ids[i] === id));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+let testCounter = 1;
+function genTestId() {
+  const d = new Date();
+  const s = d.toISOString().slice(0,10).replace(/-/g,'');
+  return 'A-' + s + '-' + String(testCounter++).padStart(3,'0');
+}
+
+async function fetchChart(prefix) {
+  const date = document.getElementById(prefix + '_birth_date').value;
+  const time = document.getElementById(prefix + '_birth_time_exact').value;
+  const lat  = parseFloat(document.getElementById(prefix + '_lat').value);
+  const lng  = parseFloat(document.getElementById(prefix + '_lng').value);
+  const tier = parseInt(document.getElementById(prefix + '_data_tier').value);
+
+  const body = { birth_date: date, lat: lat, lng: lng, data_tier: tier };
+  if (time) {
+    body.birth_time_exact = time;
+    body.birth_time = 'precise';
+  }
+
+  const r = await fetch(BASE + '/calculate-chart', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error('/calculate-chart failed: ' + await r.text());
+  return r.json();
+}
+
+function getRpv(prefix) {
+  return {
+    rpv_conflict:     document.getElementById(prefix + '_rpv_conflict').value,
+    rpv_power:        document.getElementById(prefix + '_rpv_power').value,
+    rpv_energy:       document.getElementById(prefix + '_rpv_energy').value,
+    attachment_style: document.getElementById(prefix + '_attachment_style').value,
+    data_tier:        parseInt(document.getElementById(prefix + '_data_tier').value),
+  };
+}
+
+function computeIsMatch(gt, lust, soul, primaryTrack) {
+  const minSoul  = parseInt(document.getElementById('th_married_soul').value);
+  const maxAvg   = parseInt(document.getElementById('th_bad_avg').value);
+  const maxLust  = parseInt(document.getElementById('th_ok_lust').value);
+  const maxFLust = parseInt(document.getElementById('th_friend_lust').value);
+
+  if (gt === 'married_stable')
+    return soul >= minSoul && (primaryTrack === 'partner' || primaryTrack === 'soul');
+  if (gt === 'divorced_bad')
+    return (lust + soul) / 2 <= maxAvg;
+  if (gt === 'divorced_ok')
+    return lust <= maxLust && soul < 65;
+  if (gt === 'friends')
+    return primaryTrack === 'friend' && lust <= maxFLust;
+  return false;
+}
+
+const GT_LABELS = {
+  married_stable: '\u5df2\u5a5a\uff08\u7a69\u5b9a\uff09',
+  divorced_ok:    '\u5df2\u5206\u624b\uff08\u548c\u5e73\uff09',
+  divorced_bad:   '\u5df2\u5206\u624b\uff08\u6158\u70c8\uff09',
+  friends:        '\u842c\u5e74\u597d\u53cb',
+};
+
+function fmtScore(v) { return v.toFixed(2); }
+
+function buildLogs(chartA, chartB) {
+  const lustLogs = [
+    'venus ' + fmtScore(signAspect(chartA.venus_sign, chartB.venus_sign)) + ' x0.20',
+    'mars  ' + fmtScore(signAspect(chartA.mars_sign,  chartB.mars_sign))  + ' x0.25',
+    'pluto ' + fmtScore(signAspect(chartA.pluto_sign, chartB.pluto_sign)) + ' x0.25',
+    (chartA.house8_sign && chartB.house8_sign)
+      ? 'house8 ' + fmtScore(signAspect(chartA.house8_sign, chartB.house8_sign)) + ' x0.15'
+      : 'house8 N/A (no precise time)',
+  ];
+  const soulLogs = [
+    'moon    ' + fmtScore(signAspect(chartA.moon_sign,    chartB.moon_sign))    + ' x0.25',
+    'mercury ' + fmtScore(signAspect(chartA.mercury_sign, chartB.mercury_sign)) + ' x0.20',
+    'saturn  ' + fmtScore(signAspect(chartA.saturn_sign,  chartB.saturn_sign))  + ' x0.20',
+    (chartA.house4_sign && chartB.house4_sign)
+      ? 'house4  ' + fmtScore(signAspect(chartA.house4_sign, chartB.house4_sign)) + ' x0.15'
+      : 'house4  N/A (no precise time)',
+    (chartA.juno_sign && chartB.juno_sign)
+      ? 'juno    ' + fmtScore(signAspect(chartA.juno_sign, chartB.juno_sign)) + ' x0.20'
+      : 'juno    N/A',
+  ];
+  return { lustLogs: lustLogs, soulLogs: soulLogs };
+}
+
+function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, nameB) {
+  var lust = matchData.lust_score;
+  var soul = matchData.soul_score;
+  var power = matchData.power;
+  var tracks = matchData.tracks;
+  var primary = matchData.primary_track;
+  var quadrant = matchData.quadrant;
+  var labels = matchData.labels;
+  var logs = buildLogs(chartA, chartB);
+
+  var trackColors = { friend: '#34d399', passion: '#f87171', partner: '#60a5fa', soul: '#c084fc' };
+  var tracksHtml = ['friend','passion','partner','soul'].map(function(k) {
+    var isPrimary = k === primary;
+    var color = trackColors[k];
+    return '<div class="track-item' + (isPrimary ? ' primary' : '') + '">' +
+      '<div class="track-name">' + k + '</div>' +
+      '<div class="track-val" style="color:' + color + '">' + tracks[k].toFixed(1) + '</div>' +
+      '</div>';
+  }).join('');
+
+  var labelsHtml = labels.map(function(l) {
+    return '<span class="label-tag">' + l + '</span>';
+  }).join('');
+
+  var container = document.getElementById('results-a');
+  container.className = 'results show';
+  container.innerHTML =
+    '<div class="result-header">' +
+      '<span class="test-id">' + testId + '</span>' +
+      '<span class="gt-label">' + GT_LABELS[gt] + '</span>' +
+      '<span class="badge ' + (match ? 'match' : 'mismatch') + '">' + (match ? 'MATCH \u2713' : 'MISMATCH \u2717') + '</span>' +
+    '</div>' +
+    '<div class="score-section">' +
+      '<div class="score-label">VibeScore (lust_score)</div>' +
+      '<div class="score-bar-wrap">' +
+        '<div class="score-bar"><div class="score-bar-fill" style="width:' + lust + '%;background:linear-gradient(90deg,#f87171,#fb923c)"></div></div>' +
+        '<div class="score-val" style="color:#f87171">' + lust.toFixed(1) + ' / 100</div>' +
+      '</div>' +
+      '<div class="score-logs">' + logs.lustLogs.join('<br>') + '</div>' +
+    '</div>' +
+    '<div class="score-section">' +
+      '<div class="score-label">ChemistryScore (soul_score)</div>' +
+      '<div class="score-bar-wrap">' +
+        '<div class="score-bar"><div class="score-bar-fill" style="width:' + soul + '%;background:linear-gradient(90deg,#818cf8,#c084fc)"></div></div>' +
+        '<div class="score-val" style="color:#818cf8">' + soul.toFixed(1) + ' / 100</div>' +
+      '</div>' +
+      '<div class="score-logs">' + logs.soulLogs.join('<br>') + '</div>' +
+    '</div>' +
+    '<div class="score-section">' +
+      '<div class="score-label" style="margin-bottom:6px">Four Tracks</div>' +
+      '<div class="tracks-row">' + tracksHtml + '</div>' +
+    '</div>' +
+    '<div class="meta-row">' +
+      '<div class="meta-item"><span class="meta-k">primary_track</span><span class="meta-v" style="color:#c084fc">' + primary + '</span></div>' +
+      '<div class="meta-item"><span class="meta-k">quadrant</span><span class="meta-v">' + quadrant + '</span></div>' +
+      '<div class="meta-item"><span class="meta-k">RPV</span><span class="meta-v">' + (power.rpv > 0 ? '+' : '') + power.rpv + '</span></div>' +
+      '<div class="meta-item"><span class="meta-k">' + nameA + '</span><span class="meta-v">' + power.viewer_role + '</span></div>' +
+      '<div class="meta-item"><span class="meta-k">' + nameB + '</span><span class="meta-v">' + power.target_role + '</span></div>' +
+      '<div class="meta-item"><span class="meta-k">frame_break</span><span class="meta-v" style="color:' + (power.frame_break ? '#f87171' : '#34d399') + '">' + power.frame_break + '</span></div>' +
+    '</div>' +
+    '<div class="labels-row">' + labelsHtml + '</div>' +
+    '<div class="archetype-section">' +
+      '<h4>AI ARCHETYPE + \u89e3\u8b80\u5831\u544a</h4>' +
+      '<button class="btn-sm" id="archetype-btn" onclick="generateArchetype()">&#10022; Generate</button>' +
+      '<div id="archetype-output" style="margin-top:8px"></div>' +
+    '</div>';
+
+  window._lastMatchData = matchData;
+  window._lastNameA = nameA;
+  window._lastNameB = nameB;
+}
+
+async function runMatch() {
+  var status = document.getElementById('run_status');
+  status.textContent = '\u8a08\u7b97\u4e2d...';
+  try {
+    var results = await Promise.all([fetchChart('a'), fetchChart('b')]);
+    var chartA = results[0];
+    var chartB = results[1];
+    var nameA = document.getElementById('a_name').value || 'A';
+    var nameB = document.getElementById('b_name').value || 'B';
+
+    var userA = Object.assign({}, chartA, getRpv('a'));
+    var userB = Object.assign({}, chartB, getRpv('b'));
+
+    var r = await fetch(BASE + '/compute-match', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ user_a: userA, user_b: userB })
+    });
+    if (!r.ok) throw new Error('/compute-match failed: ' + await r.text());
+    var matchData = await r.json();
+
+    var gt = document.getElementById('ground_truth').value;
+    var testId = genTestId();
+    var match = computeIsMatch(gt, matchData.lust_score, matchData.soul_score, matchData.primary_track);
+
+    renderResults(testId, gt, match, matchData, chartA, chartB, nameA, nameB);
+    status.textContent = '';
+  } catch(e) {
+    status.textContent = '';
+    var container = document.getElementById('results-a');
+    container.className = 'results show';
+    container.innerHTML = '<div class="error-msg">Error: ' + e.message + '</div>';
+  }
+}
+
+async function generateArchetype() {
+  var btn = document.getElementById('archetype-btn');
+  var out = document.getElementById('archetype-output');
+  if (!window._lastMatchData) return;
+  btn.disabled = true;
+  var provider = document.getElementById('llmProvider').value;
+  out.innerHTML = '<div class="loading">\u547c\u53eb ' + (provider === 'gemini' ? 'Gemini' : 'Claude') + ' API...</div>';
+
+  try {
+    var r = await fetch(BASE + '/generate-archetype', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        match_data: window._lastMatchData,
+        person_a_name: window._lastNameA || 'A',
+        person_b_name: window._lastNameB || 'B',
+        provider: provider,
+      })
+    });
+    if (!r.ok) { var e = await r.json(); throw new Error(e.detail || r.statusText); }
+    var data = await r.json();
+    var tagsHtml = (data.archetype_tags || []).map(function(t) {
+      return '<span class="archetype-tag">' + t + '</span>';
+    }).join('');
+    out.innerHTML =
+      '<div class="archetype-tags">' + tagsHtml + '</div>' +
+      '<div class="report-text">' + (data.report || '') + '</div>';
+  } catch(e) {
+    out.innerHTML = '<div class="error-msg">Error: ' + e.message + '</div>';
+  }
+  btn.disabled = false;
+}
+
+// ── Mechanism B ──────────────────────────────────────────────
+var VIA_NEGATIVA_QUESTIONS = [
+  '\u4f60\u4e0d\u662f\u90a3\u7a2e\u559c\u6b61\u5728\u4eba\u7fa4\u4e2d\u6210\u70ba\u7126\u9ede\u7684\u4eba',
+  '\u4f60\u4e0d\u662f\u65e9\u8d77\u578b\u7684\u4eba\uff0c\u6bd4\u8d77\u65e9\u6668\u66f4\u559c\u6b61\u591c\u6652\u7684\u80fd\u91cf',
+  '\u4f60\u4e0d\u662f\u5929\u751f\u7684\u8a08\u5283\u578b\uff0c\u50be\u5411\u5373\u8208\u800c\u975e\u6309\u8868\u64cd\u8ab2',
+  '\u4f60\u9762\u5c0d\u885d\u7a81\u6642\uff0c\u4e0d\u6703\u9078\u64c7\u6c89\u9ed8\u8fc2\u907f\uff0c\u50be\u5411\u76f4\u63a5\u8aaa\u51fa\u4f86',
+  '\u4f60\u4e0d\u662f\u5929\u751f\u7684\u9818\u8896\u578b\uff0c\u66f4\u4eab\u53d7\u8f14\u52a9\u8207\u914d\u5408\u4ed6\u4eba\u7684\u89d2\u8272',
+];
+
+var rectState = null;
+
+function slotCenter(h) {
+  if (h >= 4  && h < 12) return { name: 'morning',   center: 8 * 60 };
+  if (h >= 12 && h < 18) return { name: 'afternoon',  center: 15 * 60 };
+  return { name: 'evening', center: 21 * 60 };
+}
+
+function minutesToHHMM(mins) {
+  var m = ((mins % 1440) + 1440) % 1440;
+  var h = Math.floor(m / 60);
+  var mn = Math.floor(m % 60);
+  return String(h).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
+}
+
+function startRectSim() {
+  var preciseTime = document.getElementById('b2_precise').value;
+  if (!preciseTime) { alert('\u8acb\u8f38\u5165\u31291;\u30830;\u20986;\u29983;\u26178;\u38291;'); return; }
+  var parts = preciseTime.split(':');
+  var hh = parseInt(parts[0]);
+  var mm = parseInt(parts[1]);
+  var preciseMinutes = hh * 60 + mm;
+  var slot = slotCenter(hh);
+  var initialWindow = 360;
+
+  rectState = {
+    preciseMinutes: preciseMinutes,
+    center: slot.center,
+    halfWindow: initialWindow / 2,
+    confidence: 0.15,
+    questionIdx: 0,
+  };
+
+  var logEl = document.getElementById('rect-log');
+  logEl.innerHTML =
+    '<div style="margin-bottom:10px;font-size:11px;color:#9ca3af">' +
+      '\u31291;\u30830;\u26178;\u38291;: <b style="color:#e0dff8">' + preciseTime + '</b> \u2192 ' +
+      '\u26178;\u27573;: <b style="color:#c084fc">' + slot.name + '</b> \u2192 ' +
+      '\u521d;\u22987;\u35996;\u21475;: <b style="color:#e0dff8">' +
+        minutesToHHMM(slot.center - rectState.halfWindow) + ' ~ ' +
+        minutesToHHMM(slot.center + rectState.halfWindow) +
+      '</b> (' + initialWindow + ' \u20998;\u37912;)' +
+    '</div>' +
+    '<div class="conf-bar-wrap">' +
+      '<span class="conf-label" id="conf-label-text">Confidence: 0.15</span>' +
+      '<div class="conf-bar"><div class="conf-bar-fill" id="conf-fill" style="width:15%"></div></div>' +
+    '</div>' +
+    '<div id="rect-questions" style="margin-top:12px"></div>' +
+    '<div id="rect-final"></div>';
+
+  showNextQuestion();
+}
+
+function showNextQuestion() {
+  if (!rectState) return;
+  if (rectState.questionIdx >= VIA_NEGATIVA_QUESTIONS.length) {
+    showRectResult();
+    return;
+  }
+  var q = VIA_NEGATIVA_QUESTIONS[rectState.questionIdx];
+  var qContainer = document.getElementById('rect-questions');
+  var stepEl = document.createElement('div');
+  stepEl.className = 'rect-step';
+  stepEl.id = 'q-step-' + rectState.questionIdx;
+  stepEl.innerHTML =
+    '<div class="rect-q">' +
+      '<div class="q-text">Q' + (rectState.questionIdx + 1) + ': ' + q + '</div>' +
+      '<div class="answer-btns">' +
+        '<button class="answer-btn yes" onclick="answerQ(true,' + rectState.questionIdx + ')">\u2713 \u662f\u7684\uff0c\u6211\u4e0d\u662f</button>' +
+        '<button class="answer-btn no"  onclick="answerQ(false,' + rectState.questionIdx + ')">\u2717 \u4e0d\u5c0d\uff0c\u6211\u662f</button>' +
+      '</div>' +
+    '</div>';
+  qContainer.appendChild(stepEl);
+}
+
+function answerQ(isVN, qIdx) {
+  if (!rectState || rectState.questionIdx !== qIdx) return;
+
+  var stepEl = document.getElementById('q-step-' + qIdx);
+  stepEl.querySelectorAll('.answer-btn').forEach(function(b) { b.disabled = true; });
+
+  var reduction = 60;
+  rectState.halfWindow = Math.max(30, rectState.halfWindow - reduction / 2);
+  rectState.center = isVN ? rectState.center + 15 : rectState.center - 15;
+  rectState.confidence = Math.min(0.95, rectState.confidence + 0.10);
+  rectState.questionIdx++;
+
+  var ws = minutesToHHMM(rectState.center - rectState.halfWindow);
+  var we = minutesToHHMM(rectState.center + rectState.halfWindow);
+  var qDiv = stepEl.querySelector('.rect-q');
+  qDiv.innerHTML =
+    '<div class="q-text">Q' + (qIdx + 1) + ': ' + VIA_NEGATIVA_QUESTIONS[qIdx] +
+      ' <span style="color:' + (isVN ? '#6ee7b7' : '#fca5a5') + '">' +
+        (isVN ? '\u2713 \u662f\u7684\uff0c\u6211\u4e0d\u662f' : '\u2717 \u4e0d\u5c0d\uff0c\u6211\u662f') +
+      '</span></div>' +
+    '<div class="q-window">\u35996;\u21475;\u7e2e;\u23567;\u81f3;: ' + ws + ' ~ ' + we +
+      ' (' + Math.round(rectState.halfWindow * 2) + ' \u20998;\u37912;)</div>' +
+    '<div class="q-conf">Confidence: ' + rectState.confidence.toFixed(2) + '</div>';
+
+  var confFill = document.getElementById('conf-fill');
+  if (confFill) confFill.style.width = (rectState.confidence * 100) + '%';
+  var confLabel = document.getElementById('conf-label-text');
+  if (confLabel) confLabel.textContent = 'Confidence: ' + rectState.confidence.toFixed(2);
+
+  showNextQuestion();
+}
+
+function showRectResult() {
+  if (!rectState) return;
+  var p = rectState.preciseMinutes;
+  var ws = rectState.center - rectState.halfWindow;
+  var we = rectState.center + rectState.halfWindow;
+  var isWithin = p >= ws && p <= we;
+
+  var finalEl = document.getElementById('rect-final');
+  finalEl.innerHTML =
+    '<div class="rect-result ' + (isWithin ? 'pass' : 'fail') + '" style="margin-top:16px">' +
+      '<div style="font-weight:bold;margin-bottom:6px">' +
+        (isWithin ? '\u2705 PASS \u2014 \u6821;\u26178;\u6a21;\u64ec;\u6210;\u529f;' : '\u274c FAIL \u2014 \u771f;\u5be6;\u6642;\u9593;\u843d;\u5728;\u8996;\u7a97;\u5916;') +
+      '</div>' +
+      '<div>\u6700;\u7d42;\u8996;\u7a97;: ' + minutesToHHMM(ws) + ' ~ ' + minutesToHHMM(we) +
+        ' (' + Math.round(rectState.halfWindow * 2) + ' \u20998;\u37912;)</div>' +
+      '<div>Ground Truth: ' + minutesToHHMM(p) + '</div>' +
+      '<div>\u6700;\u7d42; Confidence: ' + rectState.confidence.toFixed(2) + '</div>' +
+      (isWithin
+        ? '<div style="margin-top:4px;font-size:10px">\u31291;\u30830;\u26178;\u38291;\u5728;\u8996;\u7a97;\u5167;\u3002;</div>'
+        : '<div style="margin-top:4px;font-size:10px">\u5efa;\u8b70;\uff1a;\u6aa2;\u67e5;\u554f;\u984c;\u8a2d;\u8a08;\u6216;\u8abf;\u6574;\u8996;\u7a97;\u7e2e;\u5c0d;\u7b56;\u7565;\u3002;</div>') +
+    '</div>';
+}
+</script>
+</body>
+</html>
