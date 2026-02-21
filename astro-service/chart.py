@@ -73,6 +73,8 @@ PLANETS = {
     "mars":    swe.MARS,
     "jupiter": swe.JUPITER,
     "saturn":  swe.SATURN,
+    "uranus":  swe.URANUS,   # 天王星 — generational (7 yr/sign); used for uniqueness scores
+    "neptune": swe.NEPTUNE,  # 海王星 — generational (14 yr/sign); used for spiritual resonance
     "pluto":   swe.PLUTO,
 }
 

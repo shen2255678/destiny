@@ -428,6 +428,7 @@ def calculate_bazi(
         "four_pillars": pillars,
         "hour_known": hour_known,
         "bazi_month_branch": EARTHLY_BRANCHES[month_branch],
+        "bazi_day_branch":   EARTHLY_BRANCHES[day_branch],
     }
 
 
@@ -539,3 +540,53 @@ def compute_bazi_season_complement(branch_a: str, branch_b: str) -> float:
         return 0.5
     # Same season or unknown → no complement
     return 0.0
+
+
+# ── Day-Branch Interaction (日支刑沖破害) ────────────────────────────
+
+def check_branch_relations(branch_a: str, branch_b: str) -> str:
+    """Determine the special interaction between two Earthly Branches.
+
+    Used to detect 夫妻宮 (Day Branch = Spouse Palace) dynamics that govern
+    trauma bonding, tension, and trust patterns in relationships.
+
+    Returns
+    -------
+    "clash"      — 六沖: fatal attraction with irreconcilable conflict
+    "punishment" — 相刑: trauma bonding / emotional torment cycle
+    "harm"       — 相害: passive-aggressive erosion of trust
+    "neutral"    — no special interaction
+    """
+    pair = frozenset((branch_a, branch_b))
+
+    # 六沖 (Six Clashes) — lethal spark, but violently unstable in cohabitation
+    CLASHES = {
+        frozenset(("子", "午")), frozenset(("丑", "未")),
+        frozenset(("寅", "申")), frozenset(("卯", "酉")),
+        frozenset(("辰", "戌")), frozenset(("巳", "亥")),
+    }
+    if pair in CLASHES:
+        return "clash"
+
+    # 相刑 (Punishments) — trauma bonding, emotional coercion, inner torment
+    # Includes: 子卯相刑, 寅巳申三刑 (pairs), 丑戌未三刑 (pairs)
+    # 自刑 (self-punishments): same branch in {"辰","午","酉","亥"}
+    PUNISHMENTS = {
+        frozenset(("子", "卯")),
+        frozenset(("寅", "巳")), frozenset(("巳", "申")), frozenset(("寅", "申")),
+        frozenset(("丑", "戌")), frozenset(("戌", "未")), frozenset(("丑", "未")),
+    }
+    SELF_PUNISHMENT_BRANCHES = {"辰", "午", "酉", "亥"}
+    if pair in PUNISHMENTS or (branch_a == branch_b and branch_a in SELF_PUNISHMENT_BRANCHES):
+        return "punishment"
+
+    # 相害 (Harms) — passive-aggressive backstabbing, trust erosion
+    HARMS = {
+        frozenset(("子", "未")), frozenset(("丑", "午")),
+        frozenset(("寅", "巳")), frozenset(("卯", "辰")),
+        frozenset(("申", "亥")), frozenset(("酉", "戌")),
+    }
+    if pair in HARMS:
+        return "harm"
+
+    return "neutral"

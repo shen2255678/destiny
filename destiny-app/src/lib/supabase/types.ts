@@ -44,10 +44,13 @@ export interface Database {
           mercury_sign: string | null
           jupiter_sign: string | null
           pluto_sign: string | null
+          uranus_sign: string | null
+          neptune_sign: string | null
           chiron_sign: string | null
           juno_sign: string | null
           house4_sign: string | null
           house8_sign: string | null
+          house12_sign: string | null
           attachment_style: 'anxious' | 'avoidant' | 'secure' | 'disorganized' | null
           attachment_role: 'dom_secure' | 'sub_secure' | 'balanced' | null
           power_dynamic: 'dominant' | 'submissive' | 'switch' | null
@@ -61,6 +64,9 @@ export interface Database {
           bazi_day_master: string | null
           bazi_element: 'wood' | 'fire' | 'earth' | 'metal' | 'water' | null
           bazi_four_pillars: Json | null
+          bazi_month_branch: string | null
+          bazi_day_branch: string | null
+          emotional_capacity: number | null
           onboarding_step: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
           // Rectification fields
           accuracy_type: AccuracyType | null
@@ -116,10 +122,13 @@ export interface Database {
           mercury_sign?: string | null
           jupiter_sign?: string | null
           pluto_sign?: string | null
+          uranus_sign?: string | null
+          neptune_sign?: string | null
           chiron_sign?: string | null
           juno_sign?: string | null
           house4_sign?: string | null
           house8_sign?: string | null
+          house12_sign?: string | null
           attachment_style?: 'anxious' | 'avoidant' | 'secure' | 'disorganized' | null
           attachment_role?: 'dom_secure' | 'sub_secure' | 'balanced' | null
           power_dynamic?: 'dominant' | 'submissive' | 'switch' | null
@@ -133,6 +142,9 @@ export interface Database {
           bazi_day_master?: string | null
           bazi_element?: 'wood' | 'fire' | 'earth' | 'metal' | 'water' | null
           bazi_four_pillars?: Json | null
+          bazi_month_branch?: string | null
+          bazi_day_branch?: string | null
+          emotional_capacity?: number | null
           onboarding_step?: 'birth_data' | 'rpv_test' | 'photos' | 'soul_report' | 'complete'
           // Rectification fields
           accuracy_type?: AccuracyType | null

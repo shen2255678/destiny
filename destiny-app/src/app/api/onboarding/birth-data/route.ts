@@ -278,10 +278,17 @@ export async function POST(request: Request) {
           mercury_sign:  chart.mercury_sign ?? null,
           jupiter_sign:  chart.jupiter_sign ?? null,
           pluto_sign:    chart.pluto_sign ?? null,
+          uranus_sign:   chart.uranus_sign ?? null,
+          neptune_sign:  chart.neptune_sign ?? null,
           chiron_sign:   chart.chiron_sign ?? null,
           juno_sign:     chart.juno_sign ?? null,
           house4_sign:   chart.house4_sign ?? null,
           house8_sign:   chart.house8_sign ?? null,
+          house12_sign:  chart.house12_sign ?? null,
+          // Phase H v1.4/v1.5 fields
+          bazi_month_branch:  chart.bazi?.bazi_month_branch ?? null,
+          bazi_day_branch:    chart.bazi?.bazi_day_branch ?? null,
+          emotional_capacity: chart.emotional_capacity ?? 50,
         })
         .eq('id', user.id)
     }

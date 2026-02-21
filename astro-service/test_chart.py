@@ -579,3 +579,95 @@ class TestEmotionalCapacity:
         }
         result = compute_emotional_capacity(chart)
         assert result == 35  # 50 - 15
+
+
+# ── Phase H v1.5: Uranus / Neptune ───────────────────────────────
+
+VALID_SIGNS = {
+    "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+    "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+}
+
+def test_chart_includes_uranus_neptune():
+    """calculate_chart should return uranus_sign and neptune_sign."""
+    result = calculate_chart("1995-06-15", data_tier=3)
+    assert "uranus_sign" in result
+    assert "neptune_sign" in result
+    assert result["uranus_sign"] in VALID_SIGNS
+    assert result["neptune_sign"] in VALID_SIGNS
+
+def test_uranus_neptune_generational():
+    """Uranus/Neptune change signs very slowly.
+    Two people born 6 months apart in the same year should share the same sign."""
+    r1 = calculate_chart("1990-03-01", data_tier=3)
+    r2 = calculate_chart("1990-09-01", data_tier=3)
+    # Neptune ~14 yr/sign: definitely same sign within same year
+    assert r1["neptune_sign"] == r2["neptune_sign"]
+    # Uranus ~7 yr/sign: highly likely same sign within same year
+    assert r1["uranus_sign"] == r2["uranus_sign"]
+
+
+# ── Phase H v1.5: bazi_day_branch ────────────────────────────────
+
+def test_bazi_returns_day_branch():
+    """calculate_bazi should return bazi_day_branch as an Earthly Branch character."""
+    from bazi import EARTHLY_BRANCHES
+    bazi = calculate_bazi("1997-03-07", birth_time="precise", birth_time_exact="10:59",
+                          lat=25.033, lng=121.565, data_tier=1)
+    assert "bazi_day_branch" in bazi
+    assert bazi["bazi_day_branch"] in EARTHLY_BRANCHES
+
+def test_bazi_day_branch_matches_day_pillar():
+    """bazi_day_branch must equal the day pillar branch character."""
+    bazi = calculate_bazi("1997-03-07", birth_time="precise", birth_time_exact="10:59",
+                          lat=25.033, lng=121.565, data_tier=1)
+    # Day pillar for 1997-03-07 = 戊申; branch = 申
+    assert bazi["bazi_day_branch"] == bazi["four_pillars"]["day"]["branch"]
+    assert bazi["bazi_day_branch"] == "申"
+
+
+# ── Phase H v1.5: check_branch_relations ────────────────────────
+
+from bazi import check_branch_relations
+
+class TestCheckBranchRelations:
+    def test_clash_zi_wu(self):
+        """子午 is a classic Six Clash (六沖)."""
+        assert check_branch_relations("子", "午") == "clash"
+
+    def test_clash_is_symmetric(self):
+        assert check_branch_relations("午", "子") == "clash"
+
+    def test_all_six_clashes(self):
+        pairs = [("子","午"), ("丑","未"), ("寅","申"), ("卯","酉"), ("辰","戌"), ("巳","亥")]
+        for a, b in pairs:
+            assert check_branch_relations(a, b) == "clash", f"{a}-{b} should be clash"
+            assert check_branch_relations(b, a) == "clash", f"{b}-{a} should be clash"
+
+    def test_punishment_zi_mao(self):
+        """子卯相刑."""
+        assert check_branch_relations("子", "卯") == "punishment"
+
+    def test_punishment_self_wu(self):
+        """午午 is a self-punishment (自刑)."""
+        assert check_branch_relations("午", "午") == "punishment"
+
+    def test_self_punishment_branches(self):
+        """辰午酉亥 self-punish when paired with themselves."""
+        for b in ("辰", "午", "酉", "亥"):
+            assert check_branch_relations(b, b) == "punishment", f"{b}+{b} should be self-punishment"
+
+    def test_harm_zi_wei(self):
+        """子未相害."""
+        assert check_branch_relations("子", "未") == "harm"
+
+    def test_harm_is_symmetric(self):
+        assert check_branch_relations("未", "子") == "harm"
+
+    def test_neutral_zi_yin(self):
+        """子寅 has no special interaction."""
+        assert check_branch_relations("子", "寅") == "neutral"
+
+    def test_clash_takes_priority_over_potential_harm(self):
+        """子午 should be clash, not harm (clash checked first)."""
+        assert check_branch_relations("子", "午") == "clash"

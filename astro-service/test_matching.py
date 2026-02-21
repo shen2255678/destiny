@@ -1149,3 +1149,135 @@ class TestEmotionalCapacityPartnerTrack:
                 "saturn_sign": "aries", "emotional_capacity": 60}
         result = compute_tracks(user, user, self._power_no_frame_break())
         assert result["partner"] == pytest.approx(0.495 * 100, abs=1.0)
+
+
+# ════════════════════════════════════════════════════════════════
+# Phase H v1.5: BaZi Day Branch 刑沖破害 Modifier Tests
+# ════════════════════════════════════════════════════════════════
+
+from matching import apply_bazi_branch_modifiers
+
+
+class TestApplyBaziBranchModifiers:
+    """Unit tests for apply_bazi_branch_modifiers(tracks, relation)."""
+
+    def _base_tracks(self):
+        return {"friend": 60.0, "passion": 60.0, "partner": 60.0, "soul": 60.0}
+
+    def test_neutral_no_change(self):
+        """neutral relation: tracks unchanged."""
+        tracks = self._base_tracks()
+        result = apply_bazi_branch_modifiers(tracks, "neutral")
+        assert result["passion"] == pytest.approx(60.0)
+        assert result["partner"] == pytest.approx(60.0)
+        assert result["friend"]  == pytest.approx(60.0)
+        assert result["soul"]    == pytest.approx(60.0)
+
+    def test_clash_boosts_passion(self):
+        """clash: passion × 1.25."""
+        tracks = self._base_tracks()
+        apply_bazi_branch_modifiers(tracks, "clash")
+        assert tracks["passion"] == pytest.approx(60.0 * 1.25)
+
+    def test_clash_reduces_partner(self):
+        """clash: partner × 0.70."""
+        tracks = self._base_tracks()
+        apply_bazi_branch_modifiers(tracks, "clash")
+        assert tracks["partner"] == pytest.approx(60.0 * 0.70)
+
+    def test_clash_passion_capped_at_100(self):
+        """Passion cannot exceed 100 even with × 1.25 boost."""
+        tracks = {**self._base_tracks(), "passion": 90.0}
+        apply_bazi_branch_modifiers(tracks, "clash")
+        assert tracks["passion"] == pytest.approx(100.0)
+
+    def test_punishment_boosts_soul(self):
+        """punishment: soul × 1.15."""
+        tracks = self._base_tracks()
+        apply_bazi_branch_modifiers(tracks, "punishment")
+        assert tracks["soul"] == pytest.approx(60.0 * 1.15)
+
+    def test_punishment_reduces_partner(self):
+        """punishment: partner × 0.60 (stronger than clash)."""
+        tracks = self._base_tracks()
+        apply_bazi_branch_modifiers(tracks, "punishment")
+        assert tracks["partner"] == pytest.approx(60.0 * 0.60)
+
+    def test_harm_reduces_friend(self):
+        """harm: friend × 0.60."""
+        tracks = self._base_tracks()
+        apply_bazi_branch_modifiers(tracks, "harm")
+        assert tracks["friend"] == pytest.approx(60.0 * 0.60)
+
+    def test_harm_reduces_partner(self):
+        """harm: partner × 0.50 (strongest partner penalty)."""
+        tracks = self._base_tracks()
+        apply_bazi_branch_modifiers(tracks, "harm")
+        assert tracks["partner"] == pytest.approx(60.0 * 0.50)
+
+    def test_partner_floor_at_zero(self):
+        """Partner cannot go below 0."""
+        tracks = {**self._base_tracks(), "partner": 0.0}
+        apply_bazi_branch_modifiers(tracks, "harm")
+        assert tracks["partner"] == pytest.approx(0.0)
+
+
+class TestDayBranchInMatchV2:
+    """Integration: bazi_day_branch_relation appears in compute_match_v2 output
+    and correctly modifies tracks."""
+
+    def _user(self, day_branch=None):
+        return {
+            "data_tier": 3,
+            "sun_sign": "aries", "moon_sign": "cancer",
+            "venus_sign": "taurus", "mars_sign": "aries",
+            "saturn_sign": "capricorn", "mercury_sign": "gemini",
+            "jupiter_sign": "sagittarius", "pluto_sign": "scorpio",
+            "bazi_element": "fire",
+            "bazi_month_branch": "午",
+            "bazi_day_branch": day_branch,
+            "rpv_conflict": "argue", "rpv_power": "follow", "rpv_energy": "home",
+        }
+
+    def test_output_has_day_branch_relation(self):
+        """compute_match_v2 should always include bazi_day_branch_relation."""
+        a = self._user("子")
+        b = self._user("午")
+        result = compute_match_v2(a, b)
+        assert "bazi_day_branch_relation" in result
+        assert result["bazi_day_branch_relation"] == "clash"
+
+    def test_missing_day_branch_is_neutral(self):
+        """When bazi_day_branch is absent, relation is neutral."""
+        a = self._user(None)
+        b = self._user(None)
+        result = compute_match_v2(a, b)
+        assert result["bazi_day_branch_relation"] == "neutral"
+
+    def test_clash_raises_passion_track(self):
+        """六沖 (子午) should give higher passion than neutral pair."""
+        a_clash = self._user("子")
+        b_clash = self._user("午")
+        a_neutral = self._user("子")
+        b_neutral = self._user("子")  # same branch → neutral
+        r_clash   = compute_match_v2(a_clash, b_clash)
+        r_neutral = compute_match_v2(a_neutral, b_neutral)
+        assert r_clash["tracks"]["passion"] > r_neutral["tracks"]["passion"]
+
+    def test_punishment_forces_high_voltage(self):
+        """相刑 (子卯) should upgrade spiciness to HIGH_VOLTAGE when it was STABLE/MEDIUM."""
+        a = self._user("子")
+        b = self._user("卯")
+        result = compute_match_v2(a, b)
+        assert result["bazi_day_branch_relation"] == "punishment"
+        assert result["spiciness_level"] in ("HIGH_VOLTAGE", "SOULMATE")
+
+    def test_harm_reduces_partner_track(self):
+        """相害 (子未) should give lower partner track than neutral pair."""
+        a_harm    = self._user("子")
+        b_harm    = self._user("未")
+        a_neutral = self._user("子")
+        b_neutral = self._user("子")
+        r_harm    = compute_match_v2(a_harm, b_harm)
+        r_neutral = compute_match_v2(a_neutral, b_neutral)
+        assert r_harm["tracks"]["partner"] < r_neutral["tracks"]["partner"]

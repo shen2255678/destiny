@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from bazi import analyze_element_relation, compute_bazi_season_complement
+from bazi import analyze_element_relation, compute_bazi_season_complement, check_branch_relations
 from zwds import compute_zwds_chart
 from zwds_synastry import compute_zwds_synastry
 
@@ -657,6 +657,32 @@ def compute_tracks(
     }
 
 
+def apply_bazi_branch_modifiers(tracks: dict, relation: str) -> dict:
+    """Apply 地支刑沖破害 modifiers to four-track scores (in-place + return).
+
+    Based on Day Branch (日支) = Spouse Palace interaction:
+
+    clash (沖)      — fatal attraction, violently unstable cohabitation
+                     passion ×1.25 | partner ×0.70
+    punishment (刑) — trauma bonding / emotional torment
+                     soul ×1.15 | partner ×0.60
+                     (also forces spiciness to HIGH_VOLTAGE in compute_match_v2)
+    harm (害)       — passive-aggressive trust erosion
+                     friend ×0.60 | partner ×0.50
+    neutral         — no modifier
+    """
+    if relation == "clash":
+        tracks["passion"] = min(100.0, tracks["passion"] * 1.25)
+        tracks["partner"] = max(0.0, tracks["partner"] * 0.70)
+    elif relation == "punishment":
+        tracks["soul"]    = min(100.0, tracks["soul"] * 1.15)
+        tracks["partner"] = max(0.0, tracks["partner"] * 0.60)
+    elif relation == "harm":
+        tracks["friend"]  = max(0.0, tracks["friend"] * 0.60)
+        tracks["partner"] = max(0.0, tracks["partner"] * 0.50)
+    return tracks
+
+
 def classify_quadrant(lust_score: float, soul_score: float, threshold: float = 60.0) -> str:
     """Classify Lust × Soul quadrant.
 
@@ -765,25 +791,43 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     tracks = compute_tracks(user_a, user_b, power, useful_god_complement,
                             zwds_mods=zwds_mods)
 
+    # ── BaZi day-branch 刑沖破害 (Spouse Palace dynamics) ─────────────────
+    day_branch_a = user_a.get("bazi_day_branch")
+    day_branch_b = user_b.get("bazi_day_branch")
+    day_branch_relation = "neutral"
+    if day_branch_a and day_branch_b:
+        day_branch_relation = check_branch_relations(day_branch_a, day_branch_b)
+        apply_bazi_branch_modifiers(tracks, day_branch_relation)
+
     primary_track = max(tracks, key=lambda k: tracks[k])
     quadrant      = classify_quadrant(lust, soul)
     label         = TRACK_LABELS.get(primary_track, primary_track)
 
+    # Spiciness level: ZWDS base, upgraded to HIGH_VOLTAGE when punishment (刑) detected
+    _SPICINESS_ORDER = ["STABLE", "MEDIUM", "HIGH_VOLTAGE", "SOULMATE"]
+    spiciness = zwds_result["spiciness_level"] if zwds_result else "STABLE"
+    if day_branch_relation == "punishment":
+        cur_idx    = _SPICINESS_ORDER.index(spiciness) if spiciness in _SPICINESS_ORDER else 0
+        target_idx = _SPICINESS_ORDER.index("HIGH_VOLTAGE")
+        if cur_idx < target_idx:
+            spiciness = "HIGH_VOLTAGE"
+
     return {
-        "lust_score":            round(lust, 1),
-        "soul_score":            round(soul, 1),
-        "power":                 power,
-        "tracks":                tracks,
-        "primary_track":         primary_track,
-        "quadrant":              quadrant,
-        "labels":                [label],
-        "bazi_relation":         bazi_relation,
-        "useful_god_complement": round(useful_god_complement, 2),
-        "zwds":               zwds_result,
-        "spiciness_level":    zwds_result["spiciness_level"] if zwds_result else "STABLE",
+        "lust_score":              round(lust, 1),
+        "soul_score":              round(soul, 1),
+        "power":                   power,
+        "tracks":                  tracks,
+        "primary_track":           primary_track,
+        "quadrant":                quadrant,
+        "labels":                  [label],
+        "bazi_relation":           bazi_relation,
+        "bazi_day_branch_relation": day_branch_relation,
+        "useful_god_complement":   round(useful_god_complement, 2),
+        "zwds":                    zwds_result,
+        "spiciness_level":         spiciness,
         "defense_mechanisms": {
             "viewer": zwds_result["defense_a"] if zwds_result else [],
             "target": zwds_result["defense_b"] if zwds_result else [],
         },
-        "layered_analysis":   zwds_result.get("layered_analysis", {}) if zwds_result else {},
+        "layered_analysis":        zwds_result.get("layered_analysis", {}) if zwds_result else {},
     }
