@@ -32,16 +32,28 @@ SIGN_ELEMENT = {
     "sagittarius": "fire", "capricorn": "earth", "aquarius": "air", "pisces": "water",
 }
 
-# Aspect scores by house distance (0-6)
-ASPECT_SCORES = {
-    0: 0.90,  # conjunction (same sign)
-    1: 0.65,  # semi-sextile (minor)
-    2: 0.75,  # sextile
-    3: 0.50,  # square
-    4: 0.85,  # trine
-    5: 0.65,  # quincunx (minor)
-    6: 0.60,  # opposition
+# Harmony mode: rewards smooth, stable, comfortable aspects.
+# Used for: friend track, partner track, Moon, Mercury, Jupiter, Saturn, Venus, Juno, Sun, Asc
+HARMONY_ASPECTS = {
+    0: 0.90,  # conjunction — high resonance
+    4: 0.85,  # trine       — naturally smooth
+    2: 0.75,  # sextile     — easy flow
+    6: 0.60,  # opposition  — complementary but needs effort
+    3: 0.40,  # square      — value friction, tiring
 }
+
+# Tension mode: rewards friction, desire, magnetic pull.
+# Used for: passion track, soul track, Mars, Pluto, Chiron, House 8
+TENSION_ASPECTS = {
+    0: 1.00,  # conjunction — energy amplification, intense
+    3: 0.90,  # square      — friction = sexual tension, control desire
+    6: 0.85,  # opposition  — fatal attraction, love-hate
+    4: 0.60,  # trine       — too comfortable, lacks spark
+    2: 0.50,  # sextile     — friendly, little fire
+}
+
+# Minor aspects (semi-sextile=1, quincunx=5) score low in both modes
+MINOR_ASPECT_SCORE = 0.10
 
 # Deterministic tag pools per match type
 TAG_POOLS = {
@@ -62,10 +74,22 @@ TAG_POOLS = {
 
 # ── Sign Aspect Scoring ─────────────────────────────────────
 
-def compute_sign_aspect(sign_a: Optional[str], sign_b: Optional[str]) -> float:
+def compute_sign_aspect(
+    sign_a: Optional[str],
+    sign_b: Optional[str],
+    mode: str = "harmony",
+) -> float:
     """Compute aspect score between two zodiac signs (0.0-1.0).
 
+    mode="harmony"  — for stable/comfortable planets (Moon, Mercury, Jupiter,
+                      Saturn, Venus, Juno, Sun, Asc) and friend/partner tracks.
+                      Rewards trines/sextiles; penalises squares.
+    mode="tension"  — for desire/power planets (Mars, Pluto, Chiron, House 8)
+                      and passion/soul tracks.
+                      Rewards squares/oppositions (friction = magnetism).
+
     Returns 0.65 (neutral) if either sign is None or invalid.
+    Returns MINOR_ASPECT_SCORE (0.10) for semi-sextile (1) or quincunx (5).
     """
     if not sign_a or not sign_b:
         return 0.65
@@ -76,7 +100,8 @@ def compute_sign_aspect(sign_a: Optional[str], sign_b: Optional[str]) -> float:
     if distance > 6:
         distance = 12 - distance
 
-    return ASPECT_SCORES.get(distance, 0.65)
+    table = HARMONY_ASPECTS if mode == "harmony" else TENSION_ASPECTS
+    return table.get(distance, MINOR_ASPECT_SCORE)
 
 
 # ── Kernel Compatibility (50%) ───────────────────────────────
@@ -93,10 +118,10 @@ def compute_kernel_score(user_a: dict, user_b: dict) -> float:
     tier_b = user_b.get("data_tier", 3)
     effective_tier = max(tier_a, tier_b)  # degrade to worst
 
-    sun = compute_sign_aspect(user_a.get("sun_sign"), user_b.get("sun_sign"))
-    moon = compute_sign_aspect(user_a.get("moon_sign"), user_b.get("moon_sign"))
-    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"))
-    asc = compute_sign_aspect(user_a.get("ascendant_sign"), user_b.get("ascendant_sign"))
+    sun   = compute_sign_aspect(user_a.get("sun_sign"),        user_b.get("sun_sign"),        "harmony")
+    moon  = compute_sign_aspect(user_a.get("moon_sign"),       user_b.get("moon_sign"),       "harmony")
+    venus = compute_sign_aspect(user_a.get("venus_sign"),      user_b.get("venus_sign"),      "harmony")
+    asc   = compute_sign_aspect(user_a.get("ascendant_sign"),  user_b.get("ascendant_sign"),  "harmony")
 
     # BaZi harmony
     bazi = 0.65  # neutral default
@@ -151,10 +176,10 @@ def compute_glitch_score(user_a: dict, user_b: dict) -> float:
       - mars_a vs saturn_b and vice versa: friction triggers
     Higher score = higher tolerance (less destructive friction).
     """
-    mars = compute_sign_aspect(user_a.get("mars_sign"), user_b.get("mars_sign"))
-    saturn = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"))
-    mars_sat_ab = compute_sign_aspect(user_a.get("mars_sign"), user_b.get("saturn_sign"))
-    mars_sat_ba = compute_sign_aspect(user_b.get("mars_sign"), user_a.get("saturn_sign"))
+    mars       = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),    "tension")
+    saturn     = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"), "harmony")
+    mars_sat_ab = compute_sign_aspect(user_a.get("mars_sign"),  user_b.get("saturn_sign"), "tension")
+    mars_sat_ba = compute_sign_aspect(user_b.get("mars_sign"),  user_a.get("saturn_sign"), "tension")
 
     return mars * 0.25 + saturn * 0.25 + mars_sat_ab * 0.25 + mars_sat_ba * 0.25
 
@@ -195,11 +220,11 @@ def compute_radar_scores(
     stability:     Saturn aspect + BaZi harmony proxy + energy compatibility
     communication: Moon aspect + Sun aspect (Mercury proxy) + conflict style
     """
-    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"))
-    mars = compute_sign_aspect(user_a.get("mars_sign"), user_b.get("mars_sign"))
-    moon = compute_sign_aspect(user_a.get("moon_sign"), user_b.get("moon_sign"))
-    sun = compute_sign_aspect(user_a.get("sun_sign"), user_b.get("sun_sign"))
-    saturn = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"))
+    venus  = compute_sign_aspect(user_a.get("venus_sign"),  user_b.get("venus_sign"),  "harmony")
+    mars   = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),   "tension")
+    moon   = compute_sign_aspect(user_a.get("moon_sign"),   user_b.get("moon_sign"),   "harmony")
+    sun    = compute_sign_aspect(user_a.get("sun_sign"),    user_b.get("sun_sign"),    "harmony")
+    saturn = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"), "harmony")
 
     power = scores.get("power_score", 0.6)
     kernel = scores.get("kernel_score", 0.6)
@@ -334,13 +359,13 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
 
     Multiplier: × 1.2 if bazi elements are in a restriction (clash) relationship.
     """
-    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"))
-    mars  = compute_sign_aspect(user_a.get("mars_sign"),  user_b.get("mars_sign"))
-    pluto = compute_sign_aspect(user_a.get("pluto_sign"), user_b.get("pluto_sign"))
+    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"), "harmony")
+    mars  = compute_sign_aspect(user_a.get("mars_sign"),  user_b.get("mars_sign"),  "tension")
+    pluto = compute_sign_aspect(user_a.get("pluto_sign"), user_b.get("pluto_sign"), "tension")
 
     h8_a = user_a.get("house8_sign")
     h8_b = user_b.get("house8_sign")
-    house8 = compute_sign_aspect(h8_a, h8_b) if (h8_a and h8_b) else 0.0
+    house8 = compute_sign_aspect(h8_a, h8_b, "tension") if (h8_a and h8_b) else 0.0
 
     power_score = compute_power_score(user_a, user_b)
 
@@ -375,17 +400,17 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
 
     Multiplier: × 1.2 if bazi elements are in a generation relationship.
     """
-    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"))
-    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"))
-    saturn  = compute_sign_aspect(user_a.get("saturn_sign"),  user_b.get("saturn_sign"))
+    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"),    "harmony")
+    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
+    saturn  = compute_sign_aspect(user_a.get("saturn_sign"),  user_b.get("saturn_sign"),  "harmony")
 
     h4_a = user_a.get("house4_sign")
     h4_b = user_b.get("house4_sign")
-    house4 = compute_sign_aspect(h4_a, h4_b) if (h4_a and h4_b) else 0.0
+    house4 = compute_sign_aspect(h4_a, h4_b, "harmony") if (h4_a and h4_b) else 0.0
 
     juno_a = user_a.get("juno_sign")
     juno_b = user_b.get("juno_sign")
-    juno = compute_sign_aspect(juno_a, juno_b) if (juno_a and juno_b) else NEUTRAL_SIGNAL
+    juno = compute_sign_aspect(juno_a, juno_b, "harmony") if (juno_a and juno_b) else NEUTRAL_SIGNAL
 
     style_a = user_a.get("attachment_style")
     style_b = user_b.get("attachment_style")
@@ -478,21 +503,21 @@ def compute_tracks(user_a: dict, user_b: dict, power: dict) -> dict:
     partner: moon × 0.35 + juno × 0.35 + bazi_generation × 0.30
     soul:    chiron × 0.40 + pluto × 0.40 + bazi_harmony × 0.20 (+0.10 if frame_break)
     """
-    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"))
-    jupiter = compute_sign_aspect(user_a.get("jupiter_sign"), user_b.get("jupiter_sign"))
-    mars    = compute_sign_aspect(user_a.get("mars_sign"),    user_b.get("mars_sign"))
-    venus   = compute_sign_aspect(user_a.get("venus_sign"),   user_b.get("venus_sign"))
-    pluto   = compute_sign_aspect(user_a.get("pluto_sign"),   user_b.get("pluto_sign"))
-    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"))
-
-    h8_a, h8_b = user_a.get("house8_sign"), user_b.get("house8_sign")
-    house8 = compute_sign_aspect(h8_a, h8_b) if (h8_a and h8_b) else 0.0
-
+    # harmony planets: friend / partner tracks
+    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
+    jupiter = compute_sign_aspect(user_a.get("jupiter_sign"), user_b.get("jupiter_sign"), "harmony")
+    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"),    "harmony")
     juno_a, juno_b = user_a.get("juno_sign"), user_b.get("juno_sign")
-    juno = compute_sign_aspect(juno_a, juno_b) if (juno_a and juno_b) else NEUTRAL_SIGNAL
+    juno = compute_sign_aspect(juno_a, juno_b, "harmony") if (juno_a and juno_b) else NEUTRAL_SIGNAL
 
+    # tension planets: passion / soul tracks
+    mars  = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),   "tension")
+    venus = compute_sign_aspect(user_a.get("venus_sign"),  user_b.get("venus_sign"),  "tension")  # passion context
+    pluto = compute_sign_aspect(user_a.get("pluto_sign"),  user_b.get("pluto_sign"),  "tension")
+    h8_a, h8_b = user_a.get("house8_sign"), user_b.get("house8_sign")
+    house8 = compute_sign_aspect(h8_a, h8_b, "tension") if (h8_a and h8_b) else 0.0
     chiron_a, chiron_b = user_a.get("chiron_sign"), user_b.get("chiron_sign")
-    chiron = compute_sign_aspect(chiron_a, chiron_b) if (chiron_a and chiron_b) else NEUTRAL_SIGNAL
+    chiron = compute_sign_aspect(chiron_a, chiron_b, "tension") if (chiron_a and chiron_b) else NEUTRAL_SIGNAL
 
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")

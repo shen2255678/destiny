@@ -12,7 +12,8 @@ from matching import (
     classify_match_type,
     generate_tags,
     compute_match_score,
-    ASPECT_SCORES,
+    HARMONY_ASPECTS,
+    TENSION_ASPECTS,
 )
 
 
@@ -32,17 +33,30 @@ class TestComputeSignAspect:
         assert compute_sign_aspect("aries", "gemini") == pytest.approx(0.75)
 
     def test_square_3_houses_apart(self):
-        """Aries (0) and Cancer (3) → square = 0.50"""
-        assert compute_sign_aspect("aries", "cancer") == pytest.approx(0.50)
+        """Aries (0) and Cancer (3) → square: harmony=0.40, tension=0.90"""
+        assert compute_sign_aspect("aries", "cancer", "harmony") == pytest.approx(0.40)
+        assert compute_sign_aspect("aries", "cancer", "tension") == pytest.approx(0.90)
 
     def test_opposition_6_houses_apart(self):
-        """Aries (0) and Libra (6) → opposition = 0.60"""
-        assert compute_sign_aspect("aries", "libra") == pytest.approx(0.60)
+        """Aries (0) and Libra (6) → opposition: harmony=0.60, tension=0.85"""
+        assert compute_sign_aspect("aries", "libra", "harmony") == pytest.approx(0.60)
+        assert compute_sign_aspect("aries", "libra", "tension") == pytest.approx(0.85)
 
     def test_wraps_correctly_beyond_6(self):
-        """Distance 7 wraps to 5 (quincunx = 0.65)"""
+        """Distance 7 wraps to 5 (quincunx) → minor aspect = 0.10 in both modes"""
         # Scorpio(7) vs Aries(0): distance=7, wraps to 12-7=5 → quincunx
-        assert compute_sign_aspect("scorpio", "aries") == pytest.approx(0.65)
+        assert compute_sign_aspect("scorpio", "aries", "harmony") == pytest.approx(0.10)
+        assert compute_sign_aspect("scorpio", "aries", "tension") == pytest.approx(0.10)
+
+    def test_tension_conjunction_is_1(self):
+        """Tension mode: conjunction = 1.00 (energy amplification)"""
+        assert compute_sign_aspect("aries", "aries", "tension") == pytest.approx(1.00)
+
+    def test_tension_trine_lower_than_square(self):
+        """Tension mode: trine(4)=0.60 < square(3)=0.90 (too comfortable = less spark)"""
+        trine  = compute_sign_aspect("aries", "leo",    "tension")  # diff=4
+        square = compute_sign_aspect("aries", "cancer", "tension")  # diff=3
+        assert trine < square
 
     def test_none_sign_returns_neutral(self):
         """None sign returns 0.65 neutral"""
@@ -165,17 +179,19 @@ class TestComputePowerScore:
 
 class TestComputeGlitchScore:
     def test_all_conjunctions_high_score(self):
-        """Perfect sign matches → glitch close to 0.90"""
+        """Glitch formula uses tension for mars, harmony for saturn."""
         a = {"mars_sign": "aries", "saturn_sign": "leo"}
         b = {"mars_sign": "aries", "saturn_sign": "leo"}
         score = compute_glitch_score(a, b)
-        # mars(0.90) + saturn(0.90) + mars_a vs sat_b(0.90) + mars_b vs sat_a(0.90)
-        # but aries vs leo = trine(4) = 0.85
+        # mars vs mars: tension("aries","aries") = 1.00
+        # saturn vs saturn: harmony("leo","leo") = 0.90
+        # mars_a vs sat_b: tension("aries","leo") = trine in tension = 0.60
+        # mars_b vs sat_a: tension("aries","leo") = 0.60
         expected = (
-            compute_sign_aspect("aries", "aries") * 0.25 +
-            compute_sign_aspect("leo", "leo") * 0.25 +
-            compute_sign_aspect("aries", "leo") * 0.25 +  # mars_a vs sat_b
-            compute_sign_aspect("aries", "leo") * 0.25    # mars_b vs sat_a
+            compute_sign_aspect("aries", "aries", "tension") * 0.25 +
+            compute_sign_aspect("leo",   "leo",   "harmony") * 0.25 +
+            compute_sign_aspect("aries", "leo",   "tension") * 0.25 +
+            compute_sign_aspect("aries", "leo",   "tension") * 0.25
         )
         assert score == pytest.approx(expected, abs=0.01)
 
