@@ -671,3 +671,80 @@ class TestCheckBranchRelations:
     def test_clash_takes_priority_over_potential_harm(self):
         """子午 should be clash, not harm (clash checked first)."""
         assert check_branch_relations("子", "午") == "clash"
+
+
+# ── Phase I: Planet Degree Output Tests ─────────────────────────────────────
+
+class TestPlanetDegrees:
+    """chart.py now outputs {planet}_degree (0-360) alongside {planet}_sign."""
+
+    def test_sun_degree_present(self):
+        result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+        assert "sun_degree" in result
+        assert isinstance(result["sun_degree"], float)
+        assert 0.0 <= result["sun_degree"] < 360.0
+
+    def test_sun_degree_in_gemini_range(self):
+        """1995-06-15 Sun should be in Gemini (60°-90°)."""
+        result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+        assert 60.0 <= result["sun_degree"] < 90.0
+
+    def test_all_planets_have_degree(self):
+        """Every planet in PLANETS dict should produce a _degree field."""
+        result = calculate_chart(birth_date="1990-01-01", data_tier=3)
+        for planet in ("sun", "moon", "mercury", "venus", "mars",
+                       "jupiter", "saturn", "uranus", "neptune", "pluto"):
+            assert f"{planet}_degree" in result, f"Missing {planet}_degree"
+            # Tier 3 moon_sign is None but moon_degree should also be None
+            if planet == "moon":
+                assert result[f"{planet}_degree"] is None
+            else:
+                assert isinstance(result[f"{planet}_degree"], float)
+                assert 0.0 <= result[f"{planet}_degree"] < 360.0
+
+    def test_degree_consistent_with_sign(self):
+        """The sign derived from the degree should match the stored sign."""
+        result = calculate_chart(birth_date="1995-06-15", data_tier=2,
+                                 birth_time="afternoon")
+        for planet in ("sun", "venus", "mars", "saturn"):
+            deg = result.get(f"{planet}_degree")
+            sign = result.get(f"{planet}_sign")
+            if deg is not None and sign is not None:
+                assert longitude_to_sign(deg) == sign, (
+                    f"{planet}: degree {deg} → sign {longitude_to_sign(deg)} ≠ stored {sign}"
+                )
+
+    def test_tier1_house_degrees_present(self):
+        """Tier 1 should have house4/8/12 degree fields."""
+        result = calculate_chart(
+            birth_date="1990-05-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            data_tier=1,
+            lat=25.033, lng=121.565,
+        )
+        for h in ("house4", "house8", "house12", "ascendant"):
+            assert f"{h}_degree" in result, f"Missing {h}_degree"
+            assert isinstance(result[f"{h}_degree"], float)
+            assert 0.0 <= result[f"{h}_degree"] < 360.0
+
+    def test_tier2_house_degrees_none(self):
+        """Tier 2/3 house degrees should be None (no birth time for cusp calc)."""
+        result = calculate_chart(birth_date="1990-05-15", data_tier=2,
+                                 birth_time="morning")
+        for h in ("house4", "house8", "house12", "ascendant"):
+            assert result.get(f"{h}_degree") is None, f"{h}_degree should be None for Tier 2"
+
+    def test_uranus_neptune_degrees_present(self):
+        """Previously missing planets: Uranus and Neptune should have degree fields."""
+        result = calculate_chart(birth_date="1990-01-01", data_tier=3)
+        assert "uranus_degree" in result
+        assert "neptune_degree" in result
+        assert isinstance(result["uranus_degree"], float)
+        assert isinstance(result["neptune_degree"], float)
+
+    def test_degrees_are_floats_rounded_to_2dp(self):
+        """Degrees should be rounded to 2 decimal places."""
+        result = calculate_chart(birth_date="1988-03-21", data_tier=3)
+        sun_deg = result["sun_degree"]
+        assert round(sun_deg, 2) == sun_deg

@@ -106,6 +106,87 @@ def compute_sign_aspect(
     return table.get(distance, MINOR_ASPECT_SCORE)
 
 
+# ── Exact Degree Aspect Scoring ─────────────────────────────
+
+def get_shortest_distance(deg_a: float, deg_b: float) -> float:
+    """Shortest angular distance between two points on the 360° wheel."""
+    diff = abs(deg_a - deg_b)
+    return min(diff, 360.0 - diff)
+
+
+def compute_exact_aspect(deg_a: float, deg_b: float, mode: str = "harmony") -> float:
+    """Orb-based exact degree aspect score (0.0-1.0).
+
+    Aspects with orbs:
+      conjunction  (0°,  orb 8°): harmony=1.0  tension=1.0
+      sextile     (60°,  orb 6°): harmony=0.8  tension=0.2
+      square      (90°,  orb 8°): harmony=0.2  tension=0.9
+      trine      (120°,  orb 8°): harmony=0.9  tension=0.2
+      opposition (180°,  orb 8°): harmony=0.4  tension=0.85
+
+    Returns 0.5 (neutral) when either degree is None.
+    Returns 0.1 (void of aspect) when no major aspect is within orb.
+    """
+    if deg_a is None or deg_b is None:
+        return 0.5
+    dist = get_shortest_distance(deg_a, deg_b)
+    # (center_deg, orb, harmony_score, tension_score)
+    ASPECTS = [
+        (0,   8,  1.00, 1.00),
+        (60,  6,  0.80, 0.20),
+        (90,  8,  0.20, 0.90),
+        (120, 8,  0.90, 0.20),
+        (180, 8,  0.40, 0.85),
+    ]
+    for center, orb, h_score, t_score in ASPECTS:
+        if abs(dist - center) <= orb:
+            return h_score if mode == "harmony" else t_score
+    return 0.1  # void of aspect
+
+
+def compute_karmic_triggers(user_a: dict, user_b: dict) -> float:
+    """Cross-layer karmic trigger score (0.0-1.0).
+
+    Measures how A's outer generational planets (Uranus/Neptune/Pluto)
+    aspect B's inner personal planets (Moon/Venus/Mars), and vice versa.
+
+    This replaces the misleading same-generation pluto_a vs pluto_b comparison.
+    (1984-1995 cohort all have Pluto in Scorpio → conjunction = 1.0 for everyone,
+    artificially inflating lust/soul scores regardless of real attraction.)
+
+    Only aspects ≥ 0.85 (conjunction / square / opposition in tension mode) count
+    as active karmic triggers. Uses exact degrees when available, sign-level fallback.
+
+    Baseline: 0.50 (neutral — no special karmic pull).
+    """
+    OUTER = ["uranus", "neptune", "pluto"]
+    INNER = ["moon", "venus", "mars"]
+
+    score = 0.0
+    triggers = 0
+
+    for person_outer, person_inner in ((user_a, user_b), (user_b, user_a)):
+        for outer in OUTER:
+            for inner in INNER:
+                deg_out = person_outer.get(f"{outer}_degree")
+                deg_in  = person_inner.get(f"{inner}_degree")
+                if deg_out is not None and deg_in is not None:
+                    aspect = compute_exact_aspect(deg_out, deg_in, "tension")
+                else:
+                    aspect = compute_sign_aspect(
+                        person_outer.get(f"{outer}_sign"),
+                        person_inner.get(f"{inner}_sign"),
+                        "tension",
+                    )
+                if aspect >= 0.85:
+                    score += aspect
+                    triggers += 1
+
+    if triggers == 0:
+        return 0.50
+    return min(1.0, 0.50 + (score / (triggers * 2)))
+
+
 # ── Kernel Compatibility (50%) ───────────────────────────────
 
 def compute_kernel_score(user_a: dict, user_b: dict) -> float:
@@ -375,8 +456,10 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
     score += mars * 0.25
     total_weight += 0.25
 
-    pluto = compute_sign_aspect(user_a.get("pluto_sign"), user_b.get("pluto_sign"), "tension")
-    score += pluto * 0.25
+    # Karmic triggers: outer planets (Uranus/Neptune/Pluto) of A vs inner (Moon/Venus/Mars) of B
+    # Replaces same-generation pluto_a vs pluto_b which is meaningless for same-cohort pairs.
+    karmic = compute_karmic_triggers(user_a, user_b)
+    score += karmic * 0.25
     total_weight += 0.25
 
     # House 8 (0.15) — Tier 1 only
@@ -590,7 +673,8 @@ def compute_tracks(
     # tension planets: passion / soul tracks
     mars  = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),   "tension")
     venus = compute_sign_aspect(user_a.get("venus_sign"),  user_b.get("venus_sign"),  "tension")  # passion context
-    pluto = compute_sign_aspect(user_a.get("pluto_sign"),  user_b.get("pluto_sign"),  "tension")
+    # Cross-layer karmic triggers replace same-generation pluto_a vs pluto_b
+    karmic = compute_karmic_triggers(user_a, user_b)
     h8_a, h8_b = user_a.get("house8_sign"), user_b.get("house8_sign")
     house8 = compute_sign_aspect(h8_a, h8_b, "tension") if (h8_a and h8_b) else 0.0
     chiron_a, chiron_b = user_a.get("chiron_sign"), user_b.get("chiron_sign")
@@ -606,7 +690,7 @@ def compute_tracks(
         bazi_clash      = rel["relation"] in ("a_restricts_b", "b_restricts_a")
         bazi_generation = rel["relation"] in ("a_generates_b", "b_generates_a")
 
-    passion_extremity = max(pluto, house8)
+    passion_extremity = max(karmic, house8)
 
     friend = (
         0.40 * mercury +
@@ -626,10 +710,10 @@ def compute_tracks(
         partner = moon * 0.55 + (1.0 if bazi_generation else 0.0) * 0.45
 
     if chiron_present:
-        soul_track = chiron * 0.40 + pluto * 0.40 + useful_god_complement * 0.20
+        soul_track = chiron * 0.40 + karmic * 0.40 + useful_god_complement * 0.20
     else:
-        # Redistribute chiron's 0.40 weight: pluto gets 0.60, useful_god gets 0.40
-        soul_track = pluto * 0.60 + useful_god_complement * 0.40
+        # Redistribute chiron's 0.40 weight: karmic gets 0.60, useful_god gets 0.40
+        soul_track = karmic * 0.60 + useful_god_complement * 0.40
 
     if power["frame_break"]:
         soul_track += 0.10

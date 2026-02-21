@@ -261,6 +261,20 @@ export async function POST(request: Request) {
 
     if (chartRes.ok) {
       const chart = await chartRes.json()
+
+      // Collect exact ecliptic degree fields into planet_degrees JSONB
+      // Used by matching algorithm for orb-based exact degree aspect scoring
+      const degreeFields = [
+        'sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn',
+        'uranus', 'neptune', 'pluto', 'chiron', 'juno',
+        'ascendant', 'house4', 'house8', 'house12',
+      ]
+      const planetDegrees: Record<string, number | null> = {}
+      for (const p of degreeFields) {
+        const val = chart[`${p}_degree`]
+        if (val !== undefined) planetDegrees[`${p}_degree`] = val ?? null
+      }
+
       await supabase
         .from('users')
         .update({
@@ -289,6 +303,8 @@ export async function POST(request: Request) {
           bazi_month_branch:  chart.bazi?.bazi_month_branch ?? null,
           bazi_day_branch:    chart.bazi?.bazi_day_branch ?? null,
           emotional_capacity: chart.emotional_capacity ?? 50,
+          // Phase I: exact planet degrees for orb-based aspect matching
+          planet_degrees: Object.keys(planetDegrees).length > 0 ? planetDegrees : null,
         })
         .eq('id', user.id)
     }

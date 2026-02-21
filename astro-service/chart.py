@@ -257,34 +257,46 @@ def calculate_chart(
         pos, _ret_flag = swe.calc_ut(jd, planet_id)
         sign = longitude_to_sign(pos[0])
         result[f"{name}_sign"] = sign
+        result[f"{name}_degree"] = round(pos[0], 2)  # absolute ecliptic longitude 0-360
 
     # ── Asteroids (Chiron, Juno) ─────────────────────────────────
     for name, asteroid_id in ASTEROIDS.items():
         try:
             pos, _ret = swe.calc_ut(jd, asteroid_id)
             result[f"{name}_sign"] = longitude_to_sign(pos[0])
+            result[f"{name}_degree"] = round(pos[0], 2)
         except Exception:
             result[f"{name}_sign"] = None  # ephe file missing — degrade gracefully
+            result[f"{name}_degree"] = None
 
     # ── Tier-based restrictions ──────────────────────────────────
     if data_tier == 3:
         # Bronze: Moon is unreliable without time
         result["moon_sign"] = None
+        result["moon_degree"] = None
 
     if data_tier >= 2:
         # Silver & Bronze: no Ascendant, no House cusps (requires precise time)
         result["ascendant_sign"] = None
+        result["ascendant_degree"] = None
         result["house4_sign"] = None
+        result["house4_degree"] = None
         result["house8_sign"] = None
+        result["house8_degree"] = None
         result["house12_sign"] = None
+        result["house12_degree"] = None
     else:
         # Tier 1 (Gold): calculate Ascendant + House 4/8/12 via Placidus cusps
         cusps, ascmc = swe.houses(jd, lat, lng, b"P")
         result["ascendant_sign"] = longitude_to_sign(ascmc[0])
+        result["ascendant_degree"] = round(ascmc[0], 2)
         # pyswisseph swe.houses() returns a 12-element tuple, 0-indexed: cusps[0]=H1 … cusps[11]=H12
         result["house4_sign"] = longitude_to_sign(cusps[3])
+        result["house4_degree"] = round(cusps[3], 2)
         result["house8_sign"] = longitude_to_sign(cusps[7])
+        result["house8_degree"] = round(cusps[7], 2)
         result["house12_sign"] = longitude_to_sign(cusps[11])
+        result["house12_degree"] = round(cusps[11], 2)
 
     # ── Element from Sun sign ────────────────────────────────────
     sun_sign = result.get("sun_sign")

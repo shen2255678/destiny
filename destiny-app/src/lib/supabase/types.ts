@@ -97,6 +97,7 @@ export interface Database {
           zwds_five_element: string | null
           zwds_body_palace_name: string | null
           zwds_defense_triggers: string[] | null
+          planet_degrees: Json | null
         }
         Insert: {
           id: string
@@ -173,6 +174,7 @@ export interface Database {
           zwds_five_element?: string | null
           zwds_body_palace_name?: string | null
           zwds_defense_triggers?: string[] | null
+          planet_degrees?: Json | null
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>
         Relationships: []

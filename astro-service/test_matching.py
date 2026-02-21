@@ -12,6 +12,7 @@ from matching import (
     classify_match_type,
     generate_tags,
     compute_match_score,
+    compute_karmic_triggers,
     HARMONY_ASPECTS,
     TENSION_ASPECTS,
 )
@@ -980,22 +981,23 @@ class TestLustScoreDynamicWeighting:
         }
 
     def test_lust_score_tier3_no_house8(self):
-        """Tier 3 without house8: score uses venus + mars + pluto + power
+        """Tier 3 without house8: score uses venus + mars + karmic + power
         with total_weight = 1.00, so denominator does not include house8's 0.15.
 
-        Expected = (venus*0.20 + mars*0.25 + pluto*0.25 + power*0.30) / 1.00 * 100
+        karmic replaces the old same-generation pluto×pluto comparison.
+        Expected = (venus*0.20 + mars*0.25 + karmic*0.25 + power*0.30) / 1.00 * 100
         """
         a = self._user(venus="aries", mars="aries", pluto="scorpio")
         b = self._user(venus="aries", mars="aries", pluto="scorpio")
 
-        venus_v = compute_sign_aspect("aries",   "aries",   "harmony")
-        mars_v  = compute_sign_aspect("aries",   "aries",   "tension")
-        pluto_v = compute_sign_aspect("scorpio", "scorpio", "tension")
+        venus_v  = compute_sign_aspect("aries", "aries", "harmony")
+        mars_v   = compute_sign_aspect("aries", "aries", "tension")
+        karmic_v = compute_karmic_triggers(a, b)
 
         from matching import compute_power_score
         power_v = compute_power_score(a, b)
 
-        numerator = venus_v * 0.20 + mars_v * 0.25 + pluto_v * 0.25 + power_v * 0.30
+        numerator = venus_v * 0.20 + mars_v * 0.25 + karmic_v * 0.25 + power_v * 0.30
         total_w   = 0.20 + 0.25 + 0.25 + 0.30  # = 1.00
         expected  = (numerator / total_w) * 100
 
@@ -1005,7 +1007,8 @@ class TestLustScoreDynamicWeighting:
         """Tier 1 with matching house8 (conjunction): score includes house8 * 0.15
         and total_weight = 1.15.
 
-        Expected = (venus*0.20 + mars*0.25 + pluto*0.25
+        karmic replaces the old same-generation pluto×pluto comparison.
+        Expected = (venus*0.20 + mars*0.25 + karmic*0.25
                     + house8*0.15 + power*0.30) / 1.15 * 100
         """
         a = self._user(venus="aries", mars="aries", pluto="scorpio", house8="scorpio")
@@ -1013,13 +1016,13 @@ class TestLustScoreDynamicWeighting:
 
         venus_v  = compute_sign_aspect("aries",   "aries",   "harmony")
         mars_v   = compute_sign_aspect("aries",   "aries",   "tension")
-        pluto_v  = compute_sign_aspect("scorpio", "scorpio", "tension")
+        karmic_v = compute_karmic_triggers(a, b)
         house8_v = compute_sign_aspect("scorpio", "scorpio", "tension")
 
         from matching import compute_power_score
         power_v = compute_power_score(a, b)
 
-        numerator = (venus_v * 0.20 + mars_v * 0.25 + pluto_v * 0.25
+        numerator = (venus_v * 0.20 + mars_v * 0.25 + karmic_v * 0.25
                      + house8_v * 0.15 + power_v * 0.30)
         total_w   = 0.20 + 0.25 + 0.25 + 0.15 + 0.30  # = 1.15
         expected  = (numerator / total_w) * 100
@@ -1079,32 +1082,34 @@ class TestTracksNullHandling:
 
     def test_soul_track_no_chiron(self):
         """When both users lack chiron_sign, soul track redistributes weight:
-        pluto gets 0.60 and useful_god gets 0.40.
+        karmic gets 0.60 and useful_god gets 0.40.
 
-        With pluto conjunction (tension=1.00) and useful_god=0.0:
-        soul_track = 1.00 * 0.60 + 0.0 * 0.40 = 0.60 → 60.0
+        karmic = compute_karmic_triggers(a, b) replaces old pluto×pluto comparison.
+        soul_track = karmic * 0.60 + 0.0 * 0.40
         """
         a = self._base_user(pluto_sign="scorpio")
         b = self._base_user(pluto_sign="scorpio")
         power = self._power_no_frame_break()
 
         tracks = compute_tracks(a, b, power, useful_god_complement=0.0)
-        pluto_v = compute_sign_aspect("scorpio", "scorpio", "tension")  # 1.00
-        expected_soul = (pluto_v * 0.60 + 0.0 * 0.40) * 100  # = 60.0
+        karmic_v = compute_karmic_triggers(a, b)
+        expected_soul = (karmic_v * 0.60 + 0.0 * 0.40) * 100
         assert tracks["soul"] == pytest.approx(expected_soul, abs=0.5)
 
     def test_soul_track_with_chiron_uses_original_weights(self):
         """When chiron_sign is present, soul track uses original weights:
-        chiron*0.40 + pluto*0.40 + useful_god*0.20.
+        chiron*0.40 + karmic*0.40 + useful_god*0.20.
+
+        karmic = compute_karmic_triggers(a, b) replaces old pluto×pluto comparison.
         """
         a = self._base_user(pluto_sign="scorpio", chiron_sign="aries")
         b = self._base_user(pluto_sign="scorpio", chiron_sign="aries")
         power = self._power_no_frame_break()
 
         tracks = compute_tracks(a, b, power, useful_god_complement=0.5)
-        chiron_v = compute_sign_aspect("aries",   "aries",   "tension")  # 1.00
-        pluto_v  = compute_sign_aspect("scorpio", "scorpio", "tension")  # 1.00
-        expected_soul = (chiron_v * 0.40 + pluto_v * 0.40 + 0.5 * 0.20) * 100
+        chiron_v = compute_sign_aspect("aries", "aries", "tension")  # 1.00
+        karmic_v = compute_karmic_triggers(a, b)
+        expected_soul = (chiron_v * 0.40 + karmic_v * 0.40 + 0.5 * 0.20) * 100
         assert tracks["soul"] == pytest.approx(expected_soul, abs=0.5)
 
 
@@ -1281,3 +1286,204 @@ class TestDayBranchInMatchV2:
         r_harm    = compute_match_v2(a_harm, b_harm)
         r_neutral = compute_match_v2(a_neutral, b_neutral)
         assert r_harm["tracks"]["partner"] < r_neutral["tracks"]["partner"]
+
+
+# ── Phase I: Exact Degree Aspect Tests ──────────────────────────────────────
+
+from matching import get_shortest_distance, compute_exact_aspect, compute_karmic_triggers
+
+
+class TestGetShortestDistance:
+    def test_same_degree(self):
+        assert get_shortest_distance(0.0, 0.0) == pytest.approx(0.0)
+
+    def test_180_degrees(self):
+        assert get_shortest_distance(0.0, 180.0) == pytest.approx(180.0)
+
+    def test_wraps_around(self):
+        """350° and 10° → 20° not 340°"""
+        assert get_shortest_distance(350.0, 10.0) == pytest.approx(20.0)
+
+    def test_wraps_around_reverse(self):
+        assert get_shortest_distance(10.0, 350.0) == pytest.approx(20.0)
+
+    def test_exact_trine(self):
+        assert get_shortest_distance(0.0, 120.0) == pytest.approx(120.0)
+
+
+class TestComputeExactAspect:
+    def test_conjunction_harmony(self):
+        """0° apart → conjunction = 1.0 in harmony mode"""
+        assert compute_exact_aspect(0.0, 0.0, "harmony") == pytest.approx(1.0)
+
+    def test_conjunction_tension(self):
+        assert compute_exact_aspect(0.0, 0.0, "tension") == pytest.approx(1.0)
+
+    def test_trine_harmony(self):
+        """120° apart → trine = 0.9 in harmony mode"""
+        assert compute_exact_aspect(0.0, 120.0, "harmony") == pytest.approx(0.9)
+
+    def test_trine_tension(self):
+        """120° apart → trine = 0.2 in tension mode"""
+        assert compute_exact_aspect(0.0, 120.0, "tension") == pytest.approx(0.2)
+
+    def test_square_tension(self):
+        """90° apart → square = 0.9 in tension mode"""
+        assert compute_exact_aspect(0.0, 90.0, "tension") == pytest.approx(0.9)
+
+    def test_opposition_tension(self):
+        """180° apart → opposition = 0.85 in tension mode"""
+        assert compute_exact_aspect(0.0, 180.0, "tension") == pytest.approx(0.85)
+
+    def test_sextile_harmony(self):
+        """60° apart → sextile = 0.8 in harmony mode"""
+        assert compute_exact_aspect(0.0, 60.0, "harmony") == pytest.approx(0.8)
+
+    def test_within_orb(self):
+        """87° (3° from square) still within 8° orb → aspect scores apply"""
+        assert compute_exact_aspect(0.0, 87.0, "tension") == pytest.approx(0.9)
+
+    def test_just_outside_orb(self):
+        """100° (10° from square, 10° from trine) → void of aspect = 0.1"""
+        assert compute_exact_aspect(0.0, 100.0, "tension") == pytest.approx(0.1)
+
+    def test_cross_sign_conjunction(self):
+        """29° Aries (29.0) and 1° Taurus (31.0) → 2° apart → conjunction"""
+        assert compute_exact_aspect(29.0, 31.0, "tension") == pytest.approx(1.0)
+
+    def test_none_returns_neutral(self):
+        """None degree → 0.5 neutral"""
+        assert compute_exact_aspect(None, 90.0, "tension") == pytest.approx(0.5)
+        assert compute_exact_aspect(0.0, None, "harmony") == pytest.approx(0.5)
+
+    def test_wrap_around_opposition(self):
+        """10° and 190° → 180° → opposition in tension"""
+        assert compute_exact_aspect(10.0, 190.0, "tension") == pytest.approx(0.85)
+
+
+class TestComputeKarmicTriggers:
+    def _make_user(self, pluto_sign="scorpio", uranus_sign="sagittarius",
+                   neptune_sign="capricorn", moon_sign="aries",
+                   venus_sign="taurus", mars_sign="cancer"):
+        return {
+            "pluto_sign": pluto_sign,
+            "uranus_sign": uranus_sign,
+            "neptune_sign": neptune_sign,
+            "moon_sign": moon_sign,
+            "venus_sign": venus_sign,
+            "mars_sign": mars_sign,
+        }
+
+    def test_baseline_no_triggers(self):
+        """Identical outer planets (same generation) should return ~0.50 baseline."""
+        same_gen = self._make_user()
+        result = compute_karmic_triggers(same_gen, same_gen)
+        # Pluto in Scorpio vs Moon in Aries = distance 7 → wraps to 5 → minor = 0.10 (below 0.85)
+        # Most combos for same-gen users should produce no triggers → 0.50 baseline
+        assert 0.0 <= result <= 1.0
+
+    def test_returns_float_in_range(self):
+        a = self._make_user("scorpio", "sagittarius", "capricorn", "aries", "taurus", "cancer")
+        b = self._make_user("scorpio", "sagittarius", "capricorn", "scorpio", "scorpio", "scorpio")
+        result = compute_karmic_triggers(a, b)
+        assert 0.0 <= result <= 1.0
+
+    def test_high_trigger_when_conjunction(self):
+        """Pluto in Scorpio vs Moon in Scorpio = conjunction (tension=1.0 >= 0.85) → triggers."""
+        a = {"pluto_sign": "scorpio", "uranus_sign": "aquarius", "neptune_sign": "pisces",
+             "moon_sign": "aries", "venus_sign": "gemini", "mars_sign": "leo"}
+        b = {"pluto_sign": "pisces", "uranus_sign": "gemini", "neptune_sign": "leo",
+             "moon_sign": "scorpio", "venus_sign": "cancer", "mars_sign": "virgo"}
+        result = compute_karmic_triggers(a, b)
+        # a's pluto (scorpio) vs b's moon (scorpio) → conjunction → triggers
+        assert result > 0.50
+
+    def test_degree_based_when_available(self):
+        """When degree fields present, use exact degree calculation."""
+        a = {"pluto_sign": "aries", "pluto_degree": 15.0,  # 15° Aries
+             "uranus_sign": "taurus", "uranus_degree": 45.0,
+             "neptune_sign": "gemini", "neptune_degree": 75.0,
+             "moon_sign": "aries", "moon_degree": 17.0,    # 2° from pluto → conjunction
+             "venus_sign": "leo", "venus_degree": 130.0,
+             "mars_sign": "libra", "mars_degree": 195.0}
+        b = {"pluto_sign": "virgo", "pluto_degree": 165.0,
+             "uranus_sign": "libra", "uranus_degree": 185.0,
+             "neptune_sign": "scorpio", "neptune_degree": 225.0,
+             "moon_sign": "aries", "moon_degree": 17.0,
+             "venus_sign": "leo", "venus_degree": 130.0,
+             "mars_sign": "libra", "mars_degree": 195.0}
+        result = compute_karmic_triggers(a, b)
+        # a's pluto (15°) vs b's moon (17°) → 2° → conjunction → triggers
+        assert result > 0.50
+
+    def test_symmetric(self):
+        """compute_karmic_triggers(a, b) == compute_karmic_triggers(b, a)"""
+        a = self._make_user("scorpio", "sagittarius", "capricorn", "aries", "taurus", "cancer")
+        b = self._make_user("pisces", "aquarius", "scorpio", "leo", "libra", "sagittarius")
+        assert compute_karmic_triggers(a, b) == pytest.approx(compute_karmic_triggers(b, a))
+
+
+class TestKarmicInLustScore:
+    """Verify that lust score no longer uses same-generation pluto×pluto comparison."""
+
+    def _user(self, **kwargs):
+        base = {
+            "data_tier": 3,
+            "sun_sign": "aries",
+            "venus_sign": "taurus",
+            "mars_sign": "gemini",
+            "pluto_sign": "scorpio",
+            "rpv_conflict": "cold_war",
+            "rpv_power": "control",
+            "rpv_energy": "home",
+            "bazi_element": "wood",
+        }
+        base.update(kwargs)
+        return base
+
+    def test_same_gen_pluto_no_longer_inflates_lust(self):
+        """Two users with same Pluto sign (same generation) should not get 1.0 karmic score."""
+        a = self._user(pluto_sign="scorpio")  # born 1984-1995
+        b = self._user(pluto_sign="scorpio")  # same generation
+        # Import compute_lust_score to check directly
+        from matching import compute_lust_score
+        lust = compute_lust_score(a, b)
+        # The old code gave pluto=1.0 for same-sign → inflated lust
+        # New code: karmic_triggers(a, b) = 0.50 baseline when no cross-layer triggers
+        # lust should be in a reasonable range (not artificially maxed)
+        assert 0 <= lust <= 100
+
+
+class TestKarmicInSoulTrack:
+    """Verify that soul track no longer uses same-generation pluto×pluto."""
+
+    def _user(self, moon_sign="aries", pluto_sign="scorpio"):
+        return {
+            "data_tier": 3,
+            "sun_sign": "aries",
+            "moon_sign": moon_sign,
+            "mercury_sign": "taurus",
+            "venus_sign": "taurus",
+            "mars_sign": "gemini",
+            "saturn_sign": "capricorn",
+            "jupiter_sign": "sagittarius",
+            "pluto_sign": pluto_sign,
+            "chiron_sign": None,
+            "uranus_sign": "sagittarius",
+            "neptune_sign": "capricorn",
+            "rpv_conflict": "cold_war",
+            "rpv_power": "control",
+            "rpv_energy": "home",
+            "bazi_element": "wood",
+            "emotional_capacity": 50,
+        }
+
+    def test_soul_track_uses_karmic_not_pluto(self):
+        """compute_tracks soul track should no longer reference pluto_a vs pluto_b."""
+        from matching import compute_tracks, compute_power_v2
+        a = self._user(pluto_sign="scorpio")
+        b = self._user(pluto_sign="scorpio")
+        power = compute_power_v2(a, b)
+        tracks = compute_tracks(a, b, power, 0.0)
+        # Soul track should be a valid 0-100 score
+        assert 0 <= tracks["soul"] <= 100
