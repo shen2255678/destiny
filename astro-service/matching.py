@@ -36,7 +36,7 @@ SIGN_ELEMENT = {
 
 # ── WEIGHTS — Centralized weight configuration ─────────────────────────────
 # Edit these values to tune scoring without touching function bodies.
-# Currently active: match_*, power_*, and lust_* keys. Remaining keys are wired in Task 4.
+# All keys are now wired.
 WEIGHTS = {
     # ── compute_lust_score ────────── ✅ wired ───────────────────────────────
     "lust_cross_mars_venus":   0.30,   # mars_a × venus_b  (cross-person, tension) ← primary
@@ -51,7 +51,7 @@ WEIGHTS = {
     "lust_power":              0.30,   # RPV power dynamic
     "lust_bazi_restrict_mult": 1.25,   # upgraded from 1.20; applied in Task 3
 
-    # ── compute_kernel_score [RESERVED — wired in Task 4] ────────────────────
+    # ── compute_kernel_score ─── ✅ wired ────────────────────────────────────
     "kernel_t1_sun":           0.20,
     "kernel_t1_moon":          0.25,
     "kernel_t1_venus":         0.25,
@@ -65,7 +65,7 @@ WEIGHTS = {
     "kernel_t3_venus":         0.30,
     "kernel_t3_bazi":          0.40,
 
-    # ── compute_tracks [RESERVED — wired in Task 4] ──────────────────────────
+    # ── compute_tracks ─── ✅ wired ──────────────────────────────────────────
     "track_friend_mercury":          0.40,
     "track_friend_jupiter":          0.40,
     "track_friend_bazi":             0.20,
@@ -89,7 +89,7 @@ WEIGHTS = {
     "power_power":             0.40,
     "power_energy":            0.25,
 
-    # ── compute_glitch_score [RESERVED — wired in Task 4] ────────────────────
+    # ── compute_glitch_score ─── ✅ wired ────────────────────────────────────
     "glitch_mars":             0.25,
     "glitch_saturn":           0.25,
     "glitch_mars_sat_ab":      0.25,
@@ -308,11 +308,20 @@ def compute_kernel_score(user_a: dict, user_b: dict) -> float:
         bazi = relation["harmony_score"]
 
     if effective_tier == 1:
-        return sun * 0.20 + moon * 0.25 + venus * 0.25 + asc * 0.15 + bazi * 0.15
+        return (sun   * WEIGHTS["kernel_t1_sun"]   +
+                moon  * WEIGHTS["kernel_t1_moon"]  +
+                venus * WEIGHTS["kernel_t1_venus"] +
+                asc   * WEIGHTS["kernel_t1_asc"]   +
+                bazi  * WEIGHTS["kernel_t1_bazi"])
     elif effective_tier == 2:
-        return sun * 0.25 + moon * 0.20 + venus * 0.25 + bazi * 0.30
+        return (sun   * WEIGHTS["kernel_t2_sun"]   +
+                moon  * WEIGHTS["kernel_t2_moon"]  +
+                venus * WEIGHTS["kernel_t2_venus"] +
+                bazi  * WEIGHTS["kernel_t2_bazi"])
     else:
-        return sun * 0.30 + venus * 0.30 + bazi * 0.40
+        return (sun   * WEIGHTS["kernel_t3_sun"]   +
+                venus * WEIGHTS["kernel_t3_venus"] +
+                bazi  * WEIGHTS["kernel_t3_bazi"])
 
 
 # ── Power Dynamic Fit (30%) ──────────────────────────────────
@@ -359,7 +368,10 @@ def compute_glitch_score(user_a: dict, user_b: dict) -> float:
     mars_sat_ab = compute_sign_aspect(user_a.get("mars_sign"),  user_b.get("saturn_sign"), "tension")
     mars_sat_ba = compute_sign_aspect(user_b.get("mars_sign"),  user_a.get("saturn_sign"), "tension")
 
-    return mars * 0.25 + saturn * 0.25 + mars_sat_ab * 0.25 + mars_sat_ba * 0.25
+    return (mars        * WEIGHTS["glitch_mars"] +
+            saturn      * WEIGHTS["glitch_saturn"] +
+            mars_sat_ab * WEIGHTS["glitch_mars_sat_ab"] +
+            mars_sat_ba * WEIGHTS["glitch_mars_sat_ba"])
 
 
 # ── Match Classification ─────────────────────────────────────
@@ -827,27 +839,33 @@ def compute_tracks(
     passion_extremity = max(karmic, house8)
 
     friend = (
-        0.40 * mercury +
-        0.40 * jupiter +
-        0.20 * (1.0 if bazi_harmony else 0.0)
+        WEIGHTS["track_friend_mercury"] * mercury +
+        WEIGHTS["track_friend_jupiter"] * jupiter +
+        WEIGHTS["track_friend_bazi"]    * (1.0 if bazi_harmony else 0.0)
     )
     passion = (
-        0.30 * mars +
-        0.30 * venus +
-        0.10 * passion_extremity +
-        0.30 * (1.0 if bazi_clash else 0.0)
+        WEIGHTS["track_passion_mars"]    * mars +
+        WEIGHTS["track_passion_venus"]   * venus +
+        WEIGHTS["track_passion_extreme"] * passion_extremity +
+        WEIGHTS["track_passion_bazi"]    * (1.0 if bazi_clash else 0.0)
     )
     if juno_present:
-        partner = moon * 0.35 + juno * 0.35 + (1.0 if bazi_generation else 0.0) * 0.30
+        partner = (moon * WEIGHTS["track_partner_moon"] +
+                   juno * WEIGHTS["track_partner_juno"] +
+                   (1.0 if bazi_generation else 0.0) * WEIGHTS["track_partner_bazi"])
     else:
         # Redistribute juno's 0.35 weight: moon gets 0.55, bazi gets 0.45
-        partner = moon * 0.55 + (1.0 if bazi_generation else 0.0) * 0.45
+        partner = (moon * WEIGHTS["track_partner_nojuno_moon"] +
+                   (1.0 if bazi_generation else 0.0) * WEIGHTS["track_partner_nojuno_bazi"])
 
     if chiron_present:
-        soul_track = chiron * 0.40 + karmic * 0.40 + useful_god_complement * 0.20
+        soul_track = (chiron               * WEIGHTS["track_soul_chiron"] +
+                      karmic               * WEIGHTS["track_soul_karmic"] +
+                      useful_god_complement * WEIGHTS["track_soul_useful_god"])
     else:
         # Redistribute chiron's 0.40 weight: karmic gets 0.60, useful_god gets 0.40
-        soul_track = karmic * 0.60 + useful_god_complement * 0.40
+        soul_track = (karmic               * WEIGHTS["track_soul_nochiron_karmic"] +
+                      useful_god_complement * WEIGHTS["track_soul_nochiron_useful_god"])
 
     if power["frame_break"]:
         soul_track += 0.10
