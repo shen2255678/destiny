@@ -483,6 +483,28 @@ curl -X POST http://localhost:8001/compute-match \
   "data_tier": 1
 }
 
+// 範例 E — 1997-03-08 20:00 台北（Tier 1）
+// 驗證結果：sun=pisces, asc=libra, 日主己土, 四柱=丁丑癸卯己酉甲戌
+{
+  "birth_date": "1997-03-08",
+  "birth_time": "precise",
+  "birth_time_exact": "20:00",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 1
+}
+
+// 範例 F — 1997-05-01 12:00 台北（Tier 1）
+// 驗證結果：sun=taurus, asc=leo, 日主癸水, 四柱=丁丑甲辰癸卯戊午
+{
+  "birth_date": "1997-05-01",
+  "birth_time": "precise",
+  "birth_time_exact": "12:00",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 1
+}
+
 // Tier 2 範本（模糊時段）
 {
   "birth_date": "YYYY-MM-DD",
@@ -533,6 +555,20 @@ curl -X POST http://localhost:8001/compute-match \
 {
   "birth_year": 1997, "birth_month": 6, "birth_day": 7,
   "birth_time": "06:00", "gender": "F"
+}
+
+// 範例 E — 1997-03-08 20:00 男
+// 驗證結果：火六局, 命宮七殺（殺破狼人設）, 夫妻宮武曲+天相
+{
+  "birth_year": 1997, "birth_month": 3, "birth_day": 8,
+  "birth_time": "20:00", "gender": "M"
+}
+
+// 範例 F — 1997-05-01 12:00 女
+// 驗證結果：金四局, 命宮空宮借星（變色龍人設）, 夫妻宮空宮+右弼
+{
+  "birth_year": 1997, "birth_month": 5, "birth_day": 1,
+  "birth_time": "12:00", "gender": "F"
 }
 ```
 
@@ -612,6 +648,46 @@ curl -X POST http://localhost:8001/compute-match \
     "bazi_element": "metal",
     "attachment_style": "anxious",
     "rpv_conflict": "cold_war", "rpv_power": "follow", "rpv_energy": "out"
+  }
+}
+```
+
+---
+
+**配對組 3：1997-03-08 ✗ 1997-05-01**
+**驗證結果：lust=85.7, soul=75.8, soulmate 象限, spiciness=STABLE, 八字土剋水（A制B）**
+
+```json
+{
+  "user_a": {
+    "data_tier": 1,
+    "birth_year": 1997, "birth_month": 3, "birth_day": 8,
+    "birth_time": "20:00", "gender": "M",
+    "sun_sign": "pisces",   "moon_sign": "pisces",
+    "mercury_sign": "pisces", "venus_sign": "pisces",
+    "mars_sign": "libra",   "jupiter_sign": "aquarius",
+    "saturn_sign": "aries", "pluto_sign": "sagittarius",
+    "chiron_sign": null,    "juno_sign": null,
+    "ascendant_sign": "libra",
+    "house4_sign": "capricorn", "house8_sign": "taurus",
+    "bazi_element": "earth",
+    "attachment_style": "anxious",
+    "rpv_conflict": "cold_war", "rpv_power": "follow", "rpv_energy": "out"
+  },
+  "user_b": {
+    "data_tier": 1,
+    "birth_year": 1997, "birth_month": 5, "birth_day": 1,
+    "birth_time": "12:00", "gender": "F",
+    "sun_sign": "taurus",   "moon_sign": "aquarius",
+    "mercury_sign": "taurus", "venus_sign": "taurus",
+    "mars_sign": "virgo",   "jupiter_sign": "aquarius",
+    "saturn_sign": "aries", "pluto_sign": "sagittarius",
+    "chiron_sign": null,    "juno_sign": null,
+    "ascendant_sign": "leo",
+    "house4_sign": "scorpio", "house8_sign": "pisces",
+    "bazi_element": "water",
+    "attachment_style": "secure",
+    "rpv_conflict": "cold_war", "rpv_power": "control", "rpv_energy": "out"
   }
 }
 ```
