@@ -41,6 +41,8 @@ WEIGHTS = {
     # ── compute_lust_score ────────── ✅ wired ───────────────────────────────
     "lust_cross_mars_venus":   0.30,   # mars_a × venus_b  (cross-person, tension) ← primary
     "lust_cross_venus_mars":   0.30,   # mars_b × venus_a  (cross-person, tension) ← primary
+    # NOTE: lust_cross_mars_venus and lust_cross_venus_mars MUST stay equal to preserve score symmetry
+    # (swapping user_a and user_b must produce the same score).
     "lust_same_venus":         0.15,   # venus_a × venus_b (same-planet, harmony)
     "lust_same_mars":          0.15,   # mars_a × mars_b   (same-planet, harmony)
     "lust_house8_ab":          0.10,   # h8_a × mars_b     (8th house taboo pull)
@@ -179,6 +181,21 @@ def compute_sign_aspect(
 
     table = HARMONY_ASPECTS if mode == "harmony" else TENSION_ASPECTS
     return table.get(distance, MINOR_ASPECT_SCORE)
+
+
+def _resolve_aspect(
+    deg_x: Optional[float], sign_x: Optional[str],
+    deg_y: Optional[float], sign_y: Optional[str],
+    mode: str,
+) -> float:
+    """Use exact degrees if both available; fall back to sign-level aspect.
+
+    Used by compute_lust_score and any future function that accepts both
+    exact planet_degrees and sign-level fallback inputs.
+    """
+    if deg_x is not None and deg_y is not None:
+        return compute_exact_aspect(deg_x, deg_y, mode)
+    return compute_sign_aspect(sign_x, sign_y, mode)
 
 
 # ── Exact Degree Aspect Scoring ─────────────────────────────
@@ -528,17 +545,13 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
     Karmic: outer-vs-inner triggers × WEIGHTS["lust_karmic"]  (0.25)
     Power:  RPV dynamic              × WEIGHTS["lust_power"]   (0.30)
 
-    Multiplier: × WEIGHTS["lust_bazi_restrict_mult"] (1.25) when BaZi elements clash.
-    Falls back to sign-level aspect when exact degree unavailable.
+    Multiplier: × WEIGHTS["lust_bazi_restrict_mult"] when BaZi elements clash.
+    Terms 1-4 fall back to sign-level aspect when exact degrees unavailable.
+    House 8 signals (terms 5-6) require exact degrees and are omitted when absent.
+    BaZi multiplier requires both users to have bazi_element; silently skipped otherwise.
     """
     score = 0.0
     total_weight = 0.0
-
-    def _aspect(deg_x, sign_x, deg_y, sign_y, mode):
-        """Use exact degrees if both available; fall back to sign-level."""
-        if deg_x is not None and deg_y is not None:
-            return compute_exact_aspect(deg_x, deg_y, mode)
-        return compute_sign_aspect(sign_x, sign_y, mode)
 
     venus_a_deg = user_a.get("venus_degree")
     venus_b_deg = user_b.get("venus_degree")
@@ -549,25 +562,25 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
 
     # 1. Cross-person: mars_a × venus_b (A pursues B)
     w = WEIGHTS["lust_cross_mars_venus"]
-    score += _aspect(mars_a_deg, user_a.get("mars_sign"),
+    score += _resolve_aspect(mars_a_deg, user_a.get("mars_sign"),
                      venus_b_deg, user_b.get("venus_sign"), "tension") * w
     total_weight += w
 
     # 2. Cross-person: mars_b × venus_a (B pursues A)
     w = WEIGHTS["lust_cross_venus_mars"]
-    score += _aspect(mars_b_deg, user_b.get("mars_sign"),
+    score += _resolve_aspect(mars_b_deg, user_b.get("mars_sign"),
                      venus_a_deg, user_a.get("venus_sign"), "tension") * w
     total_weight += w
 
     # 3. Same-planet: venus_a × venus_b (aesthetic sync)
     w = WEIGHTS["lust_same_venus"]
-    score += _aspect(venus_a_deg, user_a.get("venus_sign"),
+    score += _resolve_aspect(venus_a_deg, user_a.get("venus_sign"),
                      venus_b_deg, user_b.get("venus_sign"), "harmony") * w
     total_weight += w
 
     # 4. Same-planet: mars_a × mars_b (energy rhythm sync)
     w = WEIGHTS["lust_same_mars"]
-    score += _aspect(mars_a_deg, user_a.get("mars_sign"),
+    score += _resolve_aspect(mars_a_deg, user_a.get("mars_sign"),
                      mars_b_deg, user_b.get("mars_sign"), "harmony") * w
     total_weight += w
 

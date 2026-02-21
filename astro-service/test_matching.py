@@ -415,7 +415,7 @@ class TestLustScore:
 
 class TestComputeLustScore:
     def test_lust_cross_aspects_opposition_gives_high_score(self):
-        """mars_a exactly opposite venus_b (tension mode, diff=0) → high lust."""
+        """mars_a exactly opposite venus_b (tension mode, 180° diff) → high lust."""
         user_a = {
             "mars_degree": 0.0,   "mars_sign": "aries",
             "venus_degree": None, "venus_sign": "aries",
@@ -429,7 +429,7 @@ class TestComputeLustScore:
             "rpv_power": "follow", "rpv_conflict": "argue", "rpv_energy": "home",
         }
         score = compute_lust_score(user_a, user_b)
-        assert score >= 65.0, f"Mars opposite Venus should give high lust, got {score}"
+        assert score == pytest.approx(76.8, abs=1.0)
 
     def test_lust_cross_beats_same_planet(self):
         """Cross-aspect pair (mars_a × venus_b opposition) scores higher than same-planet trine."""
