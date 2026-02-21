@@ -78,6 +78,19 @@ export interface Database {
           priorities: 'Achievement' | 'LifeQuality' | null
           created_at: string
           updated_at: string
+          // ZWDS fields
+          zwds_life_palace_stars: string[] | null
+          zwds_spouse_palace_stars: string[] | null
+          zwds_karma_palace_stars: string[] | null
+          zwds_four_transforms: {
+            hua_lu: string
+            hua_quan: string
+            hua_ke: string
+            hua_ji: string
+          } | null
+          zwds_five_element: string | null
+          zwds_body_palace_name: string | null
+          zwds_defense_triggers: string[] | null
         }
         Insert: {
           id: string
@@ -135,6 +148,19 @@ export interface Database {
           is_boundary_case?: boolean
           dealbreakers?: string[]
           priorities?: 'Achievement' | 'LifeQuality' | null
+          // ZWDS fields
+          zwds_life_palace_stars?: string[] | null
+          zwds_spouse_palace_stars?: string[] | null
+          zwds_karma_palace_stars?: string[] | null
+          zwds_four_transforms?: {
+            hua_lu: string
+            hua_quan: string
+            hua_ke: string
+            hua_ji: string
+          } | null
+          zwds_five_element?: string | null
+          zwds_body_palace_name?: string | null
+          zwds_defense_triggers?: string[] | null
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>
         Relationships: []
