@@ -113,6 +113,7 @@ RPV 和依戀風格**不需手動填寫**，點擊 **▶ Run Match** 後系統�
    - 四軌分數（friend / passion / partner / soul）與 primary_track
    - 權力動態（viewer_role / target_role / RPV / frame_break）
    - 系統標籤（labels）
+   - **Phase H ZWDS 欄位**（Tier 1 only）：`spiciness_level`（STABLE / MEDIUM / HIGH_VOLTAGE / SOULMATE）、`defense_mechanisms`（viewer/target 煞星防禦機制）、`layered_analysis`（業力羈絆 + 化権動態 + 命宮星群）
 
 ### AI Archetype 解讀報告
 
