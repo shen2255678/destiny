@@ -524,6 +524,9 @@ def compute_bazi_season_complement(branch_a: str, branch_b: str) -> float:
     sa = get_season_type(branch_a)
     sb = get_season_type(branch_b)
 
+    if sa == "unknown" or sb == "unknown":
+        return 0.0
+
     # Perfect complement: summer heat ↔ winter cold
     if (sa == "hot" and sb == "cold") or (sa == "cold" and sb == "hot"):
         return 1.0

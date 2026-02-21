@@ -698,18 +698,13 @@ class TestComputeMatchV2Integration:
         assert result["useful_god_complement"] == pytest.approx(0.0)
 
     def test_bazi_month_branch_preferred_over_birth_month(self):
-        """bazi_month_branch should take precedence over birth_month fallback.
+        """bazi_month_branch takes precedence over the birth_month fallback.
 
-        User A: bazi_month_branch=午 (summer), birth_month=12 (冬 in Gregorian)
-        User B: bazi_month_branch=子 (winter), birth_month=6
-        Branch path: 午↔子 = 1.0 (perfect).
-        If birth_month were used instead: month 12↔6 = 1.0 too (same result here).
-        So test a case where branch and Gregorian month would diverge:
-        User A: bazi_month_branch=子 (cold/winter), birth_month=7 (hot/summer in Gregorian)
-        User B: bazi_month_branch=子 (cold/winter), birth_month=7
-        → branch: same season (子↔子) = 0.0; Gregorian fallback: same season = 0.0.
-        Actually test that branch is used: 午(hot)↔巳(hot) = 0.0 via branch,
-        but if Gregorian months were 6↔11 → hot↔cold = 1.0.
+        A: bazi_month_branch=午 (summer/hot), birth_month=11 (Gregorian → 亥 cold in legacy).
+        B: bazi_month_branch=巳 (summer/hot), birth_month=6  (Gregorian → 午 hot in legacy).
+        Branch path:   午↔巳 = same season → 0.0.
+        Gregorian fallback would give: 亥↔午 = cold↔hot → 1.0.
+        Since bazi_month_branch is present, branch path must win → 0.0.
         """
         # bazi_month_branch=午 (summer), birth_month=11 (Gregorian winter → cold in legacy)
         # bazi_month_branch=巳 (summer), birth_month=6 (Gregorian summer → hot in legacy)

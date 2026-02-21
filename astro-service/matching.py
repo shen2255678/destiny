@@ -664,6 +664,9 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     elif user_a.get("birth_month") is not None and user_b.get("birth_month") is not None:
         # Legacy fallback: approximate from Gregorian month
         # Map Gregorian month to approximate branch string
+        # Coarse approximation: assigns the dominant branch for each Gregorian month.
+        # Births in the first ~4-7 days of Feb/May/Aug/Nov may straddle a solar term
+        # boundary and belong to the previous branch. Use bazi_month_branch for precision.
         _MONTH_TO_BRANCH = {
             1: "丑", 2: "寅", 3: "卯", 4: "辰", 5: "巳", 6: "午",
             7: "未", 8: "申", 9: "酉", 10: "戌", 11: "亥", 12: "子"
