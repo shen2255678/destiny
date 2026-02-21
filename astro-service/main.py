@@ -24,7 +24,7 @@ from chart import calculate_chart
 from bazi import analyze_element_relation
 from matching import compute_match_score, compute_match_v2
 from anthropic import Anthropic
-import google.generativeai as genai
+from google import genai as google_genai
 
 anthropic_client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
 
@@ -137,7 +137,7 @@ def call_llm(
     """Call Claude (Anthropic) or Gemini based on provider.
 
     api_key: if provided, overrides the server environment variable.
-    gemini_model: Gemini model name; defaults to gemini-1.5-flash.
+    gemini_model: Gemini model name; defaults to gemini-2.0-flash.
     Raises HTTPException 400 if no API key is available.
     Returns raw text from the model.
     """
@@ -145,10 +145,9 @@ def call_llm(
         key = api_key or os.environ.get("GEMINI_API_KEY", "")
         if not key:
             raise HTTPException(status_code=400, detail="GEMINI_API_KEY not set")
-        model_name = gemini_model or "gemini-1.5-flash"
-        genai.configure(api_key=key)
-        model = genai.GenerativeModel(model_name)
-        response = model.generate_content(prompt)
+        model_name = gemini_model or "gemini-2.0-flash"
+        client = google_genai.Client(api_key=key)
+        response = client.models.generate_content(model=model_name, contents=prompt)
         return response.text
     else:  # anthropic (default)
         key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
@@ -195,7 +194,7 @@ class ArchetypeRequest(BaseModel):
     language: str = "zh-TW"
     provider: str = "anthropic"  # "anthropic" | "gemini"
     api_key: str = ""            # overrides server env var when provided
-    gemini_model: str = "gemini-1.5-flash"  # used only when provider="gemini"
+    gemini_model: str = "gemini-2.0-flash"  # used only when provider="gemini"
 
 
 @app.post("/generate-archetype")
@@ -266,7 +265,7 @@ class ProfileCardRequest(BaseModel):
     person_name: str = "User"
     provider: str = "anthropic"  # "anthropic" | "gemini"
     api_key: str = ""            # overrides server env var when provided
-    gemini_model: str = "gemini-1.5-flash"  # used only when provider="gemini"
+    gemini_model: str = "gemini-2.0-flash"  # used only when provider="gemini"
 
 
 @app.post("/generate-profile-card")
@@ -330,7 +329,7 @@ class MatchReportRequest(BaseModel):
     person_b_name: str = "B"
     provider: str = "anthropic"  # "anthropic" | "gemini"
     api_key: str = ""            # overrides server env var when provided
-    gemini_model: str = "gemini-1.5-flash"  # used only when provider="gemini"
+    gemini_model: str = "gemini-2.0-flash"  # used only when provider="gemini"
 
 
 @app.post("/generate-match-report")
