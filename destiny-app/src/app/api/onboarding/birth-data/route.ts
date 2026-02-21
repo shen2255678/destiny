@@ -289,6 +289,41 @@ export async function POST(request: Request) {
     console.warn('[birth-data] astro-service unreachable, skipping chart calculation')
   }
 
+  // Non-blocking ZWDS computation for Tier 1 / PRECISE users
+  if (rectData.data_tier === 1 && rectData.accuracy_type === 'PRECISE') {
+    const astroServiceUrl = process.env.ASTRO_SERVICE_URL ?? 'http://localhost:8001'
+    try {
+      // Parse birth_year, birth_month, birth_day from birth_date (YYYY-MM-DD)
+      const [birthYear, birthMonth, birthDay] = birth_date.split('-').map(Number)
+      const zwdsRes = await fetch(`${astroServiceUrl}/compute-zwds-chart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          birth_year: birthYear,
+          birth_month: birthMonth,
+          birth_day: birthDay,
+          birth_time: birth_time_exact || null,
+          gender: 'M',
+        }),
+      })
+      if (zwdsRes.ok) {
+        const { chart } = await zwdsRes.json()
+        if (chart) {
+          await supabase.from('users').update({
+            zwds_life_palace_stars:   chart.palaces?.ming?.main_stars ?? [],
+            zwds_spouse_palace_stars: chart.palaces?.spouse?.main_stars ?? [],
+            zwds_karma_palace_stars:  chart.palaces?.karma?.main_stars ?? [],
+            zwds_four_transforms:     chart.four_transforms ?? null,
+            zwds_five_element:        chart.five_element ?? null,
+            zwds_body_palace_name:    chart.body_palace_name ?? null,
+          }).eq('id', user.id)
+        }
+      }
+    } catch {
+      // Non-blocking: ZWDS failure never blocks onboarding
+    }
+  }
+
   // Re-fetch to include chart data in response
   const { data: updated } = await supabase
     .from('users')

@@ -302,4 +302,81 @@ describe('POST /api/onboarding/birth-data', () => {
       expect.anything()
     )
   })
+
+  // -----------------------------------------------------------------------
+  // ZWDS chart write-back (Phase H)
+  // -----------------------------------------------------------------------
+
+  it('Tier 1 PRECISE: ZWDS fields are written to DB when astro-service returns chart', async () => {
+    const mockZwdsChart = {
+      palaces: {
+        ming:   { main_stars: ['紫微', '天機'] },
+        spouse: { main_stars: ['太陽'] },
+        karma:  { main_stars: ['廉貞'] },
+      },
+      four_transforms: { hua_lu: '紫微', hua_quan: '天機', hua_ke: '太陰', hua_ji: '巨門' },
+      five_element: '木三局',
+      body_palace_name: '財帛',
+    }
+
+    // First fetch call: /calculate-chart returns existing chart response
+    // Second fetch call: /compute-zwds-chart returns ZWDS chart
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        sun_sign: 'capricorn', moon_sign: null, venus_sign: 'aquarius',
+        mars_sign: 'scorpio', saturn_sign: 'capricorn', ascendant_sign: null,
+        element_primary: 'earth', data_tier: 1,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ chart: mockZwdsChart }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'PRECISE',
+      birth_time_exact: '14:30',
+      birth_city: '台北市',
+    }))
+
+    // The second update call should include ZWDS fields
+    const updateCalls = mockUpdate.mock.calls
+    const zwdsCall = updateCalls.find((args: unknown[]) => {
+      const fields = args[0] as Record<string, unknown>
+      return 'zwds_life_palace_stars' in fields
+    })
+    expect(zwdsCall).toBeDefined()
+    expect(zwdsCall![0]).toMatchObject({
+      zwds_life_palace_stars:   ['紫微', '天機'],
+      zwds_spouse_palace_stars: ['太陽'],
+      zwds_karma_palace_stars:  ['廉貞'],
+      zwds_five_element:        '木三局',
+      zwds_body_palace_name:    '財帛',
+    })
+  })
+
+  it('ZWDS service failure does not block Tier 1 onboarding', async () => {
+    // First fetch call: /calculate-chart succeeds
+    // Second fetch call: /compute-zwds-chart throws a network error
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        sun_sign: 'capricorn', moon_sign: null, venus_sign: 'aquarius',
+        mars_sign: 'scorpio', saturn_sign: 'capricorn', ascendant_sign: null,
+        element_primary: 'earth', data_tier: 1,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockRejectedValueOnce(new Error('ZWDS service unavailable'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await POST(makeRequest({
+      birth_date: '1990-01-15',
+      accuracy_type: 'PRECISE',
+      birth_time_exact: '14:30',
+      birth_city: '台北市',
+    }))
+
+    // Onboarding must still succeed despite ZWDS failure
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toBeDefined()
+  })
 })
