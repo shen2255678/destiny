@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from chart import calculate_chart
 from bazi import analyze_element_relation
 from matching import compute_match_score, compute_match_v2
+from zwds import compute_zwds_chart
 from anthropic import Anthropic
 from google import genai as google_genai
 
@@ -122,6 +123,25 @@ def compute_match(req: MatchRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class ZwdsChartRequest(BaseModel):
+    birth_year:  int
+    birth_month: int
+    birth_day:   int
+    birth_time:  Optional[str] = None
+    gender:      str = "M"
+
+
+@app.post("/compute-zwds-chart")
+async def get_zwds_chart(req: ZwdsChartRequest):
+    """Compute ZiWei DouShu 12-palace chart (Tier 1 only).
+    Returns null chart if birth_time is not provided.
+    """
+    chart = compute_zwds_chart(
+        req.birth_year, req.birth_month, req.birth_day, req.birth_time, req.gender
+    )
+    return {"chart": chart}
 
 
 # ── Algorithm Validation Sandbox Endpoints ─────────────────────────────────
