@@ -484,3 +484,53 @@ def analyze_element_relation(element_a: str, element_b: str) -> Dict:
 
     # Should not reach here with 5 elements
     return {"relation": "unknown", "harmony_score": 0.5}
+
+
+# ── Seasonal Useful-God Complement (調候互補) ────────────────
+
+def get_season_type(month: int) -> str:
+    """Classify birth month into seasonal temperature type.
+
+    Used as a lightweight proxy for 喜用神 (Useful Gods) via
+    調候用神 (Seasonal Temperature Adjustment) theory.
+
+    Returns:
+      "hot"  — Summer (5-7):  Fire dominant, needs Water to cool
+      "cold" — Winter (11-1): Water dominant, needs Fire to warm
+      "warm" — Spring (2-4):  Wood dominant, needs Metal to balance
+      "cool" — Autumn (8-10): Metal dominant, needs Wood/Fire
+    """
+    if month in (5, 6, 7):   return "hot"
+    if month in (11, 12, 1): return "cold"
+    if month in (2, 3, 4):   return "warm"
+    if month in (8, 9, 10):  return "cool"
+    return "unknown"
+
+
+def compute_bazi_season_complement(month_a: int, month_b: int) -> float:
+    """Compute 調候喜用神互補 seasonal complement score (0.0-1.0).
+
+    Uses seasonal temperature as a lightweight proxy for BaZi Useful Gods.
+    A perfectly complementary pair fills each other's elemental deficiency.
+
+    Returns:
+      1.0 — Perfect: summer ↔ winter  (水火既濟: fire/water mutual salvation)
+      0.8 — Good:    spring ↔ autumn  (金木相成: wood/metal balance)
+      0.5 — Partial: extreme ↔ moderate season
+      0.0 — None:    same season or unknown (no complement)
+    """
+    sa = get_season_type(month_a)
+    sb = get_season_type(month_b)
+
+    # Perfect complement: summer heat ↔ winter cold
+    if (sa == "hot" and sb == "cold") or (sa == "cold" and sb == "hot"):
+        return 1.0
+    # Good complement: spring wood ↔ autumn metal
+    if (sa == "warm" and sb == "cool") or (sa == "cool" and sb == "warm"):
+        return 0.8
+    # Partial: extreme season meets moderate season
+    if (sa in ("hot", "cold") and sb in ("warm", "cool")) or \
+       (sa in ("warm", "cool") and sb in ("hot", "cold")):
+        return 0.5
+    # Same season or unknown → no complement
+    return 0.0

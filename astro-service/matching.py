@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from bazi import analyze_element_relation
+from bazi import analyze_element_relation, compute_bazi_season_complement
 
 # ── Zodiac Constants ─────────────────────────────────────────
 
@@ -463,20 +463,41 @@ def _check_chiron_triggered(user_a: dict, user_b: dict) -> bool:
 def compute_power_v2(
     user_a: dict,
     user_b: dict,
-    chiron_triggered: bool = False,
+    chiron_triggered_ab: bool = False,
+    chiron_triggered_ba: bool = False,
+    bazi_relation: str = "none",
 ) -> dict:
-    """Power D/s Frame calculation.
+    """Power D/s Frame calculation (v2.1).
 
     RPV mapping: rpv_power control → +20, follow → -20
                  rpv_conflict cold_war → +10, argue → -10
-    Chiron rule: if triggered, frame_B -= 15 (B's stability undermined).
+    Chiron rule (bidirectional):
+      A's Mars/Pluto hard-aspects B's Chiron → frame_B -= 15
+      B's Mars/Pluto hard-aspects A's Chiron → frame_A -= 15
+    BaZi restriction dynamics:
+      a_restricts_b → frame_A += 15, frame_B -= 15 (A gains dominance)
+      b_restricts_a → frame_A -= 15, frame_B += 15 (B gains dominance)
     Returns: {rpv, frame_break, viewer_role, target_role}
     """
     frame_a = _rpv_to_frame(user_a.get("rpv_power"), user_a.get("rpv_conflict"))
     frame_b = _rpv_to_frame(user_b.get("rpv_power"), user_b.get("rpv_conflict"))
+    frame_break = False
 
-    if chiron_triggered:
+    # Chiron trauma trigger (bidirectional)
+    if chiron_triggered_ab:
         frame_b -= 15
+        frame_break = True
+    if chiron_triggered_ba:
+        frame_a -= 15
+        frame_break = True
+
+    # BaZi restriction dynamics: the restrictor gains natural dominance
+    if bazi_relation == "a_restricts_b":
+        frame_a += 15
+        frame_b -= 15
+    elif bazi_relation == "b_restricts_a":
+        frame_a -= 15
+        frame_b += 15
 
     rpv = frame_a - frame_b
 
@@ -489,19 +510,25 @@ def compute_power_v2(
 
     return {
         "rpv":         round(rpv, 1),
-        "frame_break": chiron_triggered,
+        "frame_break": frame_break,
         "viewer_role": viewer_role,
         "target_role": target_role,
     }
 
 
-def compute_tracks(user_a: dict, user_b: dict, power: dict) -> dict:
+def compute_tracks(
+    user_a: dict,
+    user_b: dict,
+    power: dict,
+    useful_god_complement: float = 0.0,
+) -> dict:
     """Four-track scoring: friend / passion / partner / soul (0-100 each).
 
-    friend:  mercury × 0.40 + jupiter × 0.40 + bazi_harmony × 0.20
+    friend:  mercury × 0.40 + jupiter × 0.40 + bazi_same × 0.20
     passion: mars × 0.30 + venus × 0.30 + passion_extremity × 0.10 + bazi_clash × 0.30
     partner: moon × 0.35 + juno × 0.35 + bazi_generation × 0.30
-    soul:    chiron × 0.40 + pluto × 0.40 + bazi_harmony × 0.20 (+0.10 if frame_break)
+    soul:    chiron × 0.40 + pluto × 0.40 + useful_god_complement × 0.20
+             (+0.10 bonus if frame_break)
     """
     # harmony planets: friend / partner tracks
     mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
@@ -549,7 +576,7 @@ def compute_tracks(user_a: dict, user_b: dict, power: dict) -> dict:
     soul_track = (
         0.40 * chiron +
         0.40 * pluto +
-        0.20 * (1.0 if bazi_harmony else 0.0)
+        0.20 * useful_god_complement
     )
     if power["frame_break"]:
         soul_track += 0.10
@@ -580,33 +607,66 @@ def classify_quadrant(lust_score: float, soul_score: float, threshold: float = 6
 
 
 def compute_match_v2(user_a: dict, user_b: dict) -> dict:
-    """Compute full Phase G v2 match score.
+    """Compute full Phase G v2.1 match score.
+
+    New in v2.1:
+      - BaZi relation computed once and shared across functions
+      - BaZi restriction directionality wired into RPV power frame
+      - Chiron trigger checked bidirectionally (A→B and B→A)
+      - Soul track uses seasonal useful-god complement (調候互補)
+        instead of simple bazi_harmony (same element check)
+      - Output includes bazi_relation + useful_god_complement
 
     Returns:
-      lust_score    (0-100)
-      soul_score    (0-100)
-      power         {rpv, frame_break, viewer_role, target_role}
-      tracks        {friend, passion, partner, soul}  (0-100 each)
-      primary_track  argmax of tracks
-      quadrant      soulmate | lover | partner | colleague
-      labels        [primary_track display label in Traditional Chinese]
+      lust_score             (0-100)
+      soul_score             (0-100)
+      power                  {rpv, frame_break, viewer_role, target_role}
+      tracks                 {friend, passion, partner, soul}  (0-100 each)
+      primary_track          argmax of tracks
+      quadrant               soulmate | lover | partner | colleague
+      labels                 [primary_track display label in Traditional Chinese]
+      bazi_relation          a_generates_b | b_generates_a | a_restricts_b |
+                             b_restricts_a | same | none
+      useful_god_complement  seasonal complement score (0.0-1.0)
     """
-    chiron_triggered = _check_chiron_triggered(user_a, user_b)
-    power  = compute_power_v2(user_a, user_b, chiron_triggered)
+    # BaZi relation (computed once, shared)
+    elem_a = user_a.get("bazi_element")
+    elem_b = user_b.get("bazi_element")
+    bazi_relation = "none"
+    if elem_a and elem_b:
+        rel = analyze_element_relation(elem_a, elem_b)
+        bazi_relation = rel["relation"]
+
+    # Seasonal useful-god complement (requires birth_month 1-12)
+    month_a = user_a.get("birth_month")
+    month_b = user_b.get("birth_month")
+    useful_god_complement = 0.0
+    if month_a is not None and month_b is not None:
+        useful_god_complement = compute_bazi_season_complement(
+            int(month_a), int(month_b)
+        )
+
+    # Chiron trigger (bidirectional)
+    chiron_ab = _check_chiron_triggered(user_a, user_b)
+    chiron_ba = _check_chiron_triggered(user_b, user_a)
+
+    power  = compute_power_v2(user_a, user_b, chiron_ab, chiron_ba, bazi_relation)
     lust   = compute_lust_score(user_a, user_b)
     soul   = compute_soul_score(user_a, user_b)
-    tracks = compute_tracks(user_a, user_b, power)
+    tracks = compute_tracks(user_a, user_b, power, useful_god_complement)
 
     primary_track = max(tracks, key=lambda k: tracks[k])
     quadrant      = classify_quadrant(lust, soul)
     label         = TRACK_LABELS.get(primary_track, primary_track)
 
     return {
-        "lust_score":    round(lust, 1),
-        "soul_score":    round(soul, 1),
-        "power":         power,
-        "tracks":        tracks,
-        "primary_track": primary_track,
-        "quadrant":      quadrant,
-        "labels":        [label],
+        "lust_score":            round(lust, 1),
+        "soul_score":            round(soul, 1),
+        "power":                 power,
+        "tracks":                tracks,
+        "primary_track":         primary_track,
+        "quadrant":              quadrant,
+        "labels":                [label],
+        "bazi_relation":         bazi_relation,
+        "useful_god_complement": round(useful_god_complement, 2),
     }

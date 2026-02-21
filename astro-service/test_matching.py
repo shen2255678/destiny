@@ -465,19 +465,53 @@ class TestComputePowerV2:
         assert result["rpv"] == pytest.approx(0.0)
 
     def test_chiron_triggered_sets_frame_break_true(self):
-        """chiron_triggered=True → frame_break=True in output."""
+        """chiron_triggered_ab=True → frame_break=True in output."""
         a = {"rpv_power": None, "rpv_conflict": None}
         b = {"rpv_power": None, "rpv_conflict": None}
-        result = compute_power_v2(a, b, chiron_triggered=True)
+        result = compute_power_v2(a, b, chiron_triggered_ab=True)
         assert result["frame_break"] is True
 
     def test_chiron_trigger_shifts_rpv_by_15(self):
-        """Chiron trigger reduces frame_b by 15 → rpv increases by 15 vs no trigger."""
+        """Chiron A→B trigger reduces frame_b by 15 → rpv increases by 15."""
         a = {"rpv_power": None, "rpv_conflict": None}
         b = {"rpv_power": None, "rpv_conflict": None}
-        no_trigger   = compute_power_v2(a, b, chiron_triggered=False)
-        with_trigger = compute_power_v2(a, b, chiron_triggered=True)
+        no_trigger   = compute_power_v2(a, b, chiron_triggered_ab=False)
+        with_trigger = compute_power_v2(a, b, chiron_triggered_ab=True)
         assert with_trigger["rpv"] == pytest.approx(no_trigger["rpv"] + 15)
+
+    def test_chiron_ba_trigger_shifts_rpv_by_minus_15(self):
+        """Chiron B→A trigger reduces frame_a by 15 → rpv decreases by 15."""
+        a = {"rpv_power": None, "rpv_conflict": None}
+        b = {"rpv_power": None, "rpv_conflict": None}
+        no_trigger   = compute_power_v2(a, b)
+        with_trigger = compute_power_v2(a, b, chiron_triggered_ba=True)
+        assert with_trigger["rpv"] == pytest.approx(no_trigger["rpv"] - 15)
+
+    def test_bazi_restriction_a_restricts_b_gives_dom(self):
+        """a_restricts_b: frame_A += 15, frame_B -= 15 → rpv shifts +30 → A=Dom."""
+        a = {"rpv_power": None, "rpv_conflict": None}
+        b = {"rpv_power": None, "rpv_conflict": None}
+        neutral  = compute_power_v2(a, b)
+        result   = compute_power_v2(a, b, bazi_relation="a_restricts_b")
+        assert result["rpv"] == pytest.approx(neutral["rpv"] + 30)
+        assert result["viewer_role"] == "Dom"
+
+    def test_bazi_restriction_b_restricts_a_gives_sub(self):
+        """b_restricts_a: frame_A -= 15, frame_B += 15 → rpv shifts -30 → A=Sub."""
+        a = {"rpv_power": None, "rpv_conflict": None}
+        b = {"rpv_power": None, "rpv_conflict": None}
+        neutral  = compute_power_v2(a, b)
+        result   = compute_power_v2(a, b, bazi_relation="b_restricts_a")
+        assert result["rpv"] == pytest.approx(neutral["rpv"] - 30)
+        assert result["viewer_role"] == "Sub"
+
+    def test_bazi_same_does_not_shift_frame(self):
+        """bazi_relation='same' → no frame shift, rpv unchanged."""
+        a = {"rpv_power": None, "rpv_conflict": None}
+        b = {"rpv_power": None, "rpv_conflict": None}
+        neutral = compute_power_v2(a, b)
+        result  = compute_power_v2(a, b, bazi_relation="same")
+        assert result["rpv"] == pytest.approx(neutral["rpv"])
 
 
 # ── _check_chiron_triggered ───────────────────────────────────
@@ -570,7 +604,8 @@ class TestComputeMatchV2Integration:
         b = self._user(venus_sign="leo")
         result = compute_match_v2(a, b)
         required = {"lust_score", "soul_score", "power", "tracks",
-                    "primary_track", "quadrant", "labels"}
+                    "primary_track", "quadrant", "labels",
+                    "bazi_relation", "useful_god_complement"}
         assert required.issubset(result.keys())
 
     def test_lust_score_in_range(self):
@@ -618,3 +653,92 @@ class TestComputeMatchV2Integration:
         tracks = compute_match_v2(a, b)["tracks"]
         for key, val in tracks.items():
             assert 0 <= val <= 100, f"track {key} out of range: {val}"
+
+    def test_bazi_relation_in_output(self):
+        """bazi_relation reflects the five-element relationship."""
+        a = self._user(bazi_element="metal")
+        b = self._user(bazi_element="wood")
+        result = compute_match_v2(a, b)
+        # Metal restricts Wood
+        assert result["bazi_relation"] == "a_restricts_b"
+
+    def test_useful_god_complement_summer_winter(self):
+        """Summer (month 6) ↔ Winter (month 12) → useful_god_complement = 1.0."""
+        a = self._user(birth_month=6)
+        b = self._user(birth_month=12)
+        result = compute_match_v2(a, b)
+        assert result["useful_god_complement"] == pytest.approx(1.0)
+
+    def test_useful_god_complement_same_season(self):
+        """Same season → useful_god_complement = 0.0."""
+        a = self._user(birth_month=6)
+        b = self._user(birth_month=7)
+        result = compute_match_v2(a, b)
+        assert result["useful_god_complement"] == pytest.approx(0.0)
+
+    def test_useful_god_complement_missing_month(self):
+        """No birth_month → useful_god_complement = 0.0 (neutral)."""
+        a = self._user()
+        b = self._user()
+        result = compute_match_v2(a, b)
+        assert result["useful_god_complement"] == pytest.approx(0.0)
+
+    def test_summer_winter_raises_soul_track(self):
+        """Summer ↔ Winter complement (1.0) should give higher soul track
+        than same-season pair (0.0)."""
+        a_sw = self._user(birth_month=6)
+        b_sw = self._user(birth_month=12)
+        a_ss = self._user(birth_month=6)
+        b_ss = self._user(birth_month=7)
+        soul_sw = compute_match_v2(a_sw, b_sw)["tracks"]["soul"]
+        soul_ss = compute_match_v2(a_ss, b_ss)["tracks"]["soul"]
+        assert soul_sw > soul_ss
+
+
+# ── bazi.py: seasonal complement functions ────────────────────
+
+from bazi import get_season_type, compute_bazi_season_complement
+
+
+class TestGetSeasonType:
+    def test_summer_months(self):
+        for m in (5, 6, 7):
+            assert get_season_type(m) == "hot"
+
+    def test_winter_months(self):
+        for m in (11, 12, 1):
+            assert get_season_type(m) == "cold"
+
+    def test_spring_months(self):
+        for m in (2, 3, 4):
+            assert get_season_type(m) == "warm"
+
+    def test_autumn_months(self):
+        for m in (8, 9, 10):
+            assert get_season_type(m) == "cool"
+
+
+class TestBaziSeasonComplement:
+    def test_hot_cold_is_perfect(self):
+        """Summer ↔ Winter = 1.0 (水火既濟)."""
+        assert compute_bazi_season_complement(6, 12) == pytest.approx(1.0)
+        assert compute_bazi_season_complement(12, 6) == pytest.approx(1.0)
+
+    def test_warm_cool_is_good(self):
+        """Spring ↔ Autumn = 0.8 (金木相成)."""
+        assert compute_bazi_season_complement(3, 9) == pytest.approx(0.8)
+        assert compute_bazi_season_complement(9, 3) == pytest.approx(0.8)
+
+    def test_extreme_moderate_is_partial(self):
+        """Summer ↔ Autumn = 0.5 (partial)."""
+        assert compute_bazi_season_complement(6, 9) == pytest.approx(0.5)
+
+    def test_same_season_is_zero(self):
+        """Same season = 0.0 (no complement)."""
+        assert compute_bazi_season_complement(5, 7) == pytest.approx(0.0)
+        assert compute_bazi_season_complement(1, 12) == pytest.approx(0.0)
+
+    def test_symmetric(self):
+        """Complement score is symmetric: A↔B == B↔A."""
+        assert compute_bazi_season_complement(6, 12) == \
+               compute_bazi_season_complement(12, 6)
