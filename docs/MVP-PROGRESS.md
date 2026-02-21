@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-20 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅)
+**Last Updated:** 2026-02-21 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅)
 
 ---
 
@@ -88,15 +88,17 @@
 
 - [x] `POST /calculate-chart` — 計算星盤 (Swiss Ephemeris) + 八字四柱 (BaZi)，支援 Tier 1/2/3；**(Phase G)** 新增 Mercury/Jupiter/Pluto/Chiron/Juno + House 4/8（Placidus）
 - [x] `POST /analyze-relation` — 五行關係分析（相生/相剋/比和 + harmony_score）
-- [x] `POST /compute-match` — **(Phase G v2)** 輸出 `lust_score, soul_score, power{rpv/frame_break/viewer_role/target_role}, tracks{friend/passion/partner/soul}, primary_track, quadrant, labels`
+- [x] `POST /compute-match` — **(Phase G v2)** 輸出 `lust_score, soul_score, power{rpv/frame_break/viewer_role/target_role}, tracks{friend/passion/partner/soul}, primary_track, quadrant, labels`；**(Phase H)** 現亦回傳 `zwds, spiciness_level, defense_mechanisms, layered_analysis`
+- [x] `POST /compute-zwds-chart` — **(Phase H)** ZWDS 12-palace chart computation (Tier 1 only)；呼叫 ziwei-service → 計算命宮/夫妻宮主星、飛星四化落宮
 - [x] `GET /health` — Health check
 - [x] 串接 Next.js API — birth-data 完成後自動呼叫 calculate-chart 回寫 DB（非阻塞式）
 - [x] 真太陽時 (True Solar Time) — 經度修正 + 均時差 (Equation of Time)
 - [x] Migration 004 — `bazi_day_master`, `bazi_element`, `bazi_four_pillars` 欄位
 - [x] Migration 007 — **(Phase G)** `mercury_sign, jupiter_sign, pluto_sign, chiron_sign, juno_sign, house4_sign, house8_sign, attachment_role`
+- [x] Migration 008 — **(Phase H)** `zwds_life_palace_stars, zwds_spouse_palace_stars, zwds_four_transforms, zwds_five_element`
 - [x] Windows Unicode path fix — `_resolve_ephe_path()` 自動複製星曆檔到 ASCII temp 路徑（pyswisseph C 庫不支援 Unicode）
+- [x] `POST /zwds-synastry` — **(Phase H)** 呼叫 ziwei-service → 回傳 partner/soul/rpv_modifier scores (Tier 1 only)
 - [ ] `POST /run-daily-matching` — 每日 21:00 Cron Job，生成配對
-- [ ] `POST /zwds-synastry` — **(Phase H)** 呼叫 ziwei-service → 回傳 partner/soul/rpv_modifier scores (Tier 1 only)
 
 ---
 
@@ -135,7 +137,7 @@
 | `src/__tests__/auth.test.ts` | 10 | Auth 邏輯層 (register/login/logout/getCurrentUser + validation) |
 | `src/__tests__/login-page.test.tsx` | 4 | Login 頁面整合 (submit/redirect/error/loading) |
 | `src/__tests__/register-page.test.tsx` | 5 | Register 頁面整合 (submit/redirect/error/mismatch/loading) |
-| `src/__tests__/api/onboarding-birth-data.test.ts` | 12 | Birth data API (tier 3/2/1, evening, 401, 400, PRECISE/TWO_HOUR_SLOT/FUZZY_DAY accuracy_type, event logging) |
+| `src/__tests__/api/onboarding-birth-data.test.ts` | 14 | Birth data API (tier 3/2/1, evening, 401, 400, PRECISE/TWO_HOUR_SLOT/FUZZY_DAY accuracy_type, event logging, **(Phase H)** ZWDS write-back Tier 1, ZWDS skipped non-Tier-1) |
 | `src/__tests__/api/onboarding-rpv-test.test.ts` | 3 | RPV test API (saves results, 401, 400) |
 | `src/__tests__/api/onboarding-photos.test.ts` | 5 | Photos API (upload+blur, 401, 400 missing, 400 type, 400 size) |
 | `src/__tests__/api/onboarding-soul-report.test.ts` | 3 | Soul report API (archetype gen, onboarding complete, 401) |
@@ -143,12 +145,13 @@
 | `src/__tests__/api/matches-action.test.ts` | 7 | Action API (accept, pass, mutual accept → connection, 401, 400, 404, no duplicate) |
 | `src/__tests__/api/connections.test.ts` | 5 | Connections list API (200 with list, 401 unauth, empty state, other_user, tags) |
 | `src/__tests__/api/connections-messages.test.ts` | 8 | Messages API: GET (401, 403, detail+msgs, is_self) + POST (401, 400, 403, insert) |
-| `astro-service/test_chart.py` | 37 | 西洋占星 (12) + 八字四柱 (11) + 五行關係 (7) + Phase G 新星體/宮位 (6+1) |
+| `astro-service/test_chart.py` | 30 | 西洋占星 (12) + 八字四柱 (11) + 五行關係 (7) |
 | `src/__tests__/api/rectification-next-question.test.ts` | 6 | Rectification next-question API (401, 204 locked, 204 PRECISE, shape, options, boundary priority) |
 | `src/__tests__/api/rectification-answer.test.ts` | 9 | Rectification answer API (401, 400 missing/invalid, 200 state, confidence increase, event log, update users, tier_upgraded) |
-| `astro-service/test_matching.py` | 73 | 配對演算法 v1：sign_aspect(9) + kernel(6) + power(4) + glitch(3) + classify(6) + tags(5) + integration(8)；**Phase G v2：** lust(4) + soul(4) + power_v2(4) + chiron(4) + quadrant(5) + attachment(3) + match_v2(8) |
+| `astro-service/test_matching.py` | 101 | 配對演算法 v1：sign_aspect(9) + kernel(6) + power(4) + glitch(3) + classify(6) + tags(5) + integration(8)；**Phase G v2：** lust(4) + soul(4) + power_v2(4) + chiron(4) + quadrant(5) + attachment(3) + match_v2(8)；**(Phase H)** zwds_bridge(5) + spiciness(5) + defense(5) + layered(5) + match_v2_zwds(5) |
+| `astro-service/test_zwds.py` | 31 | **(Phase H)** ZWDS bridge：compute_zwds_chart(8) + zwds_synastry(10) + flying_star_hits(7) + spouse_palace(6) |
 | `src/__tests__/api/onboarding/attachment.test.ts` | 7 | **(Phase G)** Attachment API (400 missing, 400 invalid style, 200 valid, 200 all styles, 401 unauth, role included, 400 invalid role) |
-| **Total** | **199** | All passing (89 JS + 110 Python) — +52 Phase G tests |
+| **Total** | **253** | All passing (91 JS + 162 Python) — +52 Phase G tests, +54 Phase H tests |
 
 ---
 
@@ -165,7 +168,7 @@
 | Storage Bucket | **Done** | `photos` bucket + upload/view/delete policies |
 | `.env.local` | **Done** | SUPABASE_URL + ANON_KEY |
 | Vitest | **Done** | vitest + @testing-library/react + user-event |
-| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + matching algo + pytest (71 tests) |
+| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + matching algo + ZWDS bridge + pytest (162 tests) |
 
 ---
 
@@ -221,8 +224,9 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 7. ~~**Phase B.5: Rectification Data Layer**~~ — ✅ Done (Migration 006 + accuracy_type/window fields + 4-card UX + quiz endpoints + 15 new tests; total 82 JS tests)
 8. ~~**Phase D: Connections + Chat**~~ — ✅ Done (GET /api/connections + GET/POST /api/connections/:id/messages + Realtime + 13 new tests)
 9. ~~**Phase G: Matching Algorithm v2**~~ ← ✅ Done (Lust/Soul 雙軸 + 四軌 + Power D/s + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；199 tests)
-10. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
-11. **Phase F: AI/LLM Integration**
+10. ~~**Phase H: ZWDS Synastry Engine**~~ ← ✅ Done (ziwei-service Node.js microservice + Python bridge + 飛星四化 + 空宮借星 + /compute-zwds-chart + /zwds-synastry + Migration 008；253 tests)
+11. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
+12. **Phase F: AI/LLM Integration**
 
 ---
 
@@ -393,16 +397,16 @@ uvicorn main:app --port 8001
 
 | Step | Task | 類型 | 說明 |
 |------|------|------|------|
-| H1 | **ziwei-service scaffold** | New | Node.js 18 Express, port 8002, health endpoint, copy vendor JS files |
-| H2 | **Headless ZWDS engine** | New | `lib/engine.js` — vm context, mock ziweiUI, `computeZiWei()` + `getHourBranch()` |
-| H3 | **Flying star synastry** | New | `lib/synastry.js` — 化祿/化忌/化權 cross-person hits + 夫妻宮 spouse palace match |
-| H4 | **ziwei-service HTTP endpoints** | New | `POST /calculate-zwds` + `POST /zwds-synastry` |
-| H5 | **Python ZWDS bridge** | New | `astro-service/zwds_synastry.py` — non-blocking HTTP call to ziwei-service (Tier 1 only) |
-| H6 | **Integrate into matching.py** | Edit | `compute_match_v2()` calls ZWDS bridge; adds partner/soul/rpv_modifier bonuses |
-| H7 | **Migration 008** | New SQL | `zwds_life_palace_stars`, `zwds_spouse_palace_stars`, `zwds_four_transforms`, `zwds_five_element` + types.ts update |
-| H8 | **birth-data API update** | Edit | Call ziwei-service after astro-service for Tier 1; write back ZWDS fields |
-| H9 | **Star archetypes + empty palace** | New | `lib/stars-dictionary.js` (14星人設矩陣) + empty palace borrowing at 0.8x attenuation |
-| H10 | **MVP-PROGRESS update** | Docs | Add Phase H to progress tracker |
+| H1 | **ziwei-service scaffold** ✅ | New | Node.js 18 Express, port 8002, health endpoint, copy vendor JS files |
+| H2 | **Headless ZWDS engine** ✅ | New | `lib/engine.js` — vm context, mock ziweiUI, `computeZiWei()` + `getHourBranch()` |
+| H3 | **Flying star synastry** ✅ | New | `lib/synastry.js` — 化祿/化忌/化權 cross-person hits + 夫妻宮 spouse palace match |
+| H4 | **ziwei-service HTTP endpoints** ✅ | New | `POST /calculate-zwds` + `POST /zwds-synastry` |
+| H5 | **Python ZWDS bridge** ✅ | New | `astro-service/zwds_synastry.py` — non-blocking HTTP call to ziwei-service (Tier 1 only) |
+| H6 | **Integrate into matching.py** ✅ | Edit | `compute_match_v2()` calls ZWDS bridge; adds partner/soul/rpv_modifier bonuses; output now includes `zwds`, `spiciness_level`, `defense_mechanisms`, `layered_analysis` |
+| H7 | **Migration 008** ✅ | New SQL | `zwds_life_palace_stars`, `zwds_spouse_palace_stars`, `zwds_four_transforms`, `zwds_five_element` + types.ts update |
+| H8 | **birth-data API update** ✅ | Edit | Call ziwei-service after astro-service for Tier 1; write back ZWDS fields |
+| H9 | **Star archetypes + empty palace** ✅ | New | `lib/stars-dictionary.js` (14星人設矩陣) + empty palace borrowing at 0.8x attenuation |
+| H10 | **MVP-PROGRESS update** ✅ | Docs | Add Phase H to progress tracker |
 
 **新增測試（目標 +39 tests）：**
 - `ziwei-service/test/engine.test.js` — 8 tests
@@ -438,4 +442,4 @@ uvicorn main:app --port 8001
 | **Phase G: Matching v2** | Lust/Soul 雙軸 + 四軌（friend/passion/partner/soul）+ Power D/s frame + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；Migration 007；110 Python + 89 JS tests | **Done ✅** |
 | ~~Phase E (old): Profile~~ | GET/PATCH API + photos + bio + tags + energy | **Done** ✅ |
 | **Algorithm Validation Sandbox** | `astro-service/sandbox.html` — standalone dev tool for manual algorithm testing | **Done** ✅ |
-| **Phase H: ZWDS Synastry Engine** | `ziwei-service/` Node.js microservice (port 8002) + Python bridge + 飛星四化 + 空宮借星 + 主星人設矩陣；Tier 1 VIP bonus layer；設計文件：`docs/plans/2026-02-21-phase-h-zwds-integration.md` | **Planned** |
+| **Phase H: ZWDS Synastry Engine** | `ziwei-service/` Node.js microservice (port 8002) + Python bridge + 飛星四化 + 空宮借星 + 主星人設矩陣；Tier 1 VIP bonus layer；設計文件：`docs/plans/2026-02-21-phase-h-zwds-integration.md`；新端點：`POST /compute-zwds-chart`, `POST /zwds-synastry`；`/compute-match` 現回傳 `zwds + spiciness_level + defense_mechanisms + layered_analysis` | **Done ✅** |
