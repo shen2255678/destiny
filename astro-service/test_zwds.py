@@ -142,10 +142,10 @@ class TestDetectStressDefense:
         triggers = detect_stress_defense(mock_chart)
         assert "silent_rumination" in triggers
 
-    def test_di_kong_triggers_sudden_withdrawal(self):
+    def test_tian_kong_triggers_sudden_withdrawal(self):
         mock_chart = {**CHART_A, "palaces": {
             **CHART_A["palaces"],
-            "spouse": {**CHART_A["palaces"]["spouse"], "malevolent_stars": ["地空"]}
+            "spouse": {**CHART_A["palaces"]["spouse"], "malevolent_stars": ["天空"]}
         }}
         triggers = detect_stress_defense(mock_chart)
         assert "sudden_withdrawal" in triggers

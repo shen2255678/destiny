@@ -10,7 +10,7 @@ Three mechanisms:
 from __future__ import annotations
 from typing import Optional
 
-from zwds import OPPOSITE_PALACE
+from zwds import OPPOSITE_PALACE, PALACE_NAMES_ZH, PALACE_KEYS
 
 # ── Star Archetype Matrix ──────────────────────────────────────────────────────
 # Each star → {"cluster", "passion", "partner", "friend", "soul", "rpv_frame_bonus"}
@@ -39,7 +39,7 @@ STAR_ARCHETYPE_MATRIX = {
 # ── Stress defense trigger groups ─────────────────────────────────────────────
 _PREEMPTIVE = {"擎羊", "火星"}
 _RUMINATION = {"陀羅", "鈴星"}
-_WITHDRAWAL = {"地空", "地劫"}
+_WITHDRAWAL = {"天空", "地劫"}
 
 # ── Key palace sets for flying star targeting ─────────────────────────────────
 _PARTNER_PALACES = {"ming", "spouse", "body"}   # body = 身宮 (matched by body_palace_name key)
@@ -127,7 +127,6 @@ def _star_in_key_palaces(star_name: str, target_chart: dict, palace_keys: set) -
     # Also check body palace by name if "body" is in palace_keys
     if "body" in palace_keys:
         body_name = target_chart.get("body_palace_name", "")
-        from zwds import PALACE_NAMES_ZH, PALACE_KEYS
         if body_name in PALACE_NAMES_ZH:
             body_key = PALACE_KEYS[PALACE_NAMES_ZH.index(body_name)]
             palace = target_chart["palaces"].get(body_key, {})
@@ -144,10 +143,10 @@ def _spouse_palace_match(chart_a: dict, chart_b: dict) -> bool:
     return any(s in b_ming for s in a_spouse)
 
 
-def _compute_flying_stars(chart_a: dict, year_a: int, chart_b: dict) -> dict:
+def _compute_flying_stars(chart_a: dict, birth_year_a: int, chart_b: dict) -> dict:
     """Compute 飛星四化 interaction: which palaces A's transformation stars hit in B."""
     from zwds import get_four_transforms
-    trans_a = get_four_transforms(year_a)
+    trans_a = get_four_transforms(birth_year_a)
     return {
         "hua_lu_a_to_b":    _star_in_key_palaces(trans_a["hua_lu"],   chart_b, _PARTNER_PALACES),
         "hua_ji_a_to_b":    _star_in_key_palaces(trans_a["hua_ji"],   chart_b, _SOUL_PALACES),
@@ -235,7 +234,7 @@ def compute_zwds_synastry(
     # Average the two users' archetypes for the pair
     for t in ("friend", "passion", "partner", "soul"):
         track_mods[t] *= (arch_a[t] + arch_b[t]) / 2
-    rpv_modifier += arch_a["rpv_frame_bonus"]  # A's archetype contributes to A's frame
+    rpv_modifier += arch_a["rpv_frame_bonus"] + arch_b["rpv_frame_bonus"]
 
     # ── Empty palace RPV penalty ──────────────────────────────────────────
     if chart_a["palaces"].get("ming", {}).get("is_empty"):
@@ -250,7 +249,7 @@ def compute_zwds_synastry(
         "silent_rumination": {"soul": 1.3, "friend": 0.85},
         "sudden_withdrawal": {"partner": 0.6, "soul": 1.2},
     }
-    for trigger in defense_a + defense_b:
+    for trigger in set(defense_a) | set(defense_b):
         for t, mod in _DEFENSE_MODS.get(trigger, {}).items():
             track_mods[t] *= mod
 
