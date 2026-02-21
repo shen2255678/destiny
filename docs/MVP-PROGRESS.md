@@ -96,6 +96,7 @@
 - [x] Migration 007 — **(Phase G)** `mercury_sign, jupiter_sign, pluto_sign, chiron_sign, juno_sign, house4_sign, house8_sign, attachment_role`
 - [x] Windows Unicode path fix — `_resolve_ephe_path()` 自動複製星曆檔到 ASCII temp 路徑（pyswisseph C 庫不支援 Unicode）
 - [ ] `POST /run-daily-matching` — 每日 21:00 Cron Job，生成配對
+- [ ] `POST /zwds-synastry` — **(Phase H)** 呼叫 ziwei-service → 回傳 partner/soul/rpv_modifier scores (Tier 1 only)
 
 ---
 
@@ -383,6 +384,36 @@ uvicorn main:app --port 8001
 
 ---
 
+### Phase H: ZWDS Synastry Engine (紫微斗數業力引擎) — VIP Tier 1
+
+**目標：** 將 JS 紫微斗數排盤引擎包裝為 Node.js 微服務 (ziwei-service, port 8002)，透過 Python bridge 加入 飛星四化 合盤演算法，作為 Tier 1 用戶的業力加成層。
+
+**設計文件：** `docs/plans/2026-02-21-phase-h-zwds-integration.md`
+**參考資料：** `docs/plans/2026-02-21-ziwei.md`（飛星四化/夫妻宮設計），`docs/plans/2026-02-21-ziwei-1.0.md`（空宮借星/主星人設矩陣）
+
+| Step | Task | 類型 | 說明 |
+|------|------|------|------|
+| H1 | **ziwei-service scaffold** | New | Node.js 18 Express, port 8002, health endpoint, copy vendor JS files |
+| H2 | **Headless ZWDS engine** | New | `lib/engine.js` — vm context, mock ziweiUI, `computeZiWei()` + `getHourBranch()` |
+| H3 | **Flying star synastry** | New | `lib/synastry.js` — 化祿/化忌/化權 cross-person hits + 夫妻宮 spouse palace match |
+| H4 | **ziwei-service HTTP endpoints** | New | `POST /calculate-zwds` + `POST /zwds-synastry` |
+| H5 | **Python ZWDS bridge** | New | `astro-service/zwds_synastry.py` — non-blocking HTTP call to ziwei-service (Tier 1 only) |
+| H6 | **Integrate into matching.py** | Edit | `compute_match_v2()` calls ZWDS bridge; adds partner/soul/rpv_modifier bonuses |
+| H7 | **Migration 008** | New SQL | `zwds_life_palace_stars`, `zwds_spouse_palace_stars`, `zwds_four_transforms`, `zwds_five_element` + types.ts update |
+| H8 | **birth-data API update** | Edit | Call ziwei-service after astro-service for Tier 1; write back ZWDS fields |
+| H9 | **Star archetypes + empty palace** | New | `lib/stars-dictionary.js` (14星人設矩陣) + empty palace borrowing at 0.8x attenuation |
+| H10 | **MVP-PROGRESS update** | Docs | Add Phase H to progress tracker |
+
+**新增測試（目標 +39 tests）：**
+- `ziwei-service/test/engine.test.js` — 8 tests
+- `ziwei-service/test/synastry.test.js` — 14 tests (含空宮借星)
+- `ziwei-service/test/server.test.js` — 5 tests
+- `astro-service/test_zwds.py` — 7 tests
+- `astro-service/test_matching.py` — 5 new ZWDS tests
+- `destiny-app/.../onboarding-birth-data.test.ts` — 2 new tests
+
+---
+
 ### Phase F: AI/LLM Integration (後續)
 
 | Step | Task | 說明 |
@@ -407,3 +438,4 @@ uvicorn main:app --port 8001
 | **Phase G: Matching v2** | Lust/Soul 雙軸 + 四軌（friend/passion/partner/soul）+ Power D/s frame + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；Migration 007；110 Python + 89 JS tests | **Done ✅** |
 | ~~Phase E (old): Profile~~ | GET/PATCH API + photos + bio + tags + energy | **Done** ✅ |
 | **Algorithm Validation Sandbox** | `astro-service/sandbox.html` — standalone dev tool for manual algorithm testing | **Done** ✅ |
+| **Phase H: ZWDS Synastry Engine** | `ziwei-service/` Node.js microservice (port 8002) + Python bridge + 飛星四化 + 空宮借星 + 主星人設矩陣；Tier 1 VIP bonus layer；設計文件：`docs/plans/2026-02-21-phase-h-zwds-integration.md` | **Planned** |
