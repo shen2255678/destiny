@@ -59,6 +59,89 @@ Key 隨每次 AI 請求傳送至 astro-service（localhost only），不會傳�
 
 ---
 
+## Step 0：排盤準確性驗證（建議優先執行）
+
+在跑配對演算法之前，先確認三套排盤系統都輸出正確結果。
+astro-service 已啟動後，直接用 `curl` 或瀏覽器 Console 打以下端點即可。
+
+### 西洋占星 + 八字驗證（`/calculate-chart`）
+
+使用一個已知真實星盤的生日做驗證，確認行星星座與四柱都正確：
+
+```bash
+curl -s -X POST http://localhost:8001/calculate-chart \
+  -H "Content-Type: application/json" \
+  -d '{
+    "birth_date": "1997-03-07",
+    "birth_time": "precise",
+    "birth_time_exact": "10:59",
+    "lat": 25.033, "lng": 121.565,
+    "data_tier": 1
+  }' | python -m json.tool
+```
+
+**預期重點欄位：**
+
+| 欄位 | 預期值 | 說明 |
+|---|---|---|
+| `sun_sign` | `"pisces"` | 3 月 7 日太陽在雙魚 |
+| `ascendant_sign` | `"gemini"` | 台北 10:59 上升雙子（近似） |
+| `bazi.four_pillars` | `丁丑 癸卯 戊申 丁巳` | 真太陽時修正後 |
+| `bazi.day_master` | `"戊"` | 日干 |
+| `bazi_element` | `"earth"` | 戊 → 土 |
+
+> **Note:** 上升星座依地點和時間而異；只要太陽星座與四柱日干正確，
+> 西洋占星和八字系統即確認無誤。
+
+---
+
+### 紫微斗數驗證（`/compute-zwds-chart`）
+
+```bash
+curl -s -X POST http://localhost:8001/compute-zwds-chart \
+  -H "Content-Type: application/json" \
+  -d '{
+    "birth_year": 1990,
+    "birth_month": 6,
+    "birth_day": 15,
+    "birth_time": "11:30",
+    "gender": "M"
+  }' | python -m json.tool
+```
+
+**預期重點欄位：**
+
+| 欄位 | 預期值 | 說明 |
+|---|---|---|
+| `five_element` | `"火六局"` | 農曆 5 月 23 日男命 |
+| `four_transforms.hua_lu` | `"太陰"` | 庚年化祿在太陰 |
+| `four_transforms.hua_ji` | `"天同"` | 庚年化忌在天同 |
+| `palaces.ming.main_stars` | 非空陣列 | 命宮有主星（如 `["破軍"]`） |
+
+**驗證順序建議：**
+
+1. 確認 `five_element` 符合你的推算（可對照紫微斗數排盤工具）。
+2. 確認 `four_transforms` 四化星正確（依出生年天干查表）。
+3. 確認 `palaces.ming` 有主星；若命宮空宮，`main_stars` 應為 `[]`。
+
+> **Note:** 若不確定自己的命盤，可用出生資料在網路紫微斗數工具（如
+> 免費的線上排盤網站）取得 ground truth，再與 API 輸出比對。
+
+---
+
+### 三系統一致性驗證流程
+
+使用同一個人的資料，分別呼叫兩個端點，確認：
+
+1. `/calculate-chart` → 取得 `sun_sign`、`bazi_element`
+2. `/compute-zwds-chart` → 取得 `five_element`、`palaces.ming.main_stars`
+3. 在 Tab A 填入 Person A / B 的完整資料（含 `birth_year` 等），點擊
+   **▶ Run Match** → 確認 `zwds` 區塊非 `null`，`spiciness_level` 有值
+
+所有三步都通過後，才進入 Tab A 進行配對演算法的 MATCH/MISMATCH 驗證。
+
+---
+
 ## Tab A — Mechanism A：伴侶驗證
 
 這是核心驗證工具。輸入兩個真實人物的出生資料，讓演算法計算配對分數，再對照「已知

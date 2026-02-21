@@ -1,38 +1,126 @@
 # DESTINY — Testing Guide
 
-**Last Updated:** 2026-02-20 (Phase C ✅ Phase D ✅ Phase B.5 ✅ — 82 JS + 71 Python tests)
+**Last Updated:** 2026-02-21 (Phase H ✅ — 91 JS + 132 Python tests)
 
 ---
 
-## 三層測試策略
+## 測試策略概覽
 
-| Layer | 工具 | 用途 | 需要真實 Supabase? |
-|-------|------|------|-------------------|
-| **Layer 1: Unit Tests** | Vitest + mocks | 測試 API 邏輯、驗證、錯誤處理 | No (全 mock) |
-| **Layer 2: Manual E2E** | 瀏覽器 + dev server | 完整流程測試 (註冊 → onboarding → daily → chat) | **Yes** |
-| **Layer 3: API Testing** | 瀏覽器 Console fetch | 直接打 API endpoint 驗證 response | **Yes** |
+DESTINY 採四層測試架構，建議依序執行：
+
+| Layer | 工具 | 用途 | 需要服務？ |
+|-------|------|------|-----------|
+| **Layer 0: Sandbox 算法驗證** | `http://localhost:8001/sandbox` | 手動驗證排盤正確性 + 配對演算法 | astro-service |
+| **Layer 1: Unit Tests** | Vitest + mocks | 驗證 API 邏輯、錯誤處理 | No (全 mock) |
+| **Layer 2: Manual E2E** | 瀏覽器 + dev server | 完整流程測試 | **Supabase + astro-service** |
+| **Layer 3: API Testing** | 瀏覽器 Console fetch | 直接打端點驗證 response | **Supabase** |
+
+> **Note:** 上線新版算法或調整星盤參數前，**必須先通過 Layer 0 驗證**，
+> 再執行 Layer 1–3。
+
+---
+
+## Layer 0: Sandbox 算法驗證（上線前必做）
+
+Sandbox 是算法驗證的主要工具，無需 Next.js 或 Supabase，只需啟動
+astro-service 即可使用。
+
+### 啟動
+
+```bash
+cd astro-service
+uvicorn main:app --port 8001
+```
+
+開啟 `http://localhost:8001/sandbox`。
+
+### Phase 0-A：排盤準確性驗證（先做這個）
+
+在跑配對演算法前，先確認三套排盤系統輸出正確。
+
+#### 西洋占星 + 八字（`/calculate-chart`）
+
+```bash
+curl -s -X POST http://localhost:8001/calculate-chart \
+  -H "Content-Type: application/json" \
+  -d '{
+    "birth_date": "1997-03-07",
+    "birth_time": "precise",
+    "birth_time_exact": "10:59",
+    "lat": 25.033, "lng": 121.565,
+    "data_tier": 1
+  }' | python -m json.tool
+```
+
+**驗證重點：**
+
+| 欄位 | 預期值 |
+|---|---|
+| `sun_sign` | `"pisces"` |
+| `bazi.four_pillars` | `丁丑 癸卯 戊申 丁巳` |
+| `bazi.day_master` | `"戊"` |
+| `bazi_element` | `"earth"` |
+
+#### 紫微斗數（`/compute-zwds-chart`）
+
+```bash
+curl -s -X POST http://localhost:8001/compute-zwds-chart \
+  -H "Content-Type: application/json" \
+  -d '{
+    "birth_year": 1990,
+    "birth_month": 6,
+    "birth_day": 15,
+    "birth_time": "11:30",
+    "gender": "M"
+  }' | python -m json.tool
+```
+
+**驗證重點：**
+
+| 欄位 | 預期值 |
+|---|---|
+| `chart.five_element` | `"火六局"` |
+| `chart.four_transforms.hua_lu` | `"太陰"` （庚年） |
+| `chart.four_transforms.hua_ji` | `"天同"` （庚年） |
+| `chart.palaces.ming.main_stars` | 非空陣列 |
+
+#### 五行關係（`/analyze-relation`）
+
+```bash
+curl -s -X POST http://localhost:8001/analyze-relation \
+  -H "Content-Type: application/json" \
+  -d '{"element_a":"wood","element_b":"fire"}'
+# 預期: { "relation": "a_generates_b", "harmony_score": 0.85 }
+```
+
+### Phase 0-B：配對演算法驗證（在排盤通過後）
+
+使用 Sandbox Tab A 輸入已知關係的兩人資料，確認演算法的
+MATCH / MISMATCH 判斷符合 ground truth。
+
+詳細操作見 `docs/SANDBOX-GUIDE.md`。
 
 ---
 
 ## Layer 1: Unit Tests (Mock — 不需真實 DB)
 
-現有 **82 JS unit tests**（13 個測試檔），全部使用 mock Supabase client。
+現有 **91 JS unit tests**（14 個測試檔），全部使用 mock Supabase client。
 
 ### 執行方式
 
 ```bash
 cd destiny-app
 
-# 執行全部測試 (一次性)
+# 執行全部測試（一次性）
 npm test
 
-# Watch mode (修改檔案自動重跑)
+# Watch mode（修改檔案自動重跑）
 npm run test:watch
 
 # 只跑特定測試檔
 npx vitest run src/__tests__/api/onboarding-birth-data.test.ts
 
-# 跑特定 describe/it (用 -t flag)
+# 跑特定 describe/it（用 -t flag）
 npx vitest run -t "saves birth data"
 ```
 
@@ -44,7 +132,7 @@ src/__tests__/
 ├── login-page.test.tsx                            # 4 tests  — Login 頁面互動
 ├── register-page.test.tsx                         # 5 tests  — Register 頁面互動
 └── api/
-    ├── onboarding-birth-data.test.ts              # 12 tests — data_tier + accuracy_type + confidence + event log
+    ├── onboarding-birth-data.test.ts              # 14 tests — data_tier + ZWDS write-back
     ├── onboarding-rpv-test.test.ts                # 3 tests  — RPV 儲存 + 驗證
     ├── onboarding-photos.test.ts                  # 5 tests  — 照片上傳 + blur + 驗證
     ├── onboarding-soul-report.test.ts             # 3 tests  — 原型生成 + onboarding complete
@@ -61,7 +149,7 @@ src/__tests__/
 | 模組 | Tests | 驗證項目 |
 |------|-------|---------|
 | Auth | 10 | register/login/logout/getCurrentUser + email/password 驗證 |
-| Onboarding birth-data | 12 | data_tier 1/2/3、evening、PRECISE/TWO_HOUR_SLOT/FUZZY_DAY accuracy_type、initial confidence、range_initialized event、401/400 |
+| Onboarding birth-data | 14 | data_tier 1/2/3、accuracy_type、ZWDS write-back（成功 + 失敗不阻塞） |
 | Onboarding RPV | 3 | 儲存 conflict/power/energy、401、400 |
 | Onboarding photos | 5 | 上傳+blur、401、400 missing/type/size |
 | Onboarding soul-report | 3 | archetype gen、onboarding_step=complete、401 |
@@ -107,12 +195,11 @@ npm run dev
 #### Step 1: Birth Data — 4-card 精度流程 (Phase B.5)
 - [ ] 選擇精確度卡片：
   - **卡片 A「我有精確時間」** → 出現 time picker (HH:mm)，填入精確時間（如 14:30）
-  - **卡片 B「我知道大概時段」** → 出現 12 格 2hr grid，點選一格（如 13:00-15:00）
+  - **卡片 B「我知道大概時段」** → 出現 12 格 2hr grid，點選一格
   - **卡片 C「我只知道大概」** → 出現 早上/下午/晚上 3 個選項
   - **卡片 D「我完全不知道」** → 直接可點 Continue
 - [ ] 填寫出生日期 + 出生城市
-- [ ] 點擊 Continue
-- [ ] 預期: 導向 `/onboarding/rpv-test`
+- [ ] 點擊 Continue → 預期導向 `/onboarding/rpv-test`
 - [ ] 驗證 Supabase `users` 表：
   - `birth_date`, `birth_city` 已寫入
   - `accuracy_type` = `PRECISE` / `TWO_HOUR_SLOT` / `FUZZY_DAY`
@@ -120,65 +207,44 @@ npm run dev
   - `rectification_status` = `collecting_signals`
   - `window_start`, `window_end`, `window_size_minutes` 有值
 - [ ] 驗證 `rectification_events` 表：有一筆 `event_type = range_initialized` 記錄
-- [ ] 驗證: 若 astro-service 運行中 → `sun_sign`, `bazi_day_master` 應有值
+- [ ] **（Tier 1 only）** 驗證 `users` 表 ZWDS 欄位已寫入：
+  - `zwds_five_element` 非 null（如 `"火六局"`）
+  - `zwds_life_palace_stars` 非空陣列
+  - `zwds_four_transforms` 為 JSONB 物件
 
 ---
 
-#### Step 2: RPV Test (作業系統)
+#### Step 2: RPV Test
 - [ ] 3 題都選擇一個選項
-- [ ] 觀察 progress bar 填滿
 - [ ] 點擊 Continue → 預期導向 `/onboarding/photos`
-- [ ] 驗證: users 表 → `rpv_conflict`, `rpv_power`, `rpv_energy` 已寫入，`onboarding_step = photos`
+- [ ] 驗證: users 表 → `rpv_conflict`, `rpv_power`, `rpv_energy` 已寫入
 
 ---
 
-#### Step 3: Photos (視覺門檻)
-- [ ] 點擊 Photo 1 框 → 選擇一張圖片
-- [ ] 點擊 Photo 2 框 → 選擇另一張圖片
-- [ ] 兩張都選完後，點擊 Continue → 預期導向 `/onboarding/soul-report`
-- [ ] 驗證:
-  - Supabase Storage → photos bucket → `{user_id}/original_1.jpg`, `blurred_1.jpg` 等
-  - `photos` 表 → 2 筆記錄
+#### Step 3: Photos
+- [ ] 上傳兩張圖片
+- [ ] 驗證: Supabase Storage → photos bucket → `{user_id}/original_1.jpg`, `blurred_1.jpg`
 
 ---
 
-#### Step 4: Soul Report (靈魂原型)
-- [ ] 頁面載入後應顯示動態原型（非 hardcoded）
-- [ ] 觀察原型名稱、描述、tags、base stats 有內容
+#### Step 4: Soul Report
+- [ ] 頁面載入後應顯示動態原型
 - [ ] 點擊「Enter DESTINY」→ 預期導向 `/daily`
 - [ ] 驗證: users 表 → `archetype_name`, `onboarding_step = complete`
 
 ---
 
-#### Step 5: Daily Feed (配對卡)
-- [ ] 開啟 http://localhost:3000/daily
-- [ ] 預期顯示 3 張配對卡（或 empty state 若無 seed 資料）
-- [ ] 各卡顯示：archetype、tags、radar bars、模糊頭像
-- [ ] 點擊 Accept → 按鈕變綠色
-- [ ] 點擊 Pass → 卡片消失
+#### Step 5: Daily Feed
+- [ ] 顯示 3 張配對卡（或 empty state）
+- [ ] Accept → 按鈕變綠色；Pass → 卡片消失
 - [ ] 若兩個用戶互 Accept → 自動建立 connection
 
-> **測試 mutual accept 的方式：** 用兩個不同帳號，跑 `POST /api/matches/run` 生成配對，再雙方都 Accept。
-
 ---
 
-#### Step 6: Connections (連結列表)
-- [ ] 開啟 http://localhost:3000/connections
-- [ ] 預期顯示所有 active connections（有 mutual accept 的）
-- [ ] 各卡顯示：tags、sync_level 進度條、last_activity 時間、模糊頭像
-- [ ] 無 connection 時顯示 empty state
+#### Step 6: Connections + Chat
+- [ ] 開啟 http://localhost:3000/connections → 顯示所有 active connections
 - [ ] 點擊卡片 → 進入聊天室
-
----
-
-#### Step 7: Chat (聊天室)
-- [ ] 進入 `/connections/[id]`
-- [ ] 載入時顯示 connection 資訊 + 歷史訊息
-- [ ] 輸入訊息 → Enter 或點送出按鈕
-- [ ] **樂觀更新**：訊息立即出現（不需等 API）
-- [ ] 對方在另一個瀏覽器傳訊息 → **Supabase Realtime** 應即時出現（不需重新整理）
-- [ ] Lv.1 時顯示模糊照片 + 鎖定提示「Unlocks at Lv.2」
-- [ ] 訊息數達 10 條 → sync_level 應升至 2
+- [ ] 輸入訊息 → 樂觀更新，對方瀏覽器即時顯示
 
 ---
 
@@ -187,12 +253,11 @@ npm run dev
 | 問題 | 原因 | 解法 |
 |------|------|------|
 | Register 後沒有自動跳轉 | Email confirmation 開啟 | Dashboard → Auth Settings → 關閉 email confirm |
-| Continue 按鈕沒反應 | 表單驗證未通過 | 檢查必填欄位是否都有填 |
 | 401 錯誤 | Cookie 沒有正確設定 | 清除 cookies，重新登入 |
 | Photos 上傳失敗 | Storage bucket 權限 | 確認 RLS policy 允許 authenticated users 上傳 |
 | Daily 空白 | 無配對資料 | 執行 `POST /api/matches/run` seed 資料（需 CRON_SECRET） |
-| Realtime 不更新 | Supabase Realtime 未啟用 | Dashboard → Database → Replication → 確認 messages table 已開啟 |
-| rectification_events 沒有資料 | Migration 006 未套用 | 確認已執行 `supabase db push` |
+| ZWDS 欄位為 null | astro-service 未啟動 | 確認 `http://localhost:8001/health` 回傳 ok |
+| rectification_events 沒有資料 | Migration 未套用 | 確認已執行 `supabase db push`（008 最新） |
 
 ---
 
@@ -203,7 +268,7 @@ npm run dev
 ### Onboarding
 
 ```javascript
-// ---- Birth Data: 新格式 (accuracy_type) ----
+// ---- Birth Data: 精確時間 (Tier 1) ----
 await fetch('/api/onboarding/birth-data', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -214,9 +279,9 @@ await fetch('/api/onboarding/birth-data', {
     birth_city: '台北市',
   }),
 }).then(r => r.json()).then(console.log)
-// 預期: { data: { accuracy_type: 'PRECISE', current_confidence: 0.9, rectification_status: 'collecting_signals', ... } }
+// 預期: { data: { accuracy_type: 'PRECISE', current_confidence: 0.9, ... } }
 
-// ---- Birth Data: TWO_HOUR_SLOT ----
+// ---- Birth Data: 模糊時段 (Tier 2) ----
 await fetch('/api/onboarding/birth-data', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -228,7 +293,6 @@ await fetch('/api/onboarding/birth-data', {
     birth_city: '台北市',
   }),
 }).then(r => r.json()).then(console.log)
-// 預期: { data: { accuracy_type: 'TWO_HOUR_SLOT', current_confidence: 0.30, window_size_minutes: 120, ... } }
 
 // ---- RPV Test ----
 await fetch('/api/onboarding/rpv-test', {
@@ -236,42 +300,6 @@ await fetch('/api/onboarding/rpv-test', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ rpv_conflict: 'cold_war', rpv_power: 'control', rpv_energy: 'home' }),
 }).then(r => r.json()).then(console.log)
-```
-
-### Daily Matches
-
-```javascript
-// ---- 取得今日配對卡 ----
-await fetch('/api/matches/daily').then(r => r.json()).then(console.log)
-// 預期: { matches: [{ id, archetype_name, tags, interest_tags, radar_passion, ... }] }
-
-// ---- Accept 一張配對卡 (替換 matchId) ----
-await fetch('/api/matches/MATCH_ID_HERE', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ action: 'accept' }),
-}).then(r => r.json()).then(console.log)
-// 預期: { match: { user_action: 'accept' }, connection: null }  (或 { connection: { id: ... } } 若對方也 accept)
-```
-
-### Connections + Chat
-
-```javascript
-// ---- 列出所有 connections ----
-await fetch('/api/connections').then(r => r.json()).then(console.log)
-// 預期: { connections: [{ id, sync_level, message_count, last_activity, tags, other_user, blurred_photo_url }] }
-
-// ---- 取得聊天室訊息 (替換 connId) ----
-await fetch('/api/connections/CONN_ID_HERE/messages').then(r => r.json()).then(console.log)
-// 預期: { connection: { sync_level, message_count, ... }, messages: [{ id, content, is_self, ... }] }
-
-// ---- 發送訊息 ----
-await fetch('/api/connections/CONN_ID_HERE/messages', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ content: 'Hello!' }),
-}).then(r => r.json()).then(console.log)
-// 預期: 201 { message: { id, sender_id, content, created_at } }
 ```
 
 ### Rectification
@@ -292,19 +320,6 @@ await fetch('/api/rectification/answer', {
     source: 'daily_quiz',
   }),
 }).then(r => r.json()).then(console.log)
-// 預期: { rectification_status, current_confidence, tier_upgraded, next_question_available }
-```
-
-### Error Cases
-
-```javascript
-// ---- 缺少欄位 (400) ----
-await fetch('/api/onboarding/birth-data', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ birth_date: '1995-06-15' }), // 缺少 accuracy_type 和 birth_city
-}).then(r => console.log(r.status, r.json()))
-// 預期: 400 { error: 'Missing required fields: ...' }
 ```
 
 ---
@@ -315,26 +330,41 @@ await fetch('/api/onboarding/birth-data', {
 
 ```bash
 cd astro-service
-pip install -r requirements.txt    # 首次安裝
+pip install -r requirements.txt    # 首次安裝（含 lunardate）
 uvicorn main:app --port 8001       # 啟動
 ```
 
-### Python Unit Tests (71 tests)
+### Python Unit Tests (132 tests)
 
 ```bash
 cd astro-service
 
+# 紫微斗數排盤引擎 (31 tests)
+pytest test_zwds.py -v
+
 # 星盤 + 八字 + 五行關係 (30 tests)
 pytest test_chart.py -v
 
-# 配對演算法 (41 tests)
+# 配對演算法 + ZWDS 整合 (71 tests)
 pytest test_matching.py -v
 
 # 全部一起跑
 pytest -v
 ```
 
-**test_chart.py 測試分類：**
+**test_zwds.py 測試分類（31 tests）：**
+
+| 類別 | 測試項目 | 數量 |
+|------|---------|------|
+| 時辰地支 | get_hour_branch 12 種分段 | 5 |
+| 四化星 | get_four_transforms 年干對應 | 2 |
+| 命盤計算 | compute_zwds_chart 輸出結構 | 8 |
+| 宮位能量 | get_palace_energy 空宮借星 | 2 |
+| 煞星防禦 | detect_stress_defense 三種觸發 | 4 |
+| 主星人設 | get_star_archetype_mods | 2 |
+| 合盤引擎 | compute_zwds_synastry 端對端 | 8 |
+
+**test_chart.py 測試分類（30 tests）：**
 
 | 類別 | 測試項目 | 數量 |
 |------|---------|------|
@@ -342,40 +372,59 @@ pytest -v
 | 八字四柱 | 日主、四柱結構、年柱/日柱驗證、Tier 行為 | 11 |
 | 五行關係 | 相生/相剋/比和 全循環 | 7 |
 
-**test_matching.py 測試分類：**
+**test_matching.py 測試分類（71 tests）：**
 
 | 類別 | 測試項目 | 數量 |
 |------|---------|------|
 | 星座相位 (sign_aspect) | 合/刑/沖/拱/六合 + edge cases | 9 |
-| Kernel 相容性 | 日主相生相剋 + RPV 組合 | 6 |
-| Power Dynamic Fit | 互補/同類 組合 | 4 |
-| Glitch Tolerance | Mars/Saturn 張力 | 3 |
-| Match 分類 | complementary/similar/tension | 6 |
-| Chameleon Tags | 動態標籤生成 | 5 |
-| Integration | compute_match end-to-end | 8 |
+| lust_score / soul_score | 各行星權重 + BaZi 修正 | 12 |
+| Power dynamic | Chiron 觸發、RPV 組合 | 8 |
+| compute_tracks | 四軌分數 + BaZi 軌道 | 10 |
+| classify_quadrant | 四象限分類 | 4 |
+| compute_match_v2 | 端對端整合（含 ZWDS）| 12 |
+| ZWDS 整合 | Tier 1 ZWDS 輸出鍵 + Tier 3 跳過 + 異常安全 | 8 |
+| 舊版 compute_match_score | 向後相容 | 8 |
 
-### API 測試
+### API 測試（curl）
 
 ```bash
 # 健康檢查
 curl http://localhost:8001/health
 
-# 西洋占星 + 八字 (Tier 1: 精確時間)
+# 西洋占星 + 八字（Tier 1: 精確時間）
 curl -X POST http://localhost:8001/calculate-chart \
   -H "Content-Type: application/json" \
   -d '{"birth_date":"1997-03-07","birth_time":"precise","birth_time_exact":"10:59","lat":25.033,"lng":121.565,"data_tier":1}'
-# 預期: sun_sign, moon_sign, ascendant_sign + bazi.four_pillars: 丁丑 癸卯 戊申 丁巳
+# 預期: sun_sign="pisces", bazi.four_pillars=丁丑 癸卯 戊申 丁巳
+
+# 紫微斗數命盤（Tier 1）
+curl -X POST http://localhost:8001/compute-zwds-chart \
+  -H "Content-Type: application/json" \
+  -d '{"birth_year":1990,"birth_month":6,"birth_day":15,"birth_time":"11:30","gender":"M"}'
+# 預期: chart.five_element="火六局", chart.palaces.ming.main_stars 非空
 
 # 五行關係分析
 curl -X POST http://localhost:8001/analyze-relation \
   -H "Content-Type: application/json" \
   -d '{"element_a":"wood","element_b":"fire"}'
-# 預期: { relation: "a_generates_b", harmony_score: 0.85 }
+# 預期: { "relation": "a_generates_b", "harmony_score": 0.85 }
 
-# 配對分數計算 (替換為真實 user_id)
+# 配對分數計算（Tier 1 雙人，含 ZWDS）
 curl -X POST http://localhost:8001/compute-match \
   -H "Content-Type: application/json" \
-  -d '{"user_a": {...}, "user_b": {...}}'
+  -d '{
+    "user_a": {
+      "sun_sign":"aries","mars_sign":"scorpio","bazi_element":"fire",
+      "birth_year":1990,"birth_month":6,"birth_day":15,
+      "birth_time":"11:30","data_tier":1,"gender":"M"
+    },
+    "user_b": {
+      "sun_sign":"leo","mars_sign":"cancer","bazi_element":"water",
+      "birth_year":1992,"birth_month":9,"birth_day":22,
+      "birth_time":"08:00","data_tier":1,"gender":"F"
+    }
+  }'
+# 預期: lust_score, soul_score, zwds.spiciness_level, layered_analysis 均有值
 ```
 
 ### 八字驗證案例
@@ -402,7 +451,7 @@ curl -X POST http://localhost:8001/compute-match \
 
 ```sql
 -- 在 Supabase SQL Editor 執行
--- 刪除特定測試用戶的資料 (替換 email)
+-- 刪除特定測試用戶的資料（替換 email）
 DELETE FROM rectification_events WHERE user_id = (SELECT id FROM auth.users WHERE email = 'test1@example.com');
 DELETE FROM messages WHERE connection_id IN (
   SELECT id FROM connections WHERE user_a_id = (SELECT id FROM auth.users WHERE email = 'test1@example.com')
@@ -424,12 +473,12 @@ UPDATE users SET onboarding_step = 'birth_data' WHERE email = 'test1@example.com
 
 1. 前往 https://supabase.com/dashboard/project/masninqgihbazjirweiy
 2. **Authentication → Users** — 確認用戶已註冊
-3. **Table Editor → users** — 確認各欄位已寫入（含新 accuracy_type / current_confidence 欄位）
+3. **Table Editor → users** — 確認各欄位已寫入（含 ZWDS 欄位，Migration 008）
 4. **Table Editor → rectification_events** — 確認 range_initialized 事件記錄
 5. **Table Editor → daily_matches** — 確認配對記錄
 6. **Table Editor → connections** — 確認 mutual accept 後自動建立
 7. **Table Editor → messages** — 確認聊天訊息
-8. **Storage → photos** — 確認圖片檔案 (original + blurred)
+8. **Storage → photos** — 確認圖片檔案（original + blurred）
 
 ---
 
@@ -437,12 +486,15 @@ UPDATE users SET onboarding_step = 'birth_data' WHERE email = 'test1@example.com
 
 | 我想測什麼？ | 用哪層？ |
 |-------------|---------|
-| API 邏輯是否正確 (快速) | Layer 1: `npm test` (82 tests) |
+| 排盤正確性（西洋/八字/紫微）| Layer 0: `curl` + Sandbox Phase 0-A |
+| 配對演算法 MATCH/MISMATCH | Layer 0: Sandbox Tab A |
+| API 邏輯是否正確（快速） | Layer 1: `npm test` (91 tests) |
+| 紫微斗數引擎正確性 | Astro Service: `pytest test_zwds.py` (31 tests) |
 | 星盤/八字計算正確性 | Astro Service: `pytest test_chart.py` (30 tests) |
-| 配對演算法正確性 | Astro Service: `pytest test_matching.py` (41 tests) |
-| 完整用戶流程 (註冊到聊天) | Layer 2: 瀏覽器 E2E |
+| 配對演算法正確性 | Astro Service: `pytest test_matching.py` (71 tests) |
+| 完整用戶流程（註冊到聊天）| Layer 2: 瀏覽器 E2E |
 | 單一 API response 格式 | Layer 3: 瀏覽器 Console fetch |
-| DB 是否正確寫入 | Supabase Dashboard |
+| DB 是否正確寫入（含 ZWDS）| Supabase Dashboard |
 | Error handling (401/400/403) | Layer 1 (mock) 或 Layer 3 (real) |
 | 出生時間校正流程 | Layer 3: rectification endpoints |
 | Realtime 即時訊息 | Layer 2: 兩個瀏覽器視窗互傳 |
