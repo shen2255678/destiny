@@ -124,10 +124,10 @@
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('a')">Mechanism A &#8212; &#20511;&#20493;&#39511;&#35611;</button>
-  <button class="tab-btn" onclick="switchTab('b')">Mechanism B &#8212; &#26657;&#26178;&#27169;&#25511;</button>
-  <button class="tab-btn" onclick="switchTab('c')">&#20491;&#20154;&#21517;&#29255;&#29983;&#25104;</button>
-  <button class="tab-btn" onclick="switchTab('d')">&#38597;&#30424;&#22909;&#22909;&#20837;&#24178;</button>
+  <button class="tab-btn active" onclick="switchTab('a')">A — 伴侶驗證</button>
+  <button class="tab-btn" onclick="switchTab('b')">B — 校時模擬</button>
+  <button class="tab-btn" onclick="switchTab('c')">C — 個人名片</button>
+  <button class="tab-btn" onclick="switchTab('d')">D — 合盤報告</button>
 </div>
 
 <!-- ═══ TAB A ═══ -->
@@ -242,21 +242,9 @@
       <div><label>&#32302;&#24230;</label><input type="number" id="pc_lat" value="25.033" step="0.001"></div>
       <div><label>&#32147;&#24230;</label><input type="number" id="pc_lng" value="121.565" step="0.001"></div>
     </div>
-    <div class="field"><label>RPV &#34xing;&#31361;&#39118;&#26684;</label>
-      <select id="pc_conflict"><option value="cold_war">&#20919;&#25112;</option><option value="argue">&#38283;&#21438;</option></select>
-    </div>
-    <div class="field"><label>RPV &#27278;&#21147;</label>
-      <select id="pc_power"><option value="control">&#20027;&#23566;</option><option value="follow">&#36319;&#38615;</option></select>
-    </div>
-    <div class="field"><label>RPV &#33021;&#37327;</label>
-      <select id="pc_energy"><option value="home">&#23431;</option><option value="out">&#20806;&#20986;</option></select>
-    </div>
-    <div class="field"><label>&#20381;&#25200;&#39118;&#26684;</label>
-      <select id="pc_attach">
-        <option value="secure">&#23433;&#20840;&#22411;</option>
-        <option value="anxious">&#28124;&#24935;&#22411;</option>
-        <option value="avoidant">&#36801;&#38907;&#22411;</option>
-      </select>
+    <div class="inferred-display" id="pc_inferred">
+      <div class="inf-title">→ RPV / 依戀風格（由命盤自動推算）</div>
+      <span class="inf-tag pending">等待運算...</span>
     </div>
     <div style="margin-top:12px">
       <button class="btn" onclick="generateProfileCard()">&#10022; &#29983;&#25104;&#20491;&#20154;&#21517;&#29255;</button>
@@ -269,10 +257,10 @@
 <!-- ═══ TAB D ═══ -->
 <div id="tab-d" class="tab-content">
   <div class="mech-b-card" style="max-width:560px">
-    <h3>&#38597;&#30424;&#22909;&#22909;&#20837;&#24178;&#22120;</h3>
+    <h3>合盤報告生成器</h3>
     <p style="color:#6b7280;font-size:11px;margin-bottom:12px">
-      &#20808;&#22312; Mechanism A &#36319;&#23436;&#21512;&#30424;&#65292;&#20877;&#22238;&#21040;&#27492;&#39006;&#29983;&#25104;&#23436;&#25972;&#38364;&#20418;&#22577;&#21578;&#12290;<br>
-      &#25110;&#30452;&#25509;&#22586;&#20837;&#20998;&#25976;&#25163;&#21205;&#35578;&#30330;&#12290;
+      先在「A — 伴侶驗證」跑完合盤，再回到此頁點「從上次合盤填入」生成完整關係報告。<br>
+      或直接填入分數手動觸發。
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <div class="field"><label>Person A &#21517;&#23383;</label><input type="text" id="mr_name_a" value="Person A"></div>
@@ -542,7 +530,7 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
       '<span class="badge ' + (match ? 'match' : 'mismatch') + '">' + (match ? 'MATCH \u2713' : 'MISMATCH \u2717') + '</span>' +
     '</div>' +
     '<div class="score-section">' +
-      '<div class="score-label">VibeScore (lust_score)</div>' +
+      '<div class="score-label">VibeScore（肉體吸引力）</div>' +
       '<div class="score-bar-wrap">' +
         '<div class="score-bar"><div class="score-bar-fill" style="width:' + lust + '%;background:linear-gradient(90deg,#f87171,#fb923c)"></div></div>' +
         '<div class="score-val" style="color:#f87171">' + lust.toFixed(1) + ' / 100</div>' +
@@ -550,7 +538,7 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
       '<div class="score-logs">' + logs.lustLogs.join('<br>') + '</div>' +
     '</div>' +
     '<div class="score-section">' +
-      '<div class="score-label">ChemistryScore (soul_score)</div>' +
+      '<div class="score-label">ChemistryScore（靈魂連結）</div>' +
       '<div class="score-bar-wrap">' +
         '<div class="score-bar"><div class="score-bar-fill" style="width:' + soul + '%;background:linear-gradient(90deg,#818cf8,#c084fc)"></div></div>' +
         '<div class="score-val" style="color:#818cf8">' + soul.toFixed(1) + ' / 100</div>' +
@@ -558,7 +546,7 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
       '<div class="score-logs">' + logs.soulLogs.join('<br>') + '</div>' +
     '</div>' +
     '<div class="score-section">' +
-      '<div class="score-label" style="margin-bottom:6px">Four Tracks</div>' +
+      '<div class="score-label" style="margin-bottom:6px">四軌分數</div>' +
       '<div class="tracks-row">' + tracksHtml + '</div>' +
     '</div>' +
     '<div class="meta-row">' +
@@ -571,7 +559,7 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
     '</div>' +
     '<div class="labels-row">' + labelsHtml + '</div>' +
     '<div class="archetype-section">' +
-      '<h4>AI ARCHETYPE + \u89e3\u8b80\u5831\u544a</h4>' +
+      '<h4>AI 原型標籤 + 解讀報告</h4>' +
       '<button class="btn-sm" id="archetype-btn" onclick="generateArchetype()">&#10022; Generate</button>' +
       '<div id="archetype-output" style="margin-top:8px"></div>' +
     '</div>';
@@ -826,19 +814,22 @@ async function generateProfileCard() {
     if (!cr.ok) throw new Error(await cr.text());
     var chart = await cr.json();
 
+    var inferred = inferFromChart(chart);
+    renderInferred('pc', inferred, chart);
+
     var provider = document.getElementById('llmProvider').value;
-    status.textContent = '\u751f\u6210\u540d\u7247\u4e2d (' + provider + ')...';
+    status.textContent = '生成名片中 (' + provider + ')...';
 
     var r = await fetch(BASE + '/generate-profile-card', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         chart_data: chart,
         rpv_data: {
-          rpv_conflict: document.getElementById('pc_conflict').value,
-          rpv_power:    document.getElementById('pc_power').value,
-          rpv_energy:   document.getElementById('pc_energy').value,
+          rpv_conflict: inferred.rpv_conflict,
+          rpv_power:    inferred.rpv_power,
+          rpv_energy:   inferred.rpv_energy,
         },
-        attachment_style: document.getElementById('pc_attach').value,
+        attachment_style: inferred.attachment_style,
         provider: provider,
         api_key: getApiKey(),
         gemini_model: getGeminiModel(),
@@ -874,7 +865,7 @@ async function generateProfileCard() {
 }
 
 function fillFromLastMatch() {
-  if (!window._lastMatchData) { alert('\u8acb\u5148\u5728 Mechanism A \u8de1\u5b8c\u5408\u76e4'); return; }
+  if (!window._lastMatchData) { alert('請先在「A — 伴侶驗證」跑完合盤'); return; }
   var md = window._lastMatchData;
   document.getElementById('mr_lust').value    = md.lust_score.toFixed(0);
   document.getElementById('mr_soul').value    = md.soul_score.toFixed(0);
