@@ -867,3 +867,243 @@ class TestZwdsMatchIntegration:
             result = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
         assert "zwds" in result
         assert result["zwds"] is None
+
+
+# ════════════════════════════════════════════════════════════════
+# Task 2: Dynamic Weighting Tests
+# ════════════════════════════════════════════════════════════════
+
+
+class TestSoulScoreDynamicWeighting:
+    """Tests verifying that optional fields are excluded from the denominator
+    when absent (Tier 2/3 users), so scores are not diluted."""
+
+    def _tier3_user(self, moon="cancer", mercury="gemini", saturn="capricorn"):
+        """Tier 3 user: only core planets, no house4 / juno / attachment."""
+        return {
+            "moon_sign": moon,
+            "mercury_sign": mercury,
+            "saturn_sign": saturn,
+            "house4_sign": None,
+            "juno_sign": None,
+            "attachment_style": None,
+            "bazi_element": None,
+        }
+
+    def _tier1_user(self, moon="cancer", mercury="gemini", saturn="capricorn",
+                    house4="pisces", juno="sagittarius", attachment="secure"):
+        """Tier 1 user: all fields present."""
+        return {
+            "moon_sign": moon,
+            "mercury_sign": mercury,
+            "saturn_sign": saturn,
+            "house4_sign": house4,
+            "juno_sign": juno,
+            "attachment_style": attachment,
+            "bazi_element": None,
+        }
+
+    def test_soul_score_tier3_no_house4_juno_attachment(self):
+        """Tier 3 user (no house4, juno, attachment) gets a score based only
+        on moon + mercury + saturn with total_weight = 0.65.
+
+        Dynamic formula: score / total_weight × 100
+        Expected = (moon*0.25 + mercury*0.20 + saturn*0.20) / 0.65 * 100
+        """
+        a = self._tier3_user(moon="cancer", mercury="gemini", saturn="capricorn")
+        b = self._tier3_user(moon="cancer", mercury="gemini", saturn="capricorn")
+
+        moon_v    = compute_sign_aspect("cancer",    "cancer",    "harmony")   # 0.90
+        mercury_v = compute_sign_aspect("gemini",    "gemini",    "harmony")   # 0.90
+        saturn_v  = compute_sign_aspect("capricorn", "capricorn", "harmony")   # 0.90
+
+        numerator = moon_v * 0.25 + mercury_v * 0.20 + saturn_v * 0.20
+        total_w   = 0.25 + 0.20 + 0.20  # = 0.65
+        expected  = (numerator / total_w) * 100
+
+        assert compute_soul_score(a, b) == pytest.approx(expected, abs=0.1)
+
+    def test_soul_score_tier1_all_fields(self):
+        """Tier 1 user with all fields present: score uses all 6 components
+        with total_weight = 1.20.
+
+        Expected = (moon*0.25 + mercury*0.20 + saturn*0.20
+                    + house4*0.15 + juno*0.20 + attachment*0.20) / 1.20 * 100
+        """
+        a = self._tier1_user(moon="cancer", mercury="gemini", saturn="capricorn",
+                              house4="pisces", juno="sagittarius", attachment="secure")
+        b = self._tier1_user(moon="cancer", mercury="gemini", saturn="capricorn",
+                              house4="pisces", juno="sagittarius", attachment="secure")
+
+        moon_v       = compute_sign_aspect("cancer",      "cancer",      "harmony")
+        mercury_v    = compute_sign_aspect("gemini",      "gemini",      "harmony")
+        saturn_v     = compute_sign_aspect("capricorn",   "capricorn",   "harmony")
+        house4_v     = compute_sign_aspect("pisces",      "pisces",      "harmony")
+        juno_v       = compute_sign_aspect("sagittarius", "sagittarius", "harmony")
+        attachment_v = ATTACHMENT_FIT["secure"]["secure"]  # 0.90
+
+        numerator = (moon_v * 0.25 + mercury_v * 0.20 + saturn_v * 0.20
+                     + house4_v * 0.15 + juno_v * 0.20 + attachment_v * 0.20)
+        total_w   = 0.25 + 0.20 + 0.20 + 0.15 + 0.20 + 0.20  # = 1.20
+        expected  = (numerator / total_w) * 100
+
+        assert compute_soul_score(a, b) == pytest.approx(expected, abs=0.1)
+
+    def test_soul_score_tier3_higher_than_fixed_weight_would_give(self):
+        """With the old fixed-weight formula and house4=0 / juno=NEUTRAL (0.65) /
+        attachment=NEUTRAL (0.65), the denominator was effectively 1.20 while
+        only 0.65 of weight contributed real signal. Dynamic weighting gives a
+        proportionally correct (higher) score for the same core planets.
+        """
+        a = self._tier3_user(moon="cancer", mercury="cancer", saturn="cancer")
+        b = self._tier3_user(moon="cancer", mercury="cancer", saturn="cancer")
+
+        # Dynamic score uses only the 3 core planets (all conjunction = 0.90)
+        score = compute_soul_score(a, b)
+
+        # Old formula would have diluted with juno=NEUTRAL (0.65) and attachment=NEUTRAL (0.65)
+        # over a total_weight of 1.20 → (0.90*0.25 + 0.90*0.20 + 0*0.15 + 0.90*0.20
+        #                                + 0.65*0.20 + 0.65*0.20) / 1 * 100
+        old_score = (0.90 * 0.25 + 0.90 * 0.20 + 0.0 * 0.15 + 0.90 * 0.20
+                     + 0.65 * 0.20 + 0.65 * 0.20) * 100  # raw sum, no normalization
+        assert score > old_score
+
+
+class TestLustScoreDynamicWeighting:
+    """Tests verifying house8 dynamic weighting in compute_lust_score."""
+
+    def _user(self, venus="aries", mars="aries", pluto="scorpio",
+              house8=None, bazi_elem=None, rpv_power=None, rpv_conflict=None):
+        return {
+            "venus_sign": venus, "mars_sign": mars, "pluto_sign": pluto,
+            "house8_sign": house8, "bazi_element": bazi_elem,
+            "rpv_power": rpv_power, "rpv_conflict": rpv_conflict,
+        }
+
+    def test_lust_score_tier3_no_house8(self):
+        """Tier 3 without house8: score uses venus + mars + pluto + power
+        with total_weight = 1.00, so denominator does not include house8's 0.15.
+
+        Expected = (venus*0.20 + mars*0.25 + pluto*0.25 + power*0.30) / 1.00 * 100
+        """
+        a = self._user(venus="aries", mars="aries", pluto="scorpio")
+        b = self._user(venus="aries", mars="aries", pluto="scorpio")
+
+        venus_v = compute_sign_aspect("aries",   "aries",   "harmony")
+        mars_v  = compute_sign_aspect("aries",   "aries",   "tension")
+        pluto_v = compute_sign_aspect("scorpio", "scorpio", "tension")
+
+        from matching import compute_power_score
+        power_v = compute_power_score(a, b)
+
+        numerator = venus_v * 0.20 + mars_v * 0.25 + pluto_v * 0.25 + power_v * 0.30
+        total_w   = 0.20 + 0.25 + 0.25 + 0.30  # = 1.00
+        expected  = (numerator / total_w) * 100
+
+        assert compute_lust_score(a, b) == pytest.approx(expected, abs=0.1)
+
+    def test_lust_score_tier1_with_house8(self):
+        """Tier 1 with matching house8 (conjunction): score includes house8 * 0.15
+        and total_weight = 1.15.
+
+        Expected = (venus*0.20 + mars*0.25 + pluto*0.25
+                    + house8*0.15 + power*0.30) / 1.15 * 100
+        """
+        a = self._user(venus="aries", mars="aries", pluto="scorpio", house8="scorpio")
+        b = self._user(venus="aries", mars="aries", pluto="scorpio", house8="scorpio")
+
+        venus_v  = compute_sign_aspect("aries",   "aries",   "harmony")
+        mars_v   = compute_sign_aspect("aries",   "aries",   "tension")
+        pluto_v  = compute_sign_aspect("scorpio", "scorpio", "tension")
+        house8_v = compute_sign_aspect("scorpio", "scorpio", "tension")
+
+        from matching import compute_power_score
+        power_v = compute_power_score(a, b)
+
+        numerator = (venus_v * 0.20 + mars_v * 0.25 + pluto_v * 0.25
+                     + house8_v * 0.15 + power_v * 0.30)
+        total_w   = 0.20 + 0.25 + 0.25 + 0.15 + 0.30  # = 1.15
+        expected  = (numerator / total_w) * 100
+
+        assert compute_lust_score(a, b) == pytest.approx(expected, abs=0.1)
+
+
+class TestTracksNullHandling:
+    """Tests verifying dynamic redistribution in compute_tracks when
+    juno or chiron are absent."""
+
+    def _base_user(self, **kwargs):
+        defaults = {
+            "moon_sign": "cancer", "mercury_sign": "gemini",
+            "jupiter_sign": "sagittarius", "mars_sign": "aries",
+            "venus_sign": "taurus", "pluto_sign": "scorpio",
+            "saturn_sign": "capricorn",
+            "juno_sign": None, "chiron_sign": None,
+            "house8_sign": None, "bazi_element": None,
+            "rpv_power": None, "rpv_conflict": None,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def _power_no_frame_break(self):
+        return {"rpv": 0.0, "frame_break": False, "viewer_role": "Equal", "target_role": "Equal"}
+
+    def test_partner_track_no_juno(self):
+        """When both users lack juno_sign, partner track redistributes weight:
+        moon gets 0.55 and bazi_generation gets 0.45.
+
+        With no bazi_generation and moon conjunction (0.90):
+        partner = 0.90 * 0.55 + 0.0 * 0.45 = 0.495 → 49.5
+        """
+        a = self._base_user(moon_sign="cancer")
+        b = self._base_user(moon_sign="cancer")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(a, b, power, useful_god_complement=0.0)
+        moon_v = compute_sign_aspect("cancer", "cancer", "harmony")  # 0.90
+        expected_partner = (moon_v * 0.55 + 0.0 * 0.45) * 100  # = 49.5
+        assert tracks["partner"] == pytest.approx(expected_partner, abs=0.5)
+
+    def test_partner_track_with_juno_uses_original_weights(self):
+        """When juno_sign is present, partner uses original weights:
+        moon*0.35 + juno*0.35 + bazi_generation*0.30.
+        """
+        a = self._base_user(moon_sign="cancer", juno_sign="libra")
+        b = self._base_user(moon_sign="cancer", juno_sign="libra")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(a, b, power, useful_god_complement=0.0)
+        moon_v = compute_sign_aspect("cancer", "cancer", "harmony")  # 0.90
+        juno_v = compute_sign_aspect("libra",  "libra",  "harmony")  # 0.90
+        expected_partner = (moon_v * 0.35 + juno_v * 0.35 + 0.0 * 0.30) * 100
+        assert tracks["partner"] == pytest.approx(expected_partner, abs=0.5)
+
+    def test_soul_track_no_chiron(self):
+        """When both users lack chiron_sign, soul track redistributes weight:
+        pluto gets 0.60 and useful_god gets 0.40.
+
+        With pluto conjunction (tension=1.00) and useful_god=0.0:
+        soul_track = 1.00 * 0.60 + 0.0 * 0.40 = 0.60 → 60.0
+        """
+        a = self._base_user(pluto_sign="scorpio")
+        b = self._base_user(pluto_sign="scorpio")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(a, b, power, useful_god_complement=0.0)
+        pluto_v = compute_sign_aspect("scorpio", "scorpio", "tension")  # 1.00
+        expected_soul = (pluto_v * 0.60 + 0.0 * 0.40) * 100  # = 60.0
+        assert tracks["soul"] == pytest.approx(expected_soul, abs=0.5)
+
+    def test_soul_track_with_chiron_uses_original_weights(self):
+        """When chiron_sign is present, soul track uses original weights:
+        chiron*0.40 + pluto*0.40 + useful_god*0.20.
+        """
+        a = self._base_user(pluto_sign="scorpio", chiron_sign="aries")
+        b = self._base_user(pluto_sign="scorpio", chiron_sign="aries")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(a, b, power, useful_god_complement=0.5)
+        chiron_v = compute_sign_aspect("aries",   "aries",   "tension")  # 1.00
+        pluto_v  = compute_sign_aspect("scorpio", "scorpio", "tension")  # 1.00
+        expected_soul = (chiron_v * 0.40 + pluto_v * 0.40 + 0.5 * 0.20) * 100
+        assert tracks["soul"] == pytest.approx(expected_soul, abs=0.5)

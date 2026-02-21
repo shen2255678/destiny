@@ -352,92 +352,124 @@ def _rpv_to_frame(rpv_power: Optional[str], rpv_conflict: Optional[str]) -> floa
 def compute_lust_score(user_a: dict, user_b: dict) -> float:
     """Lust Score (X axis): physical/desire attraction (0-100).
 
-    Weights (Eros-absent):
+    Uses dynamic weighting: house8 only contributes when both users have
+    precise birth time (Tier 1). Missing house8 is removed from denominator.
+
+    Weights (when all present):
       venus     × 0.20
       mars      × 0.25
-      house8    × 0.15  (0 when tier 2/3, no precise time)
+      house8    × 0.15  (Tier 1 only — omitted from denominator when absent)
       pluto     × 0.25
       power_fit × 0.30
 
     Multiplier: × 1.2 if bazi elements are in a restriction (clash) relationship.
     """
-    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"), "harmony")
-    mars  = compute_sign_aspect(user_a.get("mars_sign"),  user_b.get("mars_sign"),  "tension")
-    pluto = compute_sign_aspect(user_a.get("pluto_sign"), user_b.get("pluto_sign"), "tension")
+    score = 0.0
+    total_weight = 0.0
 
+    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"), "harmony")
+    score += venus * 0.20
+    total_weight += 0.20
+
+    mars = compute_sign_aspect(user_a.get("mars_sign"), user_b.get("mars_sign"), "tension")
+    score += mars * 0.25
+    total_weight += 0.25
+
+    pluto = compute_sign_aspect(user_a.get("pluto_sign"), user_b.get("pluto_sign"), "tension")
+    score += pluto * 0.25
+    total_weight += 0.25
+
+    # House 8 (0.15) — Tier 1 only
     h8_a = user_a.get("house8_sign")
     h8_b = user_b.get("house8_sign")
-    house8 = compute_sign_aspect(h8_a, h8_b, "tension") if (h8_a and h8_b) else 0.0
+    if h8_a and h8_b:
+        score += compute_sign_aspect(h8_a, h8_b, "tension") * 0.15
+        total_weight += 0.15
 
     power_score = compute_power_score(user_a, user_b)
+    score += power_score * 0.30
+    total_weight += 0.30
 
-    score = (
-        venus       * 0.20 +
-        mars        * 0.25 +
-        house8      * 0.15 +
-        pluto       * 0.25 +
-        power_score * 0.30
-    )
+    base_score = score / total_weight if total_weight > 0 else 0.65
 
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")
     if elem_a and elem_b:
         rel = analyze_element_relation(elem_a, elem_b)
         if rel["relation"] in ("a_restricts_b", "b_restricts_a"):
-            score *= 1.2
+            base_score *= 1.2
 
-    return _clamp(score * 100)
+    return _clamp(base_score * 100)
 
 
 def compute_soul_score(user_a: dict, user_b: dict) -> float:
     """Soul Score (Y axis): depth / long-term commitment (0-100).
 
-    Weights:
-      moon       × 0.25
-      mercury    × 0.20
-      house4     × 0.15  (0 when tier 2/3)
-      saturn     × 0.20
-      attachment × 0.20
-      juno       × 0.20
+    Uses dynamic weighting: optional fields (House 4, Juno, attachment_style)
+    only contribute their weight when present. Missing fields are removed from
+    the denominator so Tier 2/3 scores remain proportionally accurate.
+
+    Weights (when all present):
+      moon       × 0.25  — always present
+      mercury    × 0.20  — always present
+      saturn     × 0.20  — always present
+      house4     × 0.15  — Tier 1 only
+      juno       × 0.20  — when ephemeris available
+      attachment × 0.20  — when questionnaire filled
 
     Multiplier: × 1.2 if bazi elements are in a generation relationship.
     """
-    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"),    "harmony")
-    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
-    saturn  = compute_sign_aspect(user_a.get("saturn_sign"),  user_b.get("saturn_sign"),  "harmony")
+    score = 0.0
+    total_weight = 0.0
 
+    # 1. Moon (0.25) — always present
+    moon = compute_sign_aspect(user_a.get("moon_sign"), user_b.get("moon_sign"), "harmony")
+    score += moon * 0.25
+    total_weight += 0.25
+
+    # 2. Mercury (0.20) — always present
+    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
+    score += mercury * 0.20
+    total_weight += 0.20
+
+    # 3. Saturn (0.20) — always present
+    saturn = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"), "harmony")
+    score += saturn * 0.20
+    total_weight += 0.20
+
+    # 4. House 4 (0.15) — Tier 1 only
     h4_a = user_a.get("house4_sign")
     h4_b = user_b.get("house4_sign")
-    house4 = compute_sign_aspect(h4_a, h4_b, "harmony") if (h4_a and h4_b) else 0.0
+    if h4_a and h4_b:
+        score += compute_sign_aspect(h4_a, h4_b, "harmony") * 0.15
+        total_weight += 0.15
 
+    # 5. Juno (0.20) — when ephemeris available
     juno_a = user_a.get("juno_sign")
     juno_b = user_b.get("juno_sign")
-    juno = compute_sign_aspect(juno_a, juno_b, "harmony") if (juno_a and juno_b) else NEUTRAL_SIGNAL
+    if juno_a and juno_b:
+        score += compute_sign_aspect(juno_a, juno_b, "harmony") * 0.20
+        total_weight += 0.20
 
+    # 6. Attachment style (0.20) — when questionnaire filled
     style_a = user_a.get("attachment_style")
     style_b = user_b.get("attachment_style")
     if style_a and style_b and style_a in ATTACHMENT_FIT:
         attachment = ATTACHMENT_FIT[style_a].get(style_b, NEUTRAL_SIGNAL)
-    else:
-        attachment = NEUTRAL_SIGNAL
+        score += attachment * 0.20
+        total_weight += 0.20
 
-    score = (
-        moon       * 0.25 +
-        mercury    * 0.20 +
-        house4     * 0.15 +
-        saturn     * 0.20 +
-        attachment * 0.20 +
-        juno       * 0.20
-    )
+    base_score = score / total_weight if total_weight > 0 else 0.65
 
+    # Multiplier: 八字相生加成
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")
     if elem_a and elem_b:
         rel = analyze_element_relation(elem_a, elem_b)
         if rel["relation"] in ("a_generates_b", "b_generates_a"):
-            score *= 1.2
+            base_score *= 1.2
 
-    return _clamp(score * 100)
+    return _clamp(base_score * 100)
 
 
 def _check_chiron_triggered(user_a: dict, user_b: dict) -> bool:
@@ -542,7 +574,8 @@ def compute_tracks(
     jupiter = compute_sign_aspect(user_a.get("jupiter_sign"), user_b.get("jupiter_sign"), "harmony")
     moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"),    "harmony")
     juno_a, juno_b = user_a.get("juno_sign"), user_b.get("juno_sign")
-    juno = compute_sign_aspect(juno_a, juno_b, "harmony") if (juno_a and juno_b) else NEUTRAL_SIGNAL
+    juno_present = bool(juno_a and juno_b)
+    juno = compute_sign_aspect(juno_a, juno_b, "harmony") if juno_present else 0.0
 
     # tension planets: passion / soul tracks
     mars  = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),   "tension")
@@ -551,7 +584,8 @@ def compute_tracks(
     h8_a, h8_b = user_a.get("house8_sign"), user_b.get("house8_sign")
     house8 = compute_sign_aspect(h8_a, h8_b, "tension") if (h8_a and h8_b) else 0.0
     chiron_a, chiron_b = user_a.get("chiron_sign"), user_b.get("chiron_sign")
-    chiron = compute_sign_aspect(chiron_a, chiron_b, "tension") if (chiron_a and chiron_b) else NEUTRAL_SIGNAL
+    chiron_present = bool(chiron_a and chiron_b)
+    chiron = compute_sign_aspect(chiron_a, chiron_b, "tension") if chiron_present else 0.0
 
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")
@@ -575,16 +609,18 @@ def compute_tracks(
         0.10 * passion_extremity +
         0.30 * (1.0 if bazi_clash else 0.0)
     )
-    partner = (
-        0.35 * moon +
-        0.35 * juno +
-        0.30 * (1.0 if bazi_generation else 0.0)
-    )
-    soul_track = (
-        0.40 * chiron +
-        0.40 * pluto +
-        0.20 * useful_god_complement
-    )
+    if juno_present:
+        partner = moon * 0.35 + juno * 0.35 + (1.0 if bazi_generation else 0.0) * 0.30
+    else:
+        # Redistribute juno's 0.35 weight: moon gets 0.55, bazi gets 0.45
+        partner = moon * 0.55 + (1.0 if bazi_generation else 0.0) * 0.45
+
+    if chiron_present:
+        soul_track = chiron * 0.40 + pluto * 0.40 + useful_god_complement * 0.20
+    else:
+        # Redistribute chiron's 0.40 weight: pluto gets 0.60, useful_god gets 0.40
+        soul_track = pluto * 0.60 + useful_god_complement * 0.40
+
     if power["frame_break"]:
         soul_track += 0.10
 
