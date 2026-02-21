@@ -14,6 +14,8 @@ from __future__ import annotations
 from typing import Dict, List, Optional
 
 from bazi import analyze_element_relation, compute_bazi_season_complement
+from zwds import compute_zwds_chart
+from zwds_synastry import compute_zwds_synastry
 
 # ── Zodiac Constants ─────────────────────────────────────────
 
@@ -466,6 +468,7 @@ def compute_power_v2(
     chiron_triggered_ab: bool = False,
     chiron_triggered_ba: bool = False,
     bazi_relation: str = "none",
+    zwds_rpv_modifier: int = 0,
 ) -> dict:
     """Power D/s Frame calculation (v2.1).
 
@@ -499,6 +502,9 @@ def compute_power_v2(
         frame_a -= 15
         frame_b += 15
 
+    # ZWDS RPV modifier
+    frame_a += zwds_rpv_modifier
+
     rpv = frame_a - frame_b
 
     if rpv > 15:
@@ -521,6 +527,7 @@ def compute_tracks(
     user_b: dict,
     power: dict,
     useful_god_complement: float = 0.0,
+    zwds_mods: dict = None,
 ) -> dict:
     """Four-track scoring: friend / passion / partner / soul (0-100 each).
 
@@ -581,6 +588,12 @@ def compute_tracks(
     if power["frame_break"]:
         soul_track += 0.10
 
+    if zwds_mods:
+        friend     = _clamp(friend     * (0.70 * zwds_mods.get("friend",  1.0) + 0.30))
+        passion    = _clamp(passion    * (0.70 * zwds_mods.get("passion", 1.0) + 0.30))
+        partner    = _clamp(partner    * (0.70 * zwds_mods.get("partner", 1.0) + 0.30))
+        soul_track = _clamp(soul_track * (0.70 * zwds_mods.get("soul",    1.0) + 0.30))
+
     return {
         "friend":  round(_clamp(friend    * 100), 1),
         "passion": round(_clamp(passion   * 100), 1),
@@ -604,6 +617,11 @@ def classify_quadrant(lust_score: float, soul_score: float, threshold: float = 6
     if soul_score >= threshold:
         return "partner"
     return "colleague"
+
+
+def _is_zwds_eligible(user: dict) -> bool:
+    """Return True if user has Tier 1 data with birth_time for ZWDS computation."""
+    return user.get("data_tier") == 1 and bool(user.get("birth_time"))
 
 
 def compute_match_v2(user_a: dict, user_b: dict) -> dict:
@@ -650,10 +668,35 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     chiron_ab = _check_chiron_triggered(user_a, user_b)
     chiron_ba = _check_chiron_triggered(user_b, user_a)
 
-    power  = compute_power_v2(user_a, user_b, chiron_ab, chiron_ba, bazi_relation)
+    # ── ZWDS (紫微斗數) — Tier 1 only ──────────────────────────────────────
+    zwds_result = None
+    if _is_zwds_eligible(user_a) and _is_zwds_eligible(user_b):
+        try:
+            chart_a = compute_zwds_chart(
+                user_a["birth_year"], user_a["birth_month"], user_a["birth_day"],
+                user_a["birth_time"], user_a.get("gender", "M")
+            )
+            chart_b = compute_zwds_chart(
+                user_b["birth_year"], user_b["birth_month"], user_b["birth_day"],
+                user_b["birth_time"], user_b.get("gender", "F")
+            )
+            if chart_a and chart_b:
+                zwds_result = compute_zwds_synastry(
+                    chart_a, user_a["birth_year"],
+                    chart_b, user_b["birth_year"]
+                )
+        except Exception:
+            zwds_result = None  # never block matching for ZWDS failure
+
+    zwds_mods = zwds_result["track_mods"] if zwds_result else None
+    zwds_rpv  = zwds_result["rpv_modifier"] if zwds_result else 0
+
+    power  = compute_power_v2(user_a, user_b, chiron_ab, chiron_ba, bazi_relation,
+                               zwds_rpv_modifier=zwds_rpv)
     lust   = compute_lust_score(user_a, user_b)
     soul   = compute_soul_score(user_a, user_b)
-    tracks = compute_tracks(user_a, user_b, power, useful_god_complement)
+    tracks = compute_tracks(user_a, user_b, power, useful_god_complement,
+                            zwds_mods=zwds_mods)
 
     primary_track = max(tracks, key=lambda k: tracks[k])
     quadrant      = classify_quadrant(lust, soul)
@@ -669,4 +712,11 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         "labels":                [label],
         "bazi_relation":         bazi_relation,
         "useful_god_complement": round(useful_god_complement, 2),
+        "zwds":               zwds_result,
+        "spiciness_level":    zwds_result["spiciness_level"] if zwds_result else "STABLE",
+        "defense_mechanisms": {
+            "viewer": zwds_result["defense_a"] if zwds_result else [],
+            "target": zwds_result["defense_b"] if zwds_result else [],
+        },
+        "layered_analysis":   zwds_result.get("layered_analysis", {}) if zwds_result else {},
     }

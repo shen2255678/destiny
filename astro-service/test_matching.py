@@ -742,3 +742,81 @@ class TestBaziSeasonComplement:
         """Complement score is symmetric: A↔B == B↔A."""
         assert compute_bazi_season_complement(6, 12) == \
                compute_bazi_season_complement(12, 6)
+
+
+# ════════════════════════════════════════════════════════════════
+# Phase H: ZWDS Integration Tests
+# ════════════════════════════════════════════════════════════════
+
+from unittest.mock import patch
+
+# Tier 1 users with birth_time for ZWDS
+T1_ZWDS_A = {
+    "birth_year": 1990, "birth_month": 6, "birth_day": 15,
+    "birth_time": "11:30", "gender": "M", "data_tier": 1,
+    "sun_sign": "gemini", "moon_sign": "aries", "venus_sign": "taurus",
+    "ascendant_sign": "scorpio", "mars_sign": "leo", "saturn_sign": "capricorn",
+    "mercury_sign": "gemini", "jupiter_sign": "cancer", "pluto_sign": "scorpio",
+    "chiron_sign": "cancer", "juno_sign": "sagittarius",
+    "house4_sign": "pisces", "house8_sign": "cancer",
+    "bazi_element": "metal", "bazi_day_master": "庚",
+    "rpv_conflict": "argue", "rpv_power": "control", "rpv_energy": "home",
+    "attachment_style": "secure", "attachment_role": "dom_secure",
+}
+T1_ZWDS_B = {**T1_ZWDS_A, "birth_year": 1993, "birth_month": 3, "birth_day": 8,
+             "birth_time": "05:00", "gender": "F", "bazi_element": "water",
+             "rpv_power": "follow", "attachment_role": "sub_secure"}
+T3_ZWDS_A = {**T1_ZWDS_A, "data_tier": 3, "birth_time": None}
+
+
+class TestZwdsMatchIntegration:
+    def test_output_has_zwds_key(self):
+        result = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
+        assert "zwds" in result
+
+    def test_output_has_spiciness_level(self):
+        result = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
+        assert "spiciness_level" in result
+        assert result["spiciness_level"] in ["STABLE", "MEDIUM", "HIGH_VOLTAGE", "SOULMATE"]
+
+    def test_output_has_defense_mechanisms(self):
+        result = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
+        assert "defense_mechanisms" in result
+        dm = result["defense_mechanisms"]
+        assert "viewer" in dm
+        assert "target" in dm
+
+    def test_output_has_layered_analysis(self):
+        result = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
+        assert "layered_analysis" in result
+
+    def test_zwds_is_none_for_tier3(self):
+        result = compute_match_v2(T3_ZWDS_A, T1_ZWDS_B)
+        assert result["zwds"] is None
+        assert result["spiciness_level"] == "STABLE"
+
+    def test_zwds_not_called_for_tier3(self):
+        with patch("matching.compute_zwds_synastry") as mock:
+            compute_match_v2(T3_ZWDS_A, T1_ZWDS_B)
+        mock.assert_not_called()
+
+    def test_zwds_mods_shift_passion_track(self):
+        mock_zwds_result = {
+            "track_mods": {"friend": 1.0, "passion": 1.3, "partner": 0.8, "soul": 1.0},
+            "rpv_modifier": 0,
+            "defense_a": [], "defense_b": [],
+            "flying_stars": {}, "spiciness_level": "HIGH_VOLTAGE",
+            "layered_analysis": {"karmic_link": [], "energy_dynamic": [],
+                                 "archetype_cluster_a": "殺破狼", "archetype_cluster_b": "機月同梁"},
+        }
+        with patch("matching.compute_zwds_synastry", return_value=mock_zwds_result):
+            result_with = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
+        with patch("matching.compute_zwds_synastry", return_value=None):
+            result_without = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
+        assert result_with["tracks"]["passion"] > result_without["tracks"]["passion"]
+
+    def test_zwds_exception_does_not_break_matching(self):
+        with patch("matching.compute_zwds_synastry", side_effect=Exception("ZWDS down")):
+            result = compute_match_v2(T1_ZWDS_A, T1_ZWDS_B)
+        assert "zwds" in result
+        assert result["zwds"] is None
