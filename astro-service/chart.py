@@ -119,6 +119,99 @@ def _resolve_hour(birth_time: str | None, birth_time_exact: str | None, data_tie
     return ut_hour
 
 
+# ── Emotional Capacity ──────────────────────────────────────────────
+
+def compute_emotional_capacity(chart_data: dict, zwds_data: Optional[dict] = None) -> int:
+    """Compute emotional capacity score (0-100).
+
+    Derived automatically from the natal chart and ZWDS chart.
+    A higher score means the person can absorb emotional stress without
+    overloading; a lower score signals vulnerability to emotional drainage.
+
+    Rules (base = 50):
+    - Stellium in house 4/8/12 (≥3 planets in same sign as any of these houses,
+      whole-sign approximation): -15 (only for Tier 1 with house signs available)
+    - Moon-Pluto square (3) or opposition (6): -20
+    - Moon-Saturn trine (4) or sextile (2): +15
+    - ZWDS empty life palace: -10
+    - ZWDS karma palace (福德宮): -10 for each malevolent star (擎羊/陀羅/火星/鈴星/天空/地劫)
+      and -10 for each 化忌 in karma palace main/auspicious stars
+    - ZWDS life palace has 紫微 or 天府: +20
+
+    Returns int clamped to [0, 100].
+    """
+    SIGN_INDEX_LOCAL = {
+        "aries": 0, "taurus": 1, "gemini": 2, "cancer": 3,
+        "leo": 4, "virgo": 5, "libra": 6, "scorpio": 7,
+        "sagittarius": 8, "capricorn": 9, "aquarius": 10, "pisces": 11,
+    }
+
+    capacity = 50
+
+    # ── Rule 1: Stellium in 4th/8th/12th house (Tier 1 only) ──────────
+    planet_signs = [
+        chart_data.get("sun_sign"), chart_data.get("moon_sign"),
+        chart_data.get("mercury_sign"), chart_data.get("venus_sign"),
+        chart_data.get("mars_sign"), chart_data.get("jupiter_sign"),
+        chart_data.get("saturn_sign"), chart_data.get("pluto_sign"),
+    ]
+    for house_sign_key in ("house4_sign", "house8_sign", "house12_sign"):
+        h_sign = chart_data.get(house_sign_key)
+        if h_sign:
+            count = sum(1 for ps in planet_signs if ps == h_sign)
+            if count >= 3:
+                capacity -= 15
+                break  # only penalize once even if multiple houses have stellium
+
+    # ── Rule 2: Moon-Pluto hard aspects ────────────────────────────────
+    moon_sign = chart_data.get("moon_sign")
+    pluto_sign = chart_data.get("pluto_sign")
+    if moon_sign and pluto_sign and moon_sign in SIGN_INDEX_LOCAL and pluto_sign in SIGN_INDEX_LOCAL:
+        dist = abs(SIGN_INDEX_LOCAL[moon_sign] - SIGN_INDEX_LOCAL[pluto_sign]) % 12
+        if dist > 6:
+            dist = 12 - dist
+        if dist in (3, 6):  # square or opposition
+            capacity -= 20
+
+    # ── Rule 3: Moon-Saturn harmonious aspects ──────────────────────────
+    saturn_sign = chart_data.get("saturn_sign")
+    if moon_sign and saturn_sign and moon_sign in SIGN_INDEX_LOCAL and saturn_sign in SIGN_INDEX_LOCAL:
+        dist = abs(SIGN_INDEX_LOCAL[moon_sign] - SIGN_INDEX_LOCAL[saturn_sign]) % 12
+        if dist > 6:
+            dist = 12 - dist
+        if dist in (2, 4):  # sextile or trine
+            capacity += 15
+
+    # ── Rules 4-6: ZWDS (only when zwds_data available) ────────────────
+    if zwds_data:
+        palaces = zwds_data.get("palaces", {})
+
+        # Rule 4: Empty life palace (命宮)
+        ming_palace = palaces.get("ming", {})
+        if ming_palace.get("is_empty"):
+            capacity -= 10
+
+        # Rule 5: Karma palace (福德宮) malevolent stars + 化忌
+        karma_palace = palaces.get("karma", {})
+        SHA_STARS = {"擎羊", "陀羅", "火星", "鈴星", "天空", "地劫"}
+
+        for star in karma_palace.get("malevolent_stars", []):
+            if star in SHA_STARS:
+                capacity -= 10
+
+        for star in karma_palace.get("main_stars", []) + karma_palace.get("auspicious_stars", []):
+            if "化忌" in star:
+                capacity -= 10
+
+        # Rule 6: Life palace has 紫微 or 天府
+        for star in ming_palace.get("main_stars", []):
+            if "紫微" in star or "天府" in star:
+                capacity += 20
+                break  # only once
+
+    return max(0, min(100, capacity))
+
+
 # ── Main calculation ────────────────────────────────────────────────
 
 def calculate_chart(
@@ -177,13 +270,15 @@ def calculate_chart(
         result["ascendant_sign"] = None
         result["house4_sign"] = None
         result["house8_sign"] = None
+        result["house12_sign"] = None
     else:
-        # Tier 1 (Gold): calculate Ascendant + House 4/8 via Placidus cusps
+        # Tier 1 (Gold): calculate Ascendant + House 4/8/12 via Placidus cusps
         cusps, ascmc = swe.houses(jd, lat, lng, b"P")
         result["ascendant_sign"] = longitude_to_sign(ascmc[0])
-        # cusps is 1-indexed in Swiss Ephemeris: cusps[0]=H1, cusps[3]=H4, cusps[7]=H8
+        # cusps is 1-indexed in Swiss Ephemeris: cusps[0]=H1, cusps[3]=H4, cusps[7]=H8, cusps[11]=H12
         result["house4_sign"] = longitude_to_sign(cusps[3])
         result["house8_sign"] = longitude_to_sign(cusps[7])
+        result["house12_sign"] = longitude_to_sign(cusps[11])
 
     # ── Element from Sun sign ────────────────────────────────────
     sun_sign = result.get("sun_sign")
@@ -200,5 +295,12 @@ def calculate_chart(
         data_tier=data_tier,
     )
     result["bazi"] = bazi
+
+    # ── Emotional Capacity (心理情緒容量) ───────────────────────
+    # Computed from Western chart aspects only (ZWDS rules require zwds_data,
+    # which is computed separately by compute_zwds_chart in main.py).
+    # Callers with ZWDS data should call compute_emotional_capacity(chart_data, zwds_data)
+    # separately and update this field after computing the ZWDS chart.
+    result["emotional_capacity"] = compute_emotional_capacity(result)
 
     return result

@@ -1106,3 +1106,46 @@ class TestTracksNullHandling:
         pluto_v  = compute_sign_aspect("scorpio", "scorpio", "tension")  # 1.00
         expected_soul = (chiron_v * 0.40 + pluto_v * 0.40 + 0.5 * 0.20) * 100
         assert tracks["soul"] == pytest.approx(expected_soul, abs=0.5)
+
+
+class TestEmotionalCapacityPartnerTrack:
+    """Tests for emotional capacity penalty on partner track in compute_tracks."""
+
+    def _power_no_frame_break(self):
+        return {"rpv": 0, "frame_break": False, "viewer_role": "Equal", "target_role": "Equal"}
+
+    def test_partner_track_penalty_both_low_capacity(self):
+        """Both users < 40 capacity → partner track × 0.7."""
+        # Build users with known partner track inputs for predictable result
+        user = {"moon_sign": "aries", "bazi_element": "fire", "juno_sign": None,
+                "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+                "chiron_sign": None, "mars_sign": "aries", "venus_sign": "aries",
+                "mercury_sign": "aries", "jupiter_sign": "aries", "pluto_sign": "aries",
+                "saturn_sign": "aries", "emotional_capacity": 30}
+        user_b = dict(user)
+        result = compute_tracks(user, user_b, self._power_no_frame_break())
+        # partner track for same-sign moon + no juno: moon*0.55 + bazi_gen*0.45 = 0.90*0.55 + 0 = 0.495
+        # × 0.7 penalty = 0.3465 → scaled to 100 → 34.65
+        assert result["partner"] == pytest.approx(0.495 * 0.7 * 100, abs=1.0)
+
+    def test_partner_track_penalty_one_very_low(self):
+        """One user < 30 capacity → partner track × 0.85."""
+        user_a = {"moon_sign": "aries", "bazi_element": "fire", "juno_sign": None,
+                  "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+                  "chiron_sign": None, "mars_sign": "aries", "venus_sign": "aries",
+                  "mercury_sign": "aries", "jupiter_sign": "aries", "pluto_sign": "aries",
+                  "saturn_sign": "aries", "emotional_capacity": 25}
+        user_b = dict(user_a)
+        user_b["emotional_capacity"] = 60  # healthy
+        result = compute_tracks(user_a, user_b, self._power_no_frame_break())
+        assert result["partner"] == pytest.approx(0.495 * 0.85 * 100, abs=1.0)
+
+    def test_partner_track_no_penalty_healthy_capacity(self):
+        """Both users >= 40 capacity → no partner track penalty."""
+        user = {"moon_sign": "aries", "bazi_element": "fire", "juno_sign": None,
+                "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+                "chiron_sign": None, "mars_sign": "aries", "venus_sign": "aries",
+                "mercury_sign": "aries", "jupiter_sign": "aries", "pluto_sign": "aries",
+                "saturn_sign": "aries", "emotional_capacity": 60}
+        result = compute_tracks(user, user, self._power_no_frame_break())
+        assert result["partner"] == pytest.approx(0.495 * 100, abs=1.0)

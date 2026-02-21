@@ -570,7 +570,15 @@ def compute_tracks(
              (+0.10 bonus if frame_break)
     When juno absent:  moon×0.55 + bazi_generation×0.45
     When chiron absent: pluto×0.60 + useful_god×0.40
+
+    Emotional capacity penalty (applied to partner track before zwds_mods):
+      Both users < 40: partner × 0.7  (mutual emotional drain)
+      Either user < 30: partner × 0.85 (one user is extremely unstable)
     """
+    # Emotional capacity penalty for partner track
+    capacity_a = user_a.get("emotional_capacity", 50)
+    capacity_b = user_b.get("emotional_capacity", 50)
+
     # harmony planets: friend / partner tracks
     mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
     jupiter = compute_sign_aspect(user_a.get("jupiter_sign"), user_b.get("jupiter_sign"), "harmony")
@@ -625,6 +633,12 @@ def compute_tracks(
 
     if power["frame_break"]:
         soul_track += 0.10
+
+    # Emotional capacity guard: low capacity → partner track penalty
+    if capacity_a < 40 and capacity_b < 40:
+        partner *= 0.7  # Both emotional sponges → mutual drain
+    elif capacity_a < 30 or capacity_b < 30:
+        partner *= 0.85  # One person is extremely unstable
 
     # Note: track scores here are in [0.0, ~1.3] range (pre-×100 scale).
     # _clamp(lo=0.0, hi=100.0) will not trigger here; the outer _clamp in

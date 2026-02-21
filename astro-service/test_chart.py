@@ -3,7 +3,7 @@ Tests for DESTINY natal chart calculator.
 Uses known birth data to verify Swiss Ephemeris calculations.
 """
 
-from chart import calculate_chart, longitude_to_sign
+from chart import calculate_chart, longitude_to_sign, compute_emotional_capacity
 from bazi import calculate_bazi, analyze_element_relation, HEAVENLY_STEMS, STEM_ELEMENTS, EARTHLY_BRANCHES
 
 
@@ -452,3 +452,109 @@ def test_tier3_house4_house8_are_null():
     result = calculate_chart(birth_date="1995-06-15", data_tier=3)
     assert result["house4_sign"] is None
     assert result["house8_sign"] is None
+
+
+# ── Emotional Capacity ────────────────────────────────────────────
+
+class TestEmotionalCapacity:
+    """Tests for compute_emotional_capacity."""
+
+    def test_base_score_no_aspects_no_zwds(self):
+        # Chart with no penalizing or rewarding aspects → 50
+        chart = {
+            "moon_sign": "aries", "saturn_sign": "aries",  # conjunction, not sextile/trine
+            "pluto_sign": "aries",  # same sign, not square/opposition
+        }
+        result = compute_emotional_capacity(chart)
+        assert result == 50
+
+    def test_moon_pluto_square_penalty(self):
+        chart = {
+            "moon_sign": "aries",    # index 0
+            "pluto_sign": "cancer",  # index 3 → distance 3 = square
+            "saturn_sign": None,
+        }
+        result = compute_emotional_capacity(chart)
+        assert result == 30  # 50 - 20
+
+    def test_moon_saturn_trine_bonus(self):
+        chart = {
+            "moon_sign": "aries",   # index 0
+            "saturn_sign": "leo",   # index 4 → distance 4 = trine
+            "pluto_sign": None,
+        }
+        result = compute_emotional_capacity(chart)
+        assert result == 65  # 50 + 15
+
+    def test_zwds_empty_ming_palace(self):
+        chart = {"moon_sign": None, "pluto_sign": None, "saturn_sign": None}
+        zwds = {
+            "palaces": {
+                "ming": {"main_stars": [], "auspicious_stars": [], "malevolent_stars": [], "is_empty": True},
+                "karma": {"main_stars": [], "auspicious_stars": [], "malevolent_stars": [], "is_empty": False},
+            }
+        }
+        result = compute_emotional_capacity(chart, zwds)
+        assert result == 40  # 50 - 10
+
+    def test_zwds_ziwei_in_ming_palace(self):
+        chart = {"moon_sign": None, "pluto_sign": None, "saturn_sign": None}
+        zwds = {
+            "palaces": {
+                "ming": {"main_stars": ["紫微化祿"], "auspicious_stars": [], "malevolent_stars": [], "is_empty": False},
+                "karma": {"main_stars": [], "auspicious_stars": [], "malevolent_stars": [], "is_empty": False},
+            }
+        }
+        result = compute_emotional_capacity(chart, zwds)
+        assert result == 70  # 50 + 20
+
+    def test_zwds_karma_sha_stars(self):
+        chart = {"moon_sign": None, "pluto_sign": None, "saturn_sign": None}
+        zwds = {
+            "palaces": {
+                "ming": {"main_stars": ["七殺"], "auspicious_stars": [], "malevolent_stars": [], "is_empty": False},
+                "karma": {"main_stars": [], "auspicious_stars": [], "malevolent_stars": ["擎羊", "陀羅"], "is_empty": False},
+            }
+        }
+        result = compute_emotional_capacity(chart, zwds)
+        assert result == 30  # 50 - 10 - 10
+
+    def test_clamp_at_zero(self):
+        # Moon-Pluto square (-20) + 3 SHA stars in karma (-30) + empty ming (-10) = -10 → clamp to 0
+        chart = {"moon_sign": "aries", "pluto_sign": "cancer", "saturn_sign": None}
+        zwds = {
+            "palaces": {
+                "ming": {"main_stars": [], "auspicious_stars": [], "malevolent_stars": [], "is_empty": True},
+                "karma": {"main_stars": [], "auspicious_stars": [], "malevolent_stars": ["擎羊", "陀羅", "火星"], "is_empty": False},
+            }
+        }
+        result = compute_emotional_capacity(chart, zwds)
+        assert result == 0  # 50 - 20 - 10 - 30 = -10 → clamped to 0
+
+    def test_clamp_at_100(self):
+        # Moon-Saturn trine (+15) + 紫微 in ming (+20) = 85 → not clamped
+        chart = {"moon_sign": "aries", "saturn_sign": "leo", "pluto_sign": None}
+        zwds = {
+            "palaces": {
+                "ming": {"main_stars": ["紫微"], "auspicious_stars": [], "malevolent_stars": [], "is_empty": False},
+                "karma": {"main_stars": [], "auspicious_stars": [], "malevolent_stars": [], "is_empty": False},
+            }
+        }
+        result = compute_emotional_capacity(chart, zwds)
+        assert result == 85
+
+    def test_calculate_chart_includes_emotional_capacity(self):
+        # Verify calculate_chart() output includes emotional_capacity
+        result = calculate_chart("1997-03-08", birth_time_exact="20:00", birth_time="precise", data_tier=1)
+        assert "emotional_capacity" in result
+        assert isinstance(result["emotional_capacity"], int)
+        assert 0 <= result["emotional_capacity"] <= 100
+
+    def test_house12_sign_in_tier1(self):
+        result = calculate_chart("1997-03-08", birth_time_exact="20:00", birth_time="precise", data_tier=1)
+        assert "house12_sign" in result
+        assert result["house12_sign"] is not None
+
+    def test_house12_sign_none_in_tier3(self):
+        result = calculate_chart("1997-03-08", data_tier=3)
+        assert result["house12_sign"] is None
