@@ -4,7 +4,7 @@ Uses known birth data to verify Swiss Ephemeris calculations.
 """
 
 from chart import calculate_chart, longitude_to_sign
-from bazi import calculate_bazi, analyze_element_relation, HEAVENLY_STEMS, STEM_ELEMENTS
+from bazi import calculate_bazi, analyze_element_relation, HEAVENLY_STEMS, STEM_ELEMENTS, EARTHLY_BRANCHES
 
 
 # ── Unit: longitude_to_sign ──────────────────────────────────────
@@ -195,6 +195,32 @@ def test_bazi_four_pillars_structure():
         assert "branch" in p
         assert "full" in p
         assert len(p["full"]) == 2  # Two Chinese characters
+
+
+def test_bazi_month_branch_in_output():
+    """calculate_bazi() should include bazi_month_branch as a valid earthly branch."""
+    bazi = calculate_bazi("1995-06-15", data_tier=3)
+    assert "bazi_month_branch" in bazi
+    assert bazi["bazi_month_branch"] in EARTHLY_BRANCHES, (
+        f"bazi_month_branch '{bazi['bazi_month_branch']}' is not a valid earthly branch"
+    )
+
+def test_bazi_month_branch_matches_pillar_branch():
+    """bazi_month_branch in top-level output must match four_pillars.month.branch."""
+    bazi = calculate_bazi("1997-03-07", birth_time="precise",
+                          birth_time_exact="10:59", lat=25.033, lng=121.565, data_tier=1)
+    assert bazi["bazi_month_branch"] == bazi["four_pillars"]["month"]["branch"]
+
+def test_bazi_month_branch_all_tiers():
+    """bazi_month_branch should be present for all data tiers."""
+    for tier, kwargs in [
+        (3, {}),
+        (2, {"birth_time": "morning"}),
+        (1, {"birth_time": "precise", "birth_time_exact": "10:00"}),
+    ]:
+        bazi = calculate_bazi("2000-06-15", data_tier=tier, **kwargs)
+        assert "bazi_month_branch" in bazi
+        assert bazi["bazi_month_branch"] in EARTHLY_BRANCHES
 
 def test_bazi_tier1_has_hour_pillar():
     """Tier 1 with precise time should include hour pillar."""

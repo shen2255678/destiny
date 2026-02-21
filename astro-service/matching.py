@@ -655,14 +655,23 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         rel = analyze_element_relation(elem_a, elem_b)
         bazi_relation = rel["relation"]
 
-    # Seasonal useful-god complement (requires birth_month 1-12)
-    month_a = user_a.get("birth_month")
-    month_b = user_b.get("birth_month")
+    # Seasonal useful-god complement (uses 月支 month branch for precision)
+    branch_a = user_a.get("bazi_month_branch")
+    branch_b = user_b.get("bazi_month_branch")
     useful_god_complement = 0.0
-    if month_a is not None and month_b is not None:
-        useful_god_complement = compute_bazi_season_complement(
-            int(month_a), int(month_b)
-        )
+    if branch_a and branch_b:
+        useful_god_complement = compute_bazi_season_complement(branch_a, branch_b)
+    elif user_a.get("birth_month") is not None and user_b.get("birth_month") is not None:
+        # Legacy fallback: approximate from Gregorian month
+        # Map Gregorian month to approximate branch string
+        _MONTH_TO_BRANCH = {
+            1: "丑", 2: "寅", 3: "卯", 4: "辰", 5: "巳", 6: "午",
+            7: "未", 8: "申", 9: "酉", 10: "戌", 11: "亥", 12: "子"
+        }
+        fb_a = _MONTH_TO_BRANCH.get(int(user_a["birth_month"]))
+        fb_b = _MONTH_TO_BRANCH.get(int(user_b["birth_month"]))
+        if fb_a and fb_b:
+            useful_god_complement = compute_bazi_season_complement(fb_a, fb_b)
 
     # Chiron trigger (bidirectional)
     chiron_ab = _check_chiron_triggered(user_a, user_b)

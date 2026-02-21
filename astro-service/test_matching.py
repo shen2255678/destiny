@@ -662,34 +662,72 @@ class TestComputeMatchV2Integration:
         # Metal restricts Wood
         assert result["bazi_relation"] == "a_restricts_b"
 
-    def test_useful_god_complement_summer_winter(self):
-        """Summer (month 6) ↔ Winter (month 12) → useful_god_complement = 1.0."""
+    def test_useful_god_complement_summer_winter_via_branch(self):
+        """午 (summer) ↔ 子 (winter) via bazi_month_branch → useful_god_complement = 1.0."""
+        a = self._user(bazi_month_branch="午")
+        b = self._user(bazi_month_branch="子")
+        result = compute_match_v2(a, b)
+        assert result["useful_god_complement"] == pytest.approx(1.0)
+
+    def test_useful_god_complement_same_season_via_branch(self):
+        """Same summer branches → useful_god_complement = 0.0."""
+        a = self._user(bazi_month_branch="午")
+        b = self._user(bazi_month_branch="未")
+        result = compute_match_v2(a, b)
+        assert result["useful_god_complement"] == pytest.approx(0.0)
+
+    def test_useful_god_complement_fallback_birth_month(self):
+        """Legacy fallback: birth_month=6 ↔ birth_month=12 → 1.0 (via 午/子 mapping)."""
         a = self._user(birth_month=6)
         b = self._user(birth_month=12)
         result = compute_match_v2(a, b)
         assert result["useful_god_complement"] == pytest.approx(1.0)
 
-    def test_useful_god_complement_same_season(self):
-        """Same season → useful_god_complement = 0.0."""
+    def test_useful_god_complement_same_season_fallback(self):
+        """Legacy fallback: same season months → useful_god_complement = 0.0."""
         a = self._user(birth_month=6)
         b = self._user(birth_month=7)
         result = compute_match_v2(a, b)
         assert result["useful_god_complement"] == pytest.approx(0.0)
 
     def test_useful_god_complement_missing_month(self):
-        """No birth_month → useful_god_complement = 0.0 (neutral)."""
+        """No birth_month and no bazi_month_branch → useful_god_complement = 0.0."""
         a = self._user()
         b = self._user()
         result = compute_match_v2(a, b)
         assert result["useful_god_complement"] == pytest.approx(0.0)
 
-    def test_summer_winter_raises_soul_track(self):
+    def test_bazi_month_branch_preferred_over_birth_month(self):
+        """bazi_month_branch should take precedence over birth_month fallback.
+
+        User A: bazi_month_branch=午 (summer), birth_month=12 (冬 in Gregorian)
+        User B: bazi_month_branch=子 (winter), birth_month=6
+        Branch path: 午↔子 = 1.0 (perfect).
+        If birth_month were used instead: month 12↔6 = 1.0 too (same result here).
+        So test a case where branch and Gregorian month would diverge:
+        User A: bazi_month_branch=子 (cold/winter), birth_month=7 (hot/summer in Gregorian)
+        User B: bazi_month_branch=子 (cold/winter), birth_month=7
+        → branch: same season (子↔子) = 0.0; Gregorian fallback: same season = 0.0.
+        Actually test that branch is used: 午(hot)↔巳(hot) = 0.0 via branch,
+        but if Gregorian months were 6↔11 → hot↔cold = 1.0.
+        """
+        # bazi_month_branch=午 (summer), birth_month=11 (Gregorian winter → cold in legacy)
+        # bazi_month_branch=巳 (summer), birth_month=6 (Gregorian summer → hot in legacy)
+        # Branch result: 午↔巳 = same season = 0.0
+        # Gregorian fallback would give: 亥↔午 = cold↔hot = 1.0
+        # Since bazi_month_branch is present, branch path must win → 0.0
+        a = self._user(bazi_month_branch="午", birth_month=11)
+        b = self._user(bazi_month_branch="巳", birth_month=6)
+        result = compute_match_v2(a, b)
+        assert result["useful_god_complement"] == pytest.approx(0.0)
+
+    def test_summer_winter_raises_soul_track_via_branch(self):
         """Summer ↔ Winter complement (1.0) should give higher soul track
-        than same-season pair (0.0)."""
-        a_sw = self._user(birth_month=6)
-        b_sw = self._user(birth_month=12)
-        a_ss = self._user(birth_month=6)
-        b_ss = self._user(birth_month=7)
+        than same-season pair (0.0) when using bazi_month_branch."""
+        a_sw = self._user(bazi_month_branch="午")
+        b_sw = self._user(bazi_month_branch="子")
+        a_ss = self._user(bazi_month_branch="午")
+        b_ss = self._user(bazi_month_branch="未")
         soul_sw = compute_match_v2(a_sw, b_sw)["tracks"]["soul"]
         soul_ss = compute_match_v2(a_ss, b_ss)["tracks"]["soul"]
         assert soul_sw > soul_ss
@@ -701,47 +739,61 @@ from bazi import get_season_type, compute_bazi_season_complement
 
 
 class TestGetSeasonType:
-    def test_summer_months(self):
-        for m in (5, 6, 7):
-            assert get_season_type(m) == "hot"
+    def test_summer_branches(self):
+        """巳午未 → hot (夏)"""
+        for b in ("巳", "午", "未"):
+            assert get_season_type(b) == "hot"
 
-    def test_winter_months(self):
-        for m in (11, 12, 1):
-            assert get_season_type(m) == "cold"
+    def test_winter_branches(self):
+        """亥子丑 → cold (冬)"""
+        for b in ("亥", "子", "丑"):
+            assert get_season_type(b) == "cold"
 
-    def test_spring_months(self):
-        for m in (2, 3, 4):
-            assert get_season_type(m) == "warm"
+    def test_spring_branches(self):
+        """寅卯辰 → warm (春)"""
+        for b in ("寅", "卯", "辰"):
+            assert get_season_type(b) == "warm"
 
-    def test_autumn_months(self):
-        for m in (8, 9, 10):
-            assert get_season_type(m) == "cool"
+    def test_autumn_branches(self):
+        """申酉戌 → cool (秋)"""
+        for b in ("申", "酉", "戌"):
+            assert get_season_type(b) == "cool"
+
+    def test_unknown_branch_returns_unknown(self):
+        """Invalid branch → 'unknown'."""
+        assert get_season_type("X") == "unknown"
+        assert get_season_type("") == "unknown"
 
 
 class TestBaziSeasonComplement:
     def test_hot_cold_is_perfect(self):
         """Summer ↔ Winter = 1.0 (水火既濟)."""
-        assert compute_bazi_season_complement(6, 12) == pytest.approx(1.0)
-        assert compute_bazi_season_complement(12, 6) == pytest.approx(1.0)
+        assert compute_bazi_season_complement("午", "子") == pytest.approx(1.0)
+        assert compute_bazi_season_complement("子", "午") == pytest.approx(1.0)
 
     def test_warm_cool_is_good(self):
         """Spring ↔ Autumn = 0.8 (金木相成)."""
-        assert compute_bazi_season_complement(3, 9) == pytest.approx(0.8)
-        assert compute_bazi_season_complement(9, 3) == pytest.approx(0.8)
+        assert compute_bazi_season_complement("卯", "酉") == pytest.approx(0.8)
+        assert compute_bazi_season_complement("酉", "卯") == pytest.approx(0.8)
 
     def test_extreme_moderate_is_partial(self):
         """Summer ↔ Autumn = 0.5 (partial)."""
-        assert compute_bazi_season_complement(6, 9) == pytest.approx(0.5)
+        assert compute_bazi_season_complement("午", "酉") == pytest.approx(0.5)
 
     def test_same_season_is_zero(self):
         """Same season = 0.0 (no complement)."""
-        assert compute_bazi_season_complement(5, 7) == pytest.approx(0.0)
-        assert compute_bazi_season_complement(1, 12) == pytest.approx(0.0)
+        assert compute_bazi_season_complement("巳", "未") == pytest.approx(0.0)
+        assert compute_bazi_season_complement("子", "亥") == pytest.approx(0.0)
 
     def test_symmetric(self):
         """Complement score is symmetric: A↔B == B↔A."""
-        assert compute_bazi_season_complement(6, 12) == \
-               compute_bazi_season_complement(12, 6)
+        assert compute_bazi_season_complement("午", "子") == \
+               compute_bazi_season_complement("子", "午")
+
+    def test_empty_branch_returns_zero(self):
+        """Empty or None branch → 0.0."""
+        assert compute_bazi_season_complement("", "午") == pytest.approx(0.0)
+        assert compute_bazi_season_complement("午", "") == pytest.approx(0.0)
 
 
 # ════════════════════════════════════════════════════════════════

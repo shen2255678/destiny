@@ -427,6 +427,7 @@ def calculate_bazi(
         "element_profile": ELEMENT_PROFILES[day_master_element],
         "four_pillars": pillars,
         "hour_known": hour_known,
+        "bazi_month_branch": EARTHLY_BRANCHES[month_branch],
     }
 
 
@@ -488,26 +489,25 @@ def analyze_element_relation(element_a: str, element_b: str) -> Dict:
 
 # ── Seasonal Useful-God Complement (調候互補) ────────────────
 
-def get_season_type(month: int) -> str:
-    """Classify birth month into seasonal temperature type.
+def get_season_type(month_branch: str) -> str:
+    """Classify birth month branch into seasonal temperature type.
 
-    Used as a lightweight proxy for 喜用神 (Useful Gods) via
-    調候用神 (Seasonal Temperature Adjustment) theory.
+    使用八字月令（地支）來精準判斷季節溫度，作為調候喜用神的依據。
 
     Returns:
-      "hot"  — Summer (5-7):  Fire dominant, needs Water to cool
-      "cold" — Winter (11-1): Water dominant, needs Fire to warm
-      "warm" — Spring (2-4):  Wood dominant, needs Metal to balance
-      "cool" — Autumn (8-10): Metal dominant, needs Wood/Fire
+      "hot"  — Summer (巳午未):  Fire dominant, needs Water to cool
+      "cold" — Winter (亥子丑):  Water dominant, needs Fire to warm
+      "warm" — Spring (寅卯辰):  Wood dominant, needs Metal to balance
+      "cool" — Autumn (申酉戌):  Metal dominant, needs Wood/Fire
     """
-    if month in (5, 6, 7):   return "hot"
-    if month in (11, 12, 1): return "cold"
-    if month in (2, 3, 4):   return "warm"
-    if month in (8, 9, 10):  return "cool"
+    if month_branch in ("巳", "午", "未"): return "hot"   # 夏
+    if month_branch in ("亥", "子", "丑"): return "cold"  # 冬
+    if month_branch in ("寅", "卯", "辰"): return "warm"  # 春
+    if month_branch in ("申", "酉", "戌"): return "cool"  # 秋
     return "unknown"
 
 
-def compute_bazi_season_complement(month_a: int, month_b: int) -> float:
+def compute_bazi_season_complement(branch_a: str, branch_b: str) -> float:
     """Compute 調候喜用神互補 seasonal complement score (0.0-1.0).
 
     Uses seasonal temperature as a lightweight proxy for BaZi Useful Gods.
@@ -519,8 +519,10 @@ def compute_bazi_season_complement(month_a: int, month_b: int) -> float:
       0.5 — Partial: extreme ↔ moderate season
       0.0 — None:    same season or unknown (no complement)
     """
-    sa = get_season_type(month_a)
-    sb = get_season_type(month_b)
+    if not branch_a or not branch_b:
+        return 0.0
+    sa = get_season_type(branch_a)
+    sb = get_season_type(branch_b)
 
     # Perfect complement: summer heat ↔ winter cold
     if (sa == "hot" and sb == "cold") or (sa == "cold" and sb == "hot"):
