@@ -390,7 +390,7 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
     score += power_score * 0.30
     total_weight += 0.30
 
-    base_score = score / total_weight if total_weight > 0 else 0.65
+    base_score = score / total_weight if total_weight > 0 else NEUTRAL_SIGNAL
 
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")
@@ -454,12 +454,12 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     # 6. Attachment style (0.20) — when questionnaire filled
     style_a = user_a.get("attachment_style")
     style_b = user_b.get("attachment_style")
-    if style_a and style_b and style_a in ATTACHMENT_FIT:
-        attachment = ATTACHMENT_FIT[style_a].get(style_b, NEUTRAL_SIGNAL)
+    if style_a and style_b and style_a in ATTACHMENT_FIT and style_b in ATTACHMENT_FIT[style_a]:
+        attachment = ATTACHMENT_FIT[style_a][style_b]
         score += attachment * 0.20
         total_weight += 0.20
 
-    base_score = score / total_weight if total_weight > 0 else 0.65
+    base_score = score / total_weight if total_weight > 0 else NEUTRAL_SIGNAL
 
     # Multiplier: 八字相生加成
     elem_a = user_a.get("bazi_element")
@@ -568,6 +568,8 @@ def compute_tracks(
     partner: moon × 0.35 + juno × 0.35 + bazi_generation × 0.30
     soul:    chiron × 0.40 + pluto × 0.40 + useful_god_complement × 0.20
              (+0.10 bonus if frame_break)
+    When juno absent:  moon×0.55 + bazi_generation×0.45
+    When chiron absent: pluto×0.60 + useful_god×0.40
     """
     # harmony planets: friend / partner tracks
     mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
@@ -624,6 +626,9 @@ def compute_tracks(
     if power["frame_break"]:
         soul_track += 0.10
 
+    # Note: track scores here are in [0.0, ~1.3] range (pre-×100 scale).
+    # _clamp(lo=0.0, hi=100.0) will not trigger here; the outer _clamp in
+    # the return statement handles the final 0-100 clamping.
     if zwds_mods:
         friend     = _clamp(friend     * (0.70 * zwds_mods.get("friend",  1.0) + 0.30))
         passion    = _clamp(passion    * (0.70 * zwds_mods.get("passion", 1.0) + 0.30))

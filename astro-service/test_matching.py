@@ -961,9 +961,8 @@ class TestSoulScoreDynamicWeighting:
         # Dynamic score uses only the 3 core planets (all conjunction = 0.90)
         score = compute_soul_score(a, b)
 
-        # Old formula would have diluted with juno=NEUTRAL (0.65) and attachment=NEUTRAL (0.65)
-        # over a total_weight of 1.20 → (0.90*0.25 + 0.90*0.20 + 0*0.15 + 0.90*0.20
-        #                                + 0.65*0.20 + 0.65*0.20) / 1 * 100
+        # Old formula: raw weighted sum (no normalization), with NEUTRAL_SIGNAL=0.65
+        # for absent juno and attachment, resulting in a lower score.
         old_score = (0.90 * 0.25 + 0.90 * 0.20 + 0.0 * 0.15 + 0.90 * 0.20
                      + 0.65 * 0.20 + 0.65 * 0.20) * 100  # raw sum, no normalization
         assert score > old_score
