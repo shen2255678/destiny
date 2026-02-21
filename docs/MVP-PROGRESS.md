@@ -210,6 +210,7 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 5. **Radar Chart** — 目前用進度條代替，後續可升級為 Recharts/Nivo radar chart
 6. **Archetype AI** — 目前為 deterministic 映射 (8 組)，待串接 Claude API 動態生成
 7. ~~**Python 星盤** — birth-data API 目前僅存資料，尚未觸發星盤計算~~ → ✅ Done（西洋占星 + 八字四柱 + 真太陽時，已串接 birth-data API 自動回寫 DB）
+8. **時區技術債** — `astro-service/chart.py` `_resolve_hour()` 目前寫死 UTC+8（台灣）。未來擴展海外市場時，應引入 `timezonefinder` 套件，透過 `lat`/`lng` 反查時區並做正確 UTC 轉換，否則海外用戶排出的星盤和八字可能整個差幾個小時甚至跨日。
 
 ---
 
