@@ -427,6 +427,207 @@ curl -X POST http://localhost:8001/compute-match \
 # 預期: lust_score, soul_score, zwds.spiciness_level, layered_analysis 均有值
 ```
 
+---
+
+### API Sample Bodies（可複製修改的請求範例）
+
+以下為實際測試驗證過的請求體，可直接複製並修改日期進行測試。
+
+> **使用流程：** 先用 `/calculate-chart` 和 `/compute-zwds-chart` 確認排盤正確，
+> 再組裝 `/compute-match` 的請求體。
+
+#### `/calculate-chart` 請求體
+
+```json
+// 範例 A — 1995-03-26 14:30 台北（Tier 1）
+// 驗證結果：sun=aries, asc=leo, 日主丙火, 四柱=乙亥己卯丙辰乙未
+{
+  "birth_date": "1995-03-26",
+  "birth_time": "precise",
+  "birth_time_exact": "14:30",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 1
+}
+
+// 範例 B — 1997-03-07 10:59 台北（Tier 1，Ground Truth）
+// 驗證結果：sun=pisces, asc=gemini, 日主戊土, 四柱=丁丑癸卯戊申丁巳
+{
+  "birth_date": "1997-03-07",
+  "birth_time": "precise",
+  "birth_time_exact": "10:59",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 1
+}
+
+// 範例 C — 1996-11-07 19:05 台北（Tier 1）
+// 驗證結果：sun=scorpio, asc=gemini, 日主戊土, 四柱=丙子己亥戊申壬戌
+{
+  "birth_date": "1996-11-07",
+  "birth_time": "precise",
+  "birth_time_exact": "19:05",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 1
+}
+
+// 範例 D — 1997-06-07 06:00 台北（Tier 1）
+// 驗證結果：sun=gemini, asc=gemini, 日主庚金, 四柱=丁丑丙午庚辰己卯
+{
+  "birth_date": "1997-06-07",
+  "birth_time": "precise",
+  "birth_time_exact": "06:00",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 1
+}
+
+// Tier 2 範本（模糊時段）
+{
+  "birth_date": "YYYY-MM-DD",
+  "birth_time": "fuzzy_period",
+  "window_start": "08:00",
+  "window_end": "10:00",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 2
+}
+
+// Tier 3 範本（僅出生日期）
+{
+  "birth_date": "YYYY-MM-DD",
+  "birth_time": "unknown",
+  "lat": 25.033,
+  "lng": 121.565,
+  "data_tier": 3
+}
+```
+
+#### `/compute-zwds-chart` 請求體
+
+```json
+// 範例 A — 1995-03-26 14:30 男
+// 驗證結果：水二局, 命宮七殺（殺破狼人設）
+{
+  "birth_year": 1995, "birth_month": 3, "birth_day": 26,
+  "birth_time": "14:30", "gender": "M"
+}
+
+// 範例 B — 1997-03-07 10:59 男
+// 驗證結果：土五局, 命宮空宮借星（is_chameleon=true, RPV -10）
+{
+  "birth_year": 1997, "birth_month": 3, "birth_day": 7,
+  "birth_time": "10:59", "gender": "M"
+}
+
+// 範例 C — 1996-11-07 19:05 男
+// 驗證結果：土五局, 命宮武曲+天府（紫府武相人設）
+{
+  "birth_year": 1996, "birth_month": 11, "birth_day": 7,
+  "birth_time": "19:05", "gender": "M"
+}
+
+// 範例 D — 1997-06-07 06:00 女
+// 驗證結果：金四局, 命宮天府（紫府武相人設）, 夫妻宮陀羅→ silent_rumination
+{
+  "birth_year": 1997, "birth_month": 6, "birth_day": 7,
+  "birth_time": "06:00", "gender": "F"
+}
+```
+
+#### `/compute-match` 請求體
+
+**配對組 1：1995-03-26 ✗ 1997-03-07**
+**驗證結果：lust=71.6, soul=95.4, soulmate 象限, spiciness=HIGH_VOLTAGE, one_way_hua_ji**
+
+```json
+{
+  "user_a": {
+    "data_tier": 1,
+    "birth_year": 1995, "birth_month": 3, "birth_day": 26,
+    "birth_time": "14:30", "gender": "M",
+    "sun_sign": "aries",    "moon_sign": "aquarius",
+    "mercury_sign": "aries", "venus_sign": "aries",
+    "mars_sign": "leo",     "jupiter_sign": "sagittarius",
+    "saturn_sign": "pisces", "pluto_sign": "scorpio",
+    "chiron_sign": null,    "juno_sign": null,
+    "ascendant_sign": "leo",
+    "house4_sign": "scorpio", "house8_sign": "pisces",
+    "bazi_element": "fire",
+    "attachment_style": "secure",
+    "rpv_conflict": "argue", "rpv_power": "control", "rpv_energy": "out"
+  },
+  "user_b": {
+    "data_tier": 1,
+    "birth_year": 1997, "birth_month": 3, "birth_day": 7,
+    "birth_time": "10:59", "gender": "M",
+    "sun_sign": "pisces",    "moon_sign": "aquarius",
+    "mercury_sign": "aquarius", "venus_sign": "aries",
+    "mars_sign": "capricorn", "jupiter_sign": "aquarius",
+    "saturn_sign": "aries",  "pluto_sign": "sagittarius",
+    "chiron_sign": null,     "juno_sign": null,
+    "ascendant_sign": "gemini",
+    "house4_sign": "virgo",  "house8_sign": "capricorn",
+    "bazi_element": "earth",
+    "attachment_style": "secure",
+    "rpv_conflict": "cold_war", "rpv_power": "follow", "rpv_energy": "out"
+  }
+}
+```
+
+---
+
+**配對組 2：1996-11-07 ✗ 1997-06-07（完整驗證版）**
+**驗證結果：lust=94.5, soul=99.0, soulmate 象限, spiciness=MEDIUM, B defense=silent_rumination**
+
+```json
+{
+  "user_a": {
+    "data_tier": 1,
+    "birth_year": 1996, "birth_month": 11, "birth_day": 7,
+    "birth_time": "19:05", "gender": "M",
+    "sun_sign": "scorpio",   "moon_sign": "libra",
+    "mercury_sign": "scorpio", "venus_sign": "libra",
+    "mars_sign": "virgo",    "jupiter_sign": "capricorn",
+    "saturn_sign": "aries",  "pluto_sign": "sagittarius",
+    "chiron_sign": null,     "juno_sign": null,
+    "ascendant_sign": "gemini",
+    "house4_sign": "virgo",  "house8_sign": "capricorn",
+    "bazi_element": "earth",
+    "attachment_style": "secure",
+    "rpv_conflict": "cold_war", "rpv_power": "control", "rpv_energy": "out"
+  },
+  "user_b": {
+    "data_tier": 1,
+    "birth_year": 1997, "birth_month": 6, "birth_day": 7,
+    "birth_time": "06:00", "gender": "F",
+    "sun_sign": "gemini",    "moon_sign": "cancer",
+    "mercury_sign": "taurus", "venus_sign": "cancer",
+    "mars_sign": "virgo",    "jupiter_sign": "aquarius",
+    "saturn_sign": "aries",  "pluto_sign": "sagittarius",
+    "chiron_sign": null,     "juno_sign": null,
+    "ascendant_sign": "gemini",
+    "house4_sign": "virgo",  "house8_sign": "capricorn",
+    "bazi_element": "metal",
+    "attachment_style": "anxious",
+    "rpv_conflict": "cold_war", "rpv_power": "follow", "rpv_energy": "out"
+  }
+}
+```
+
+> **欄位說明：**
+> - `data_tier`: 1=精確時間, 2=模糊時段, 3=僅日期（Tier 3 跳過 ZWDS）
+> - `gender`: `"M"` / `"F"`（用於 ZWDS 命盤計算）
+> - `birth_time`: Tier 1 填 `"HH:mm"`；Tier 2 填 `"fuzzy_period"`；Tier 3 填 `"unknown"`
+> - `attachment_style`: `"secure"` / `"anxious"` / `"avoidant"`
+> - `rpv_conflict`: `"argue"` / `"cold_war"`
+> - `rpv_power`: `"control"` / `"follow"`
+> - `rpv_energy`: `"out"` / `"home"`
+> - `chiron_sign` / `juno_sign`: 目前 Swiss Ephemeris 回傳 null，填 null 即可
+
+---
+
 ### 八字驗證案例
 
 | 鐘錶時間 | 出生地 | 真太陽時 | 四柱 | 日主 |
