@@ -36,8 +36,9 @@ SIGN_ELEMENT = {
 
 # ── WEIGHTS — Centralized weight configuration ─────────────────────────────
 # Edit these values to tune scoring without touching function bodies.
+# Currently active: match_* and power_* keys. Remaining keys are wired in Tasks 3-4.
 WEIGHTS = {
-    # ── compute_lust_score ──────────────────────────────────────────────────
+    # ── compute_lust_score [RESERVED — wired in Task 3] ─────────────────────
     "lust_cross_mars_venus":   0.30,   # mars_a × venus_b  (cross-person, tension) ← primary
     "lust_cross_venus_mars":   0.30,   # mars_b × venus_a  (cross-person, tension) ← primary
     "lust_same_venus":         0.15,   # venus_a × venus_b (same-planet, harmony)
@@ -46,9 +47,9 @@ WEIGHTS = {
     "lust_house8_ba":          0.10,   # h8_b × mars_a
     "lust_karmic":             0.25,   # outer-vs-inner karmic triggers
     "lust_power":              0.30,   # RPV power dynamic
-    "lust_bazi_restrict_mult": 1.25,   # × multiplier when BaZi elements clash
+    "lust_bazi_restrict_mult": 1.25,   # upgraded from 1.20; applied in Task 3
 
-    # ── compute_kernel_score ─────────────────────────────────────────────────
+    # ── compute_kernel_score [RESERVED — wired in Task 4] ────────────────────
     "kernel_t1_sun":           0.20,
     "kernel_t1_moon":          0.25,
     "kernel_t1_venus":         0.25,
@@ -62,13 +63,13 @@ WEIGHTS = {
     "kernel_t3_venus":         0.30,
     "kernel_t3_bazi":          0.40,
 
-    # ── compute_tracks ───────────────────────────────────────────────────────
+    # ── compute_tracks [RESERVED — wired in Task 4] ──────────────────────────
     "track_friend_mercury":          0.40,
     "track_friend_jupiter":          0.40,
     "track_friend_bazi":             0.20,
     "track_passion_mars":            0.30,
     "track_passion_venus":           0.30,
-    "track_passion_extreme":         0.10,
+    "track_passion_extreme":         0.10,   # additive bonus from max(karmic, house8) signals
     "track_passion_bazi":            0.30,
     "track_partner_moon":            0.35,
     "track_partner_juno":            0.35,
@@ -79,14 +80,14 @@ WEIGHTS = {
     "track_soul_karmic":             0.40,
     "track_soul_useful_god":         0.20,
     "track_soul_nochiron_karmic":    0.60,
-    "track_soul_nochiron_useful_god":0.40,
+    "track_soul_nochiron_useful_god": 0.40,
 
     # ── compute_power_score (RPV) ────────────────────────────────────────────
     "power_conflict":          0.35,
     "power_power":             0.40,
     "power_energy":            0.25,
 
-    # ── compute_glitch_score ─────────────────────────────────────────────────
+    # ── compute_glitch_score [RESERVED — wired in Task 4] ────────────────────
     "glitch_mars":             0.25,
     "glitch_saturn":           0.25,
     "glitch_mars_sat_ab":      0.25,
