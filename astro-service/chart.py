@@ -167,6 +167,8 @@ def compute_emotional_capacity(chart_data: dict, zwds_data: Optional[dict] = Non
     moon_sign = chart_data.get("moon_sign")
     pluto_sign = chart_data.get("pluto_sign")
     if moon_sign and pluto_sign and moon_sign in SIGN_INDEX_LOCAL and pluto_sign in SIGN_INDEX_LOCAL:
+        # Signs are 0-indexed 0-11; abs() gives values in [0,11]. % 12 is a no-op but
+        # kept for consistency with matching.py. Fold to [0,6] for aspect distance.
         dist = abs(SIGN_INDEX_LOCAL[moon_sign] - SIGN_INDEX_LOCAL[pluto_sign]) % 12
         if dist > 6:
             dist = 12 - dist
@@ -176,6 +178,8 @@ def compute_emotional_capacity(chart_data: dict, zwds_data: Optional[dict] = Non
     # ── Rule 3: Moon-Saturn harmonious aspects ──────────────────────────
     saturn_sign = chart_data.get("saturn_sign")
     if moon_sign and saturn_sign and moon_sign in SIGN_INDEX_LOCAL and saturn_sign in SIGN_INDEX_LOCAL:
+        # Signs are 0-indexed 0-11; abs() gives values in [0,11]. % 12 is a no-op but
+        # kept for consistency with matching.py. Fold to [0,6] for aspect distance.
         dist = abs(SIGN_INDEX_LOCAL[moon_sign] - SIGN_INDEX_LOCAL[saturn_sign]) % 12
         if dist > 6:
             dist = 12 - dist
@@ -275,7 +279,7 @@ def calculate_chart(
         # Tier 1 (Gold): calculate Ascendant + House 4/8/12 via Placidus cusps
         cusps, ascmc = swe.houses(jd, lat, lng, b"P")
         result["ascendant_sign"] = longitude_to_sign(ascmc[0])
-        # cusps is 1-indexed in Swiss Ephemeris: cusps[0]=H1, cusps[3]=H4, cusps[7]=H8, cusps[11]=H12
+        # pyswisseph swe.houses() returns a 12-element tuple, 0-indexed: cusps[0]=H1 … cusps[11]=H12
         result["house4_sign"] = longitude_to_sign(cusps[3])
         result["house8_sign"] = longitude_to_sign(cusps[7])
         result["house12_sign"] = longitude_to_sign(cusps[11])

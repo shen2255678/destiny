@@ -453,6 +453,14 @@ def test_tier3_house4_house8_are_null():
     assert result["house4_sign"] is None
     assert result["house8_sign"] is None
 
+def test_tier1_house_signs_correct_values():
+    """Regression: house4/house8/house12 signs are correctly computed for a known birth date."""
+    result = calculate_chart("1997-03-08", birth_time_exact="20:00", birth_time="precise", data_tier=1)
+    # Verified values from astro-service API output (commit 3cd50f4)
+    assert result["house4_sign"] == "capricorn"
+    assert result["house8_sign"] == "taurus"
+    assert result["house12_sign"] is not None  # house12 not pre-verified, just ensure it's present
+
 
 # ── Emotional Capacity ────────────────────────────────────────────
 
@@ -558,3 +566,16 @@ class TestEmotionalCapacity:
     def test_house12_sign_none_in_tier3(self):
         result = calculate_chart("1997-03-08", data_tier=3)
         assert result["house12_sign"] is None
+
+    def test_stellium_in_house_causes_penalty(self):
+        """If 3+ planets share a sign with any of house 4/8/12, capacity -= 15."""
+        # All planets in "aries", house4 also in "aries" → 3+ planets → -15
+        chart = {
+            "sun_sign": "aries", "moon_sign": "aries", "mercury_sign": "aries",
+            "venus_sign": "taurus", "mars_sign": "taurus",
+            "jupiter_sign": "taurus", "saturn_sign": "taurus", "pluto_sign": "taurus",
+            "house4_sign": "aries",  # 3 planets match house 4
+            "house8_sign": None, "house12_sign": None,
+        }
+        result = compute_emotional_capacity(chart)
+        assert result == 35  # 50 - 15

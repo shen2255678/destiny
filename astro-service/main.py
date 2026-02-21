@@ -56,6 +56,10 @@ class ChartRequest(BaseModel):
     lat: float = 25.033
     lng: float = 121.565
     data_tier: int = 3
+    gender: str = "M"                            # "M" or "F" — needed for ZWDS computation
+    birth_year: Optional[int] = None             # for ZWDS (if not parseable from birth_date)
+    birth_month: Optional[int] = None
+    birth_day: Optional[int] = None
 
 
 @app.get("/health")
@@ -81,6 +85,22 @@ def calc_chart(req: ChartRequest):
             lng=req.lng,
             data_tier=req.data_tier,
         )
+
+        # For Tier 1, enrich emotional_capacity with ZWDS rules (4-6)
+        if req.data_tier == 1 and req.birth_time_exact:
+            try:
+                from datetime import datetime as _dt
+                dt = _dt.strptime(req.birth_date, "%Y-%m-%d")
+                year = req.birth_year or dt.year
+                month = req.birth_month or dt.month
+                day = req.birth_day or dt.day
+                zwds = compute_zwds_chart(year, month, day, req.birth_time_exact, req.gender)
+                if zwds:
+                    from chart import compute_emotional_capacity
+                    result["emotional_capacity"] = compute_emotional_capacity(result, zwds)
+            except Exception:
+                pass  # never block the response for ZWDS failure
+
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
