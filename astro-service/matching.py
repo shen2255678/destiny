@@ -36,9 +36,9 @@ SIGN_ELEMENT = {
 
 # ── WEIGHTS — Centralized weight configuration ─────────────────────────────
 # Edit these values to tune scoring without touching function bodies.
-# Currently active: match_* and power_* keys. Remaining keys are wired in Tasks 3-4.
+# Currently active: match_*, power_*, and lust_* keys. Remaining keys are wired in Task 4.
 WEIGHTS = {
-    # ── compute_lust_score [RESERVED — wired in Task 3] ─────────────────────
+    # ── compute_lust_score ────────── ✅ wired ───────────────────────────────
     "lust_cross_mars_venus":   0.30,   # mars_a × venus_b  (cross-person, tension) ← primary
     "lust_cross_venus_mars":   0.30,   # mars_b × venus_a  (cross-person, tension) ← primary
     "lust_same_venus":         0.15,   # venus_a × venus_b (same-planet, harmony)
@@ -513,54 +513,95 @@ def _rpv_to_frame(rpv_power: Optional[str], rpv_conflict: Optional[str]) -> floa
 def compute_lust_score(user_a: dict, user_b: dict) -> float:
     """Lust Score (X axis): physical/desire attraction (0-100).
 
-    Uses dynamic weighting: house8 only contributes when both users have
-    precise birth time (Tier 1). Missing house8 is removed from denominator.
+    Primary signal — cross-person Mars × Venus aspects (exact degrees → sign fallback):
+      mars_a × venus_b  tension × WEIGHTS["lust_cross_mars_venus"]  (0.30)
+      mars_b × venus_a  tension × WEIGHTS["lust_cross_venus_mars"]  (0.30)
 
-    Weights (when all present):
-      venus     × 0.20
-      mars      × 0.25
-      house8    × 0.15  (Tier 1 only — omitted from denominator when absent)
-      pluto     × 0.25
-      power_fit × 0.30
+    Secondary — same-planet harmony:
+      venus_a × venus_b harmony × WEIGHTS["lust_same_venus"]  (0.15)
+      mars_a × mars_b   harmony × WEIGHTS["lust_same_mars"]   (0.15)
 
-    Multiplier: × 1.2 if bazi elements are in a restriction (clash) relationship.
+    Taboo pull — 8th house × Mars (exact degrees only; omitted when absent):
+      h8_a × mars_b  tension × WEIGHTS["lust_house8_ab"]  (0.10)
+      h8_b × mars_a  tension × WEIGHTS["lust_house8_ba"]  (0.10)
+
+    Karmic: outer-vs-inner triggers × WEIGHTS["lust_karmic"]  (0.25)
+    Power:  RPV dynamic              × WEIGHTS["lust_power"]   (0.30)
+
+    Multiplier: × WEIGHTS["lust_bazi_restrict_mult"] (1.25) when BaZi elements clash.
+    Falls back to sign-level aspect when exact degree unavailable.
     """
     score = 0.0
     total_weight = 0.0
 
-    venus = compute_sign_aspect(user_a.get("venus_sign"), user_b.get("venus_sign"), "harmony")
-    score += venus * 0.20
-    total_weight += 0.20
+    def _aspect(deg_x, sign_x, deg_y, sign_y, mode):
+        """Use exact degrees if both available; fall back to sign-level."""
+        if deg_x is not None and deg_y is not None:
+            return compute_exact_aspect(deg_x, deg_y, mode)
+        return compute_sign_aspect(sign_x, sign_y, mode)
 
-    mars = compute_sign_aspect(user_a.get("mars_sign"), user_b.get("mars_sign"), "tension")
-    score += mars * 0.25
-    total_weight += 0.25
+    venus_a_deg = user_a.get("venus_degree")
+    venus_b_deg = user_b.get("venus_degree")
+    mars_a_deg  = user_a.get("mars_degree")
+    mars_b_deg  = user_b.get("mars_degree")
+    h8_a_deg    = user_a.get("house8_degree")
+    h8_b_deg    = user_b.get("house8_degree")
 
-    # Karmic triggers: outer planets (Uranus/Neptune/Pluto) of A vs inner (Moon/Venus/Mars) of B
-    # Replaces same-generation pluto_a vs pluto_b which is meaningless for same-cohort pairs.
+    # 1. Cross-person: mars_a × venus_b (A pursues B)
+    w = WEIGHTS["lust_cross_mars_venus"]
+    score += _aspect(mars_a_deg, user_a.get("mars_sign"),
+                     venus_b_deg, user_b.get("venus_sign"), "tension") * w
+    total_weight += w
+
+    # 2. Cross-person: mars_b × venus_a (B pursues A)
+    w = WEIGHTS["lust_cross_venus_mars"]
+    score += _aspect(mars_b_deg, user_b.get("mars_sign"),
+                     venus_a_deg, user_a.get("venus_sign"), "tension") * w
+    total_weight += w
+
+    # 3. Same-planet: venus_a × venus_b (aesthetic sync)
+    w = WEIGHTS["lust_same_venus"]
+    score += _aspect(venus_a_deg, user_a.get("venus_sign"),
+                     venus_b_deg, user_b.get("venus_sign"), "harmony") * w
+    total_weight += w
+
+    # 4. Same-planet: mars_a × mars_b (energy rhythm sync)
+    w = WEIGHTS["lust_same_mars"]
+    score += _aspect(mars_a_deg, user_a.get("mars_sign"),
+                     mars_b_deg, user_b.get("mars_sign"), "harmony") * w
+    total_weight += w
+
+    # 5. House 8 × Mars cross-aspects (exact degrees only; omitted from denominator if absent)
+    if h8_a_deg is not None and mars_b_deg is not None:
+        w = WEIGHTS["lust_house8_ab"]
+        score += compute_exact_aspect(h8_a_deg, mars_b_deg, "tension") * w
+        total_weight += w
+    if h8_b_deg is not None and mars_a_deg is not None:
+        w = WEIGHTS["lust_house8_ba"]
+        score += compute_exact_aspect(h8_b_deg, mars_a_deg, "tension") * w
+        total_weight += w
+
+    # 6. Karmic triggers (outer vs inner planets)
     karmic = compute_karmic_triggers(user_a, user_b)
-    score += karmic * 0.25
-    total_weight += 0.25
+    w = WEIGHTS["lust_karmic"]
+    score += karmic * w
+    total_weight += w
 
-    # House 8 (0.15) — Tier 1 only
-    h8_a = user_a.get("house8_sign")
-    h8_b = user_b.get("house8_sign")
-    if h8_a and h8_b:
-        score += compute_sign_aspect(h8_a, h8_b, "tension") * 0.15
-        total_weight += 0.15
-
-    power_score = compute_power_score(user_a, user_b)
-    score += power_score * 0.30
-    total_weight += 0.30
+    # 7. RPV power dynamic
+    power_val = compute_power_score(user_a, user_b)
+    w = WEIGHTS["lust_power"]
+    score += power_val * w
+    total_weight += w
 
     base_score = score / total_weight if total_weight > 0 else NEUTRAL_SIGNAL
 
+    # BaZi restriction multiplier (clash = fatal attraction / conquest desire)
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")
     if elem_a and elem_b:
         rel = analyze_element_relation(elem_a, elem_b)
         if rel["relation"] in ("a_restricts_b", "b_restricts_a"):
-            base_score *= 1.2
+            base_score *= WEIGHTS["lust_bazi_restrict_mult"]
 
     return _clamp(base_score * 100)
 

@@ -387,14 +387,19 @@ class TestLustScore:
         assert score_clash > score_no_clash
 
     def test_no_house8_gives_lower_score_than_matching_house8(self):
-        """When house8_sign is present and matching (conjunction), score should be higher."""
+        """When house8_degree is present and opposite mars_degree (tension=1.0),
+        score should be higher than when house8 data is absent.
+
+        New formula: house8 cross-aspects use exact degrees only (h8_a × mars_b).
+        """
         a_no  = self._user(house8=None)
         b_no  = self._user(house8=None)
-        a_yes = self._user(house8="scorpio")
-        b_yes = self._user(house8="scorpio")
+        # Provide house8_degree on a and mars_degree on b for the cross-aspect
+        a_yes = {**self._user(house8="scorpio"), "house8_degree": 0.0}
+        b_yes = {**self._user(house8="scorpio"), "mars_degree": 180.0}
         score_without = compute_lust_score(a_no, b_no)
         score_with    = compute_lust_score(a_yes, b_yes)
-        # conjunction = 0.90, 0.0 < 0.90 → having house8 raises score
+        # opposition in tension = 1.0, adding this cross-aspect raises score
         assert score_with > score_without
 
     def test_power_control_follow_increases_lust(self):
@@ -404,6 +409,53 @@ class TestLustScore:
         a_same = self._user(rpv_power="control")
         b_same = self._user(rpv_power="control")
         assert compute_lust_score(a_comp, b_comp) > compute_lust_score(a_same, b_same)
+
+
+# ── TestComputeLustScore (v1.6 cross-aspect tests) ───────────
+
+class TestComputeLustScore:
+    def test_lust_cross_aspects_opposition_gives_high_score(self):
+        """mars_a exactly opposite venus_b (tension mode, diff=0) → high lust."""
+        user_a = {
+            "mars_degree": 0.0,   "mars_sign": "aries",
+            "venus_degree": None, "venus_sign": "aries",
+            "bazi_element": "wood",
+            "rpv_power": "control", "rpv_conflict": "cold_war", "rpv_energy": "out",
+        }
+        user_b = {
+            "venus_degree": 180.0, "venus_sign": "libra",
+            "mars_degree": None,   "mars_sign": "libra",
+            "bazi_element": "water",
+            "rpv_power": "follow", "rpv_conflict": "argue", "rpv_energy": "home",
+        }
+        score = compute_lust_score(user_a, user_b)
+        assert score >= 65.0, f"Mars opposite Venus should give high lust, got {score}"
+
+    def test_lust_cross_beats_same_planet(self):
+        """Cross-aspect pair (mars_a × venus_b opposition) scores higher than same-planet trine."""
+        cross_a = {
+            "mars_degree": 0.0,    "mars_sign": "aries",
+            "venus_degree": None,  "venus_sign": "aries",
+            "rpv_power": "control", "rpv_conflict": "cold_war", "rpv_energy": "out",
+        }
+        cross_b = {
+            "venus_degree": 180.0, "venus_sign": "libra",
+            "mars_degree": None,   "mars_sign": "libra",
+            "rpv_power": "follow", "rpv_conflict": "argue", "rpv_energy": "home",
+        }
+        same_a = {
+            "venus_degree": 0.0,   "venus_sign": "aries",
+            "mars_degree": None,   "mars_sign": "aries",
+            "rpv_power": "control", "rpv_conflict": "cold_war", "rpv_energy": "out",
+        }
+        same_b = {
+            "venus_degree": 120.0, "venus_sign": "leo",
+            "mars_degree": None,   "mars_sign": "leo",
+            "rpv_power": "follow", "rpv_conflict": "argue", "rpv_energy": "home",
+        }
+        cross_score = compute_lust_score(cross_a, cross_b)
+        same_score  = compute_lust_score(same_a,  same_b)
+        assert cross_score > same_score, f"Cross {cross_score:.1f} should > same-planet {same_score:.1f}"
 
 
 # ── compute_soul_score ────────────────────────────────────────
@@ -981,50 +1033,73 @@ class TestLustScoreDynamicWeighting:
         }
 
     def test_lust_score_tier3_no_house8(self):
-        """Tier 3 without house8: score uses venus + mars + karmic + power
-        with total_weight = 1.00, so denominator does not include house8's 0.15.
+        """Tier 3 without house8_degree: score uses cross + same-planet + karmic + power.
+        house8 cross-aspects are excluded from denominator when house8_degree is absent.
 
-        karmic replaces the old same-generation pluto×pluto comparison.
-        Expected = (venus*0.20 + mars*0.25 + karmic*0.25 + power*0.30) / 1.00 * 100
+        New formula (v1.6): sign-level fallback for cross/same-planet aspects.
+        Expected = (cross_mv*0.30 + cross_vm*0.30
+                    + same_v*0.15 + same_m*0.15
+                    + karmic*0.25 + power*0.30) / 1.45 * 100
         """
         a = self._user(venus="aries", mars="aries", pluto="scorpio")
         b = self._user(venus="aries", mars="aries", pluto="scorpio")
 
-        venus_v  = compute_sign_aspect("aries", "aries", "harmony")
-        mars_v   = compute_sign_aspect("aries", "aries", "tension")
+        # No exact degrees → sign-level fallback for all cross/same aspects
+        cross_mv = compute_sign_aspect("aries", "aries", "tension")   # mars_a vs venus_b = 1.00
+        cross_vm = compute_sign_aspect("aries", "aries", "tension")   # mars_b vs venus_a = 1.00
+        same_v   = compute_sign_aspect("aries", "aries", "harmony")   # venus_a vs venus_b = 0.90
+        same_m   = compute_sign_aspect("aries", "aries", "harmony")   # mars_a vs mars_b   = 0.90
         karmic_v = compute_karmic_triggers(a, b)
 
         from matching import compute_power_score
         power_v = compute_power_score(a, b)
 
-        numerator = venus_v * 0.20 + mars_v * 0.25 + karmic_v * 0.25 + power_v * 0.30
-        total_w   = 0.20 + 0.25 + 0.25 + 0.30  # = 1.00
+        numerator = (cross_mv * 0.30 + cross_vm * 0.30
+                     + same_v * 0.15 + same_m * 0.15
+                     + karmic_v * 0.25 + power_v * 0.30)
+        total_w   = 0.30 + 0.30 + 0.15 + 0.15 + 0.25 + 0.30  # = 1.45
         expected  = (numerator / total_w) * 100
 
         assert compute_lust_score(a, b) == pytest.approx(expected, abs=0.1)
 
     def test_lust_score_tier1_with_house8(self):
-        """Tier 1 with matching house8 (conjunction): score includes house8 * 0.15
-        and total_weight = 1.15.
+        """Tier 1 with exact house8_degree and mars_degree: h8 cross-aspects activate.
 
-        karmic replaces the old same-generation pluto×pluto comparison.
-        Expected = (venus*0.20 + mars*0.25 + karmic*0.25
-                    + house8*0.15 + power*0.30) / 1.15 * 100
+        New formula (v1.6): h8_a_deg × mars_b_deg and h8_b_deg × mars_a_deg contribute
+        when both are present. No venus_degree → cross/same-venus use sign-level fallback.
+
+        Setup: both users have house8_degree=0.0, mars_degree=0.0, no venus_degree.
+          cross_mv: mars_a_deg=0.0 vs venus_b_deg=None → sign fallback aries×aries tension=1.00
+          cross_vm: same                                → sign fallback aries×aries tension=1.00
+          same_v:   venus_a_deg=None, venus_b_deg=None → sign fallback aries×aries harmony=0.90
+          same_m:   mars_a_deg=0.0, mars_b_deg=0.0    → exact conjunction harmony=1.00
+          h8_ab:    h8_a_deg=0.0, mars_b_deg=0.0      → exact conjunction tension=1.00
+          h8_ba:    h8_b_deg=0.0, mars_a_deg=0.0      → exact conjunction tension=1.00
+        total_weight = 0.30+0.30+0.15+0.15+0.10+0.10+0.25+0.30 = 1.65
         """
-        a = self._user(venus="aries", mars="aries", pluto="scorpio", house8="scorpio")
-        b = self._user(venus="aries", mars="aries", pluto="scorpio", house8="scorpio")
+        from matching import compute_exact_aspect
+        a = {**self._user(venus="aries", mars="aries", pluto="scorpio", house8="scorpio"),
+             "house8_degree": 0.0, "mars_degree": 0.0}
+        b = {**self._user(venus="aries", mars="aries", pluto="scorpio", house8="scorpio"),
+             "house8_degree": 0.0, "mars_degree": 0.0}
 
-        venus_v  = compute_sign_aspect("aries",   "aries",   "harmony")
-        mars_v   = compute_sign_aspect("aries",   "aries",   "tension")
+        # Cross aspects fall back to sign-level (venus_degree absent)
+        cross_mv = compute_sign_aspect("aries", "aries", "tension")   # 1.00
+        cross_vm = compute_sign_aspect("aries", "aries", "tension")   # 1.00
+        same_v   = compute_sign_aspect("aries", "aries", "harmony")   # 0.90
+        same_m   = compute_exact_aspect(0.0, 0.0, "harmony")          # 1.00
+        h8_ab    = compute_exact_aspect(0.0, 0.0, "tension")          # 1.00
+        h8_ba    = compute_exact_aspect(0.0, 0.0, "tension")          # 1.00
         karmic_v = compute_karmic_triggers(a, b)
-        house8_v = compute_sign_aspect("scorpio", "scorpio", "tension")
 
         from matching import compute_power_score
         power_v = compute_power_score(a, b)
 
-        numerator = (venus_v * 0.20 + mars_v * 0.25 + karmic_v * 0.25
-                     + house8_v * 0.15 + power_v * 0.30)
-        total_w   = 0.20 + 0.25 + 0.25 + 0.15 + 0.30  # = 1.15
+        numerator = (cross_mv * 0.30 + cross_vm * 0.30
+                     + same_v * 0.15 + same_m * 0.15
+                     + h8_ab * 0.10 + h8_ba * 0.10
+                     + karmic_v * 0.25 + power_v * 0.30)
+        total_w   = 0.30 + 0.30 + 0.15 + 0.15 + 0.10 + 0.10 + 0.25 + 0.30  # = 1.65
         expected  = (numerator / total_w) * 100
 
         assert compute_lust_score(a, b) == pytest.approx(expected, abs=0.1)
