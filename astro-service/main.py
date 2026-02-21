@@ -131,9 +131,17 @@ def compute_match(req: MatchRequest):
 
     user_a / user_b should contain flat profile fields:
       Core:    data_tier, sun_sign, moon_sign, venus_sign, mars_sign, saturn_sign,
-               ascendant_sign, bazi_element, rpv_conflict, rpv_power, rpv_energy
+               ascendant_sign, bazi_element, bazi_month_branch,
+               rpv_conflict, rpv_power, rpv_energy
       Phase G: mercury_sign, jupiter_sign, pluto_sign, chiron_sign, juno_sign,
-               house4_sign, house8_sign, attachment_style
+               house4_sign, house8_sign, attachment_style, emotional_capacity
+      ZWDS (Tier 1 only — required for ZWDS synastry to fire):
+               birth_year, birth_month, birth_day,
+               birth_time (HH:MM format, e.g. "14:30"), gender ("M" or "F")
+
+    Note: birth_time in this dict is the exact "HH:MM" string (not the slot type
+    "precise"/"morning" used by /calculate-chart). Missing ZWDS fields degrade
+    gracefully to zwds=null and spiciness_level="STABLE".
 
     Returns: lust_score, soul_score, power {rpv, frame_break, viewer_role, target_role},
              tracks {friend, passion, partner, soul}, primary_track, quadrant, labels
