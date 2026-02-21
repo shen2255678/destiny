@@ -1320,8 +1320,8 @@ class TestComputeExactAspect:
         assert compute_exact_aspect(0.0, 0.0, "tension") == pytest.approx(1.0)
 
     def test_trine_harmony(self):
-        """120° apart → trine = 0.9 in harmony mode"""
-        assert compute_exact_aspect(0.0, 120.0, "harmony") == pytest.approx(0.9)
+        """120° apart → trine = 1.0 in harmony mode (perfect center, linear decay)"""
+        assert compute_exact_aspect(0.0, 120.0, "harmony") == pytest.approx(1.0)
 
     def test_trine_tension(self):
         """120° apart → trine = 0.2 in tension mode"""
@@ -1332,24 +1332,26 @@ class TestComputeExactAspect:
         assert compute_exact_aspect(0.0, 90.0, "tension") == pytest.approx(0.9)
 
     def test_opposition_tension(self):
-        """180° apart → opposition = 0.85 in tension mode"""
-        assert compute_exact_aspect(0.0, 180.0, "tension") == pytest.approx(0.85)
+        """180° apart → opposition = 1.0 in tension mode (tension_max raised to 1.0)"""
+        assert compute_exact_aspect(0.0, 180.0, "tension") == pytest.approx(1.0)
 
     def test_sextile_harmony(self):
         """60° apart → sextile = 0.8 in harmony mode"""
         assert compute_exact_aspect(0.0, 60.0, "harmony") == pytest.approx(0.8)
 
     def test_within_orb(self):
-        """87° (3° from square) still within 8° orb → aspect scores apply"""
-        assert compute_exact_aspect(0.0, 87.0, "tension") == pytest.approx(0.9)
+        """87° (3° from square center 90°) within 8° orb → linear decay applies.
+        diff=3, orb=8, tens_max=0.9: 0.2 + 0.7 * (1 - 3/8) = 0.2 + 0.4375 = 0.64"""
+        assert compute_exact_aspect(0.0, 87.0, "tension") == pytest.approx(0.64)
 
     def test_just_outside_orb(self):
         """100° (10° from square, 10° from trine) → void of aspect = 0.1"""
         assert compute_exact_aspect(0.0, 100.0, "tension") == pytest.approx(0.1)
 
     def test_cross_sign_conjunction(self):
-        """29° Aries (29.0) and 1° Taurus (31.0) → 2° apart → conjunction"""
-        assert compute_exact_aspect(29.0, 31.0, "tension") == pytest.approx(1.0)
+        """29° Aries (29.0) and 1° Taurus (31.0) → 2° apart → conjunction with linear decay.
+        diff=2, orb=8, tens_max=1.0: 0.2 + 0.8 * (1 - 2/8) = 0.2 + 0.6 = 0.80"""
+        assert compute_exact_aspect(29.0, 31.0, "tension") == pytest.approx(0.80)
 
     def test_none_returns_neutral(self):
         """None degree → 0.5 neutral"""
@@ -1357,8 +1359,8 @@ class TestComputeExactAspect:
         assert compute_exact_aspect(0.0, None, "harmony") == pytest.approx(0.5)
 
     def test_wrap_around_opposition(self):
-        """10° and 190° → 180° → opposition in tension"""
-        assert compute_exact_aspect(10.0, 190.0, "tension") == pytest.approx(0.85)
+        """10° and 190° → shortest dist 180° → perfect opposition in tension = 1.0"""
+        assert compute_exact_aspect(10.0, 190.0, "tension") == pytest.approx(1.0)
 
 
 class TestComputeKarmicTriggers:
@@ -1487,3 +1489,28 @@ class TestKarmicInSoulTrack:
         tracks = compute_tracks(a, b, power, 0.0)
         # Soul track should be a valid 0-100 score
         assert 0 <= tracks["soul"] <= 100
+
+
+# ── Task 2: Linear Orb Decay Tests ───────────────────────────────────────────
+
+def test_exact_aspect_linear_decay_conjunction():
+    """Closer conjunction must score higher than wider conjunction."""
+    score_1deg    = compute_exact_aspect(0.0, 1.0,  "harmony")
+    score_7deg    = compute_exact_aspect(0.0, 7.0,  "harmony")
+    score_perfect = compute_exact_aspect(0.0, 0.0,  "harmony")
+    assert score_1deg > score_7deg, f"{score_1deg} should > {score_7deg}"
+    assert score_perfect == pytest.approx(1.0, abs=0.01)
+
+
+def test_exact_aspect_linear_decay_square_tension():
+    """Square at center (90°) scores higher than square near orb edge."""
+    score_center = compute_exact_aspect(0.0, 90.0, "tension")   # diff=0
+    score_edge   = compute_exact_aspect(0.0, 97.5, "tension")   # diff=7.5° within orb 8
+    assert score_center > score_edge
+    assert score_center >= 0.88  # near max 0.9
+
+
+def test_exact_aspect_opposition_tension_max():
+    """Opposition in tension mode should return 1.0 (previously was 0.85)."""
+    score = compute_exact_aspect(0.0, 180.0, "tension")
+    assert score == pytest.approx(1.0, abs=0.01)

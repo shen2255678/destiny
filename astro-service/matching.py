@@ -180,14 +180,20 @@ def get_shortest_distance(deg_a: float, deg_b: float) -> float:
 
 
 def compute_exact_aspect(deg_a: float, deg_b: float, mode: str = "harmony") -> float:
-    """Orb-based exact degree aspect score (0.0-1.0).
+    """Orb-based exact degree aspect score with linear decay (0.0-1.0).
 
-    Aspects with orbs:
-      conjunction  (0°,  orb 8°): harmony=1.0  tension=1.0
-      sextile     (60°,  orb 6°): harmony=0.8  tension=0.2
+    Score decays linearly from the aspect center toward the orb boundary:
+      strength_ratio = 1.0 - (diff / orb)
+      final_score    = 0.2 + (max_score - 0.2) * strength_ratio
+
+    A 0° conjunction scores 1.0; a 7° conjunction scores ~0.30 (harmony mode).
+
+    Aspect table (center_deg, orb, harmony_max, tension_max):
+      conjunction  (0°,   orb 8°): harmony=1.0  tension=1.0
+      sextile     (60°,  orb 6°): harmony=0.8  tension=0.3
       square      (90°,  orb 8°): harmony=0.2  tension=0.9
-      trine      (120°,  orb 8°): harmony=0.9  tension=0.2
-      opposition (180°,  orb 8°): harmony=0.4  tension=0.85
+      trine      (120°,  orb 8°): harmony=1.0  tension=0.2
+      opposition (180°,  orb 8°): harmony=0.4  tension=1.0
 
     Returns 0.5 (neutral) when either degree is None.
     Returns 0.1 (void of aspect) when no major aspect is within orb.
@@ -195,17 +201,19 @@ def compute_exact_aspect(deg_a: float, deg_b: float, mode: str = "harmony") -> f
     if deg_a is None or deg_b is None:
         return 0.5
     dist = get_shortest_distance(deg_a, deg_b)
-    # (center_deg, orb, harmony_score, tension_score)
-    ASPECTS = [
-        (0,   8,  1.00, 1.00),
-        (60,  6,  0.80, 0.20),
-        (90,  8,  0.20, 0.90),
-        (120, 8,  0.90, 0.20),
-        (180, 8,  0.40, 0.85),
+    ASPECT_RULES = [
+        (0,   8,  1.0, 1.0),
+        (60,  6,  0.8, 0.3),
+        (90,  8,  0.2, 0.9),
+        (120, 8,  1.0, 0.2),
+        (180, 8,  0.4, 1.0),
     ]
-    for center, orb, h_score, t_score in ASPECTS:
-        if abs(dist - center) <= orb:
-            return h_score if mode == "harmony" else t_score
+    for center, orb, harm_max, tens_max in ASPECT_RULES:
+        diff = abs(dist - center)
+        if diff <= orb:
+            max_score = harm_max if mode == "harmony" else tens_max
+            strength_ratio = 1.0 - (diff / orb)
+            return round(0.2 + (max_score - 0.2) * strength_ratio, 2)
     return 0.1  # void of aspect
 
 
