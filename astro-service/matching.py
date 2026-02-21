@@ -34,6 +34,70 @@ SIGN_ELEMENT = {
     "sagittarius": "fire", "capricorn": "earth", "aquarius": "air", "pisces": "water",
 }
 
+# ── WEIGHTS — Centralized weight configuration ─────────────────────────────
+# Edit these values to tune scoring without touching function bodies.
+WEIGHTS = {
+    # ── compute_lust_score ──────────────────────────────────────────────────
+    "lust_cross_mars_venus":   0.30,   # mars_a × venus_b  (cross-person, tension) ← primary
+    "lust_cross_venus_mars":   0.30,   # mars_b × venus_a  (cross-person, tension) ← primary
+    "lust_same_venus":         0.15,   # venus_a × venus_b (same-planet, harmony)
+    "lust_same_mars":          0.15,   # mars_a × mars_b   (same-planet, harmony)
+    "lust_house8_ab":          0.10,   # h8_a × mars_b     (8th house taboo pull)
+    "lust_house8_ba":          0.10,   # h8_b × mars_a
+    "lust_karmic":             0.25,   # outer-vs-inner karmic triggers
+    "lust_power":              0.30,   # RPV power dynamic
+    "lust_bazi_restrict_mult": 1.25,   # × multiplier when BaZi elements clash
+
+    # ── compute_kernel_score ─────────────────────────────────────────────────
+    "kernel_t1_sun":           0.20,
+    "kernel_t1_moon":          0.25,
+    "kernel_t1_venus":         0.25,
+    "kernel_t1_asc":           0.15,
+    "kernel_t1_bazi":          0.15,
+    "kernel_t2_sun":           0.25,
+    "kernel_t2_moon":          0.20,
+    "kernel_t2_venus":         0.25,
+    "kernel_t2_bazi":          0.30,
+    "kernel_t3_sun":           0.30,
+    "kernel_t3_venus":         0.30,
+    "kernel_t3_bazi":          0.40,
+
+    # ── compute_tracks ───────────────────────────────────────────────────────
+    "track_friend_mercury":          0.40,
+    "track_friend_jupiter":          0.40,
+    "track_friend_bazi":             0.20,
+    "track_passion_mars":            0.30,
+    "track_passion_venus":           0.30,
+    "track_passion_extreme":         0.10,
+    "track_passion_bazi":            0.30,
+    "track_partner_moon":            0.35,
+    "track_partner_juno":            0.35,
+    "track_partner_bazi":            0.30,
+    "track_partner_nojuno_moon":     0.55,
+    "track_partner_nojuno_bazi":     0.45,
+    "track_soul_chiron":             0.40,
+    "track_soul_karmic":             0.40,
+    "track_soul_useful_god":         0.20,
+    "track_soul_nochiron_karmic":    0.60,
+    "track_soul_nochiron_useful_god":0.40,
+
+    # ── compute_power_score (RPV) ────────────────────────────────────────────
+    "power_conflict":          0.35,
+    "power_power":             0.40,
+    "power_energy":            0.25,
+
+    # ── compute_glitch_score ─────────────────────────────────────────────────
+    "glitch_mars":             0.25,
+    "glitch_saturn":           0.25,
+    "glitch_mars_sat_ab":      0.25,
+    "glitch_mars_sat_ba":      0.25,
+
+    # ── compute_match_score (v1 top-level) ───────────────────────────────────
+    "match_kernel":            0.50,
+    "match_power":             0.30,
+    "match_glitch":            0.20,
+}
+
 # Harmony mode: rewards smooth, stable, comfortable aspects.
 # Used for: friend track, partner track, Moon, Mercury, Jupiter, Saturn, Venus, Juno, Sun, Asc
 HARMONY_ASPECTS = {
@@ -245,7 +309,9 @@ def compute_power_score(user_a: dict, user_b: dict) -> float:
     e_b = user_b.get("rpv_energy")
     energy = (0.75 if e_a != e_b else 0.65) if (e_a and e_b) else 0.60
 
-    return conflict * 0.35 + power * 0.40 + energy * 0.25
+    return (conflict * WEIGHTS["power_conflict"] +
+            power    * WEIGHTS["power_power"] +
+            energy   * WEIGHTS["power_energy"])
 
 
 # ── Glitch Tolerance (20%) ───────────────────────────────────
@@ -364,7 +430,9 @@ def compute_match_score(user_a: dict, user_b: dict) -> dict:
     kernel = compute_kernel_score(user_a, user_b)
     power = compute_power_score(user_a, user_b)
     glitch = compute_glitch_score(user_a, user_b)
-    total = kernel * 0.5 + power * 0.3 + glitch * 0.2
+    total = (kernel * WEIGHTS["match_kernel"] +
+             power  * WEIGHTS["match_power"] +
+             glitch * WEIGHTS["match_glitch"])
 
     match_type = classify_match_type(kernel, power, glitch)
     card_color = assign_card_color(match_type)
