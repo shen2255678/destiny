@@ -122,6 +122,16 @@ TENSION_ASPECTS = {
 # Minor aspects (semi-sextile=1, quincunx=5) score low in both modes
 MINOR_ASPECT_SCORE = 0.10
 
+# Exact-degree aspect rules: (center_deg, orb, harmony_max, tension_max)
+# Used by compute_exact_aspect for linear orb decay scoring.
+ASPECT_RULES = [
+    (0,   8,  1.0, 1.0),   # conjunction:  full fusion
+    (60,  6,  0.8, 0.3),   # sextile:      easy flow
+    (90,  8,  0.2, 0.9),   # square:       friction / tension
+    (120, 8,  1.0, 0.2),   # trine:        natural harmony
+    (180, 8,  0.4, 1.0),   # opposition:   fatal attraction
+]
+
 # Deterministic tag pools per match type
 TAG_POOLS = {
     "complementary": [
@@ -201,13 +211,6 @@ def compute_exact_aspect(deg_a: float, deg_b: float, mode: str = "harmony") -> f
     if deg_a is None or deg_b is None:
         return 0.5
     dist = get_shortest_distance(deg_a, deg_b)
-    ASPECT_RULES = [
-        (0,   8,  1.0, 1.0),
-        (60,  6,  0.8, 0.3),
-        (90,  8,  0.2, 0.9),
-        (120, 8,  1.0, 0.2),
-        (180, 8,  0.4, 1.0),
-    ]
     for center, orb, harm_max, tens_max in ASPECT_RULES:
         diff = abs(dist - center)
         if diff <= orb:

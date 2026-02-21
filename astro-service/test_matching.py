@@ -1290,7 +1290,7 @@ class TestDayBranchInMatchV2:
 
 # ── Phase I: Exact Degree Aspect Tests ──────────────────────────────────────
 
-from matching import get_shortest_distance, compute_exact_aspect, compute_karmic_triggers
+from matching import get_shortest_distance, compute_exact_aspect
 
 
 class TestGetShortestDistance:
@@ -1361,6 +1361,26 @@ class TestComputeExactAspect:
     def test_wrap_around_opposition(self):
         """10° and 190° → shortest dist 180° → perfect opposition in tension = 1.0"""
         assert compute_exact_aspect(10.0, 190.0, "tension") == pytest.approx(1.0)
+
+    def test_exact_aspect_linear_decay_conjunction(self):
+        """Closer conjunction must score higher than wider conjunction."""
+        score_1deg    = compute_exact_aspect(0.0, 1.0,  "harmony")
+        score_7deg    = compute_exact_aspect(0.0, 7.0,  "harmony")
+        score_perfect = compute_exact_aspect(0.0, 0.0,  "harmony")
+        assert score_1deg > score_7deg, f"{score_1deg} should > {score_7deg}"
+        assert score_perfect == pytest.approx(1.0, abs=0.01)
+
+    def test_exact_aspect_linear_decay_square_tension(self):
+        """Square at center (90°) scores higher than square near orb edge."""
+        score_center = compute_exact_aspect(0.0, 90.0, "tension")   # diff=0
+        score_edge   = compute_exact_aspect(0.0, 97.5, "tension")   # diff=7.5° within orb 8
+        assert score_center > score_edge
+        assert score_center == pytest.approx(0.9, abs=0.01)
+
+    def test_exact_aspect_opposition_tension_max(self):
+        """Opposition in tension mode should return 1.0 (previously was 0.85)."""
+        score = compute_exact_aspect(0.0, 180.0, "tension")
+        assert score == pytest.approx(1.0, abs=0.01)
 
 
 class TestComputeKarmicTriggers:
@@ -1491,26 +1511,3 @@ class TestKarmicInSoulTrack:
         assert 0 <= tracks["soul"] <= 100
 
 
-# ── Task 2: Linear Orb Decay Tests ───────────────────────────────────────────
-
-def test_exact_aspect_linear_decay_conjunction():
-    """Closer conjunction must score higher than wider conjunction."""
-    score_1deg    = compute_exact_aspect(0.0, 1.0,  "harmony")
-    score_7deg    = compute_exact_aspect(0.0, 7.0,  "harmony")
-    score_perfect = compute_exact_aspect(0.0, 0.0,  "harmony")
-    assert score_1deg > score_7deg, f"{score_1deg} should > {score_7deg}"
-    assert score_perfect == pytest.approx(1.0, abs=0.01)
-
-
-def test_exact_aspect_linear_decay_square_tension():
-    """Square at center (90°) scores higher than square near orb edge."""
-    score_center = compute_exact_aspect(0.0, 90.0, "tension")   # diff=0
-    score_edge   = compute_exact_aspect(0.0, 97.5, "tension")   # diff=7.5° within orb 8
-    assert score_center > score_edge
-    assert score_center >= 0.88  # near max 0.9
-
-
-def test_exact_aspect_opposition_tension_max():
-    """Opposition in tension mode should return 1.0 (previously was 0.85)."""
-    score = compute_exact_aspect(0.0, 180.0, "tension")
-    assert score == pytest.approx(1.0, abs=0.01)
