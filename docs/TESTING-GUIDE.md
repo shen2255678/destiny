@@ -1,6 +1,6 @@
 # DESTINY — Testing Guide
 
-**Last Updated:** 2026-02-21 (Phase H ✅ — 91 JS + 132 Python tests)
+**Last Updated:** 2026-02-22 (Phase I ✅ — Psychology Layer — 91 JS + 189 Python tests)
 
 ---
 
@@ -257,7 +257,8 @@ npm run dev
 | Photos 上傳失敗 | Storage bucket 權限 | 確認 RLS policy 允許 authenticated users 上傳 |
 | Daily 空白 | 無配對資料 | 執行 `POST /api/matches/run` seed 資料（需 CRON_SECRET） |
 | ZWDS 欄位為 null | astro-service 未啟動 | 確認 `http://localhost:8001/health` 回傳 ok |
-| rectification_events 沒有資料 | Migration 未套用 | 確認已執行 `supabase db push`（008 最新） |
+| rectification_events 沒有資料 | Migration 未套用 | 確認已執行 `supabase db push`（011 最新） |
+| sm_tags / karmic_tags 為 null | Migration 011 未套用 | 執行 `supabase db push` 確認 011_psychology_tags.sql 已套用 |
 
 ---
 
@@ -334,7 +335,7 @@ pip install -r requirements.txt    # 首次安裝（含 lunardate）
 uvicorn main:app --port 8001       # 啟動
 ```
 
-### Python Unit Tests (132 tests)
+### Python Unit Tests (189 tests)
 
 ```bash
 cd astro-service
@@ -345,8 +346,14 @@ pytest test_zwds.py -v
 # 星盤 + 八字 + 五行關係 (30 tests)
 pytest test_chart.py -v
 
-# 配對演算法 + ZWDS 整合 (71 tests)
+# 配對演算法 + ZWDS 整合 (73 tests)
 pytest test_matching.py -v
+
+# 心理層標籤（SM / 業力 / 加權元素 / 逆行業力）(28 tests)
+pytest test_psychology.py -v
+
+# 陰影引擎 + 依戀動態 + 元素填充 (27 tests)
+pytest test_shadow_engine.py -v
 
 # 全部一起跑
 pytest -v
@@ -372,7 +379,7 @@ pytest -v
 | 八字四柱 | 日主、四柱結構、年柱/日柱驗證、Tier 行為 | 11 |
 | 五行關係 | 相生/相剋/比和 全循環 | 7 |
 
-**test_matching.py 測試分類（71 tests）：**
+**test_matching.py 測試分類（73 tests）：**
 
 | 類別 | 測試項目 | 數量 |
 |------|---------|------|
@@ -381,9 +388,30 @@ pytest -v
 | Power dynamic | Chiron 觸發、RPV 組合 | 8 |
 | compute_tracks | 四軌分數 + BaZi 軌道 | 10 |
 | classify_quadrant | 四象限分類 | 4 |
-| compute_match_v2 | 端對端整合（含 ZWDS）| 12 |
+| compute_match_v2 | 端對端整合（含 ZWDS + 心理層）| 14 |
 | ZWDS 整合 | Tier 1 ZWDS 輸出鍵 + Tier 3 跳過 + 異常安全 | 8 |
 | 舊版 compute_match_score | 向後相容 | 8 |
+
+**test_psychology.py 測試分類（28 tests）：**
+
+| 類別 | 測試項目 | 數量 |
+|------|---------|------|
+| extract_sm_dynamics | Natural_Dom / Daddy_Dom / Sadist_Dom / Anxious_Sub / Brat_Sub / Service_Sub / Masochist_Sub | 8 |
+| extract_critical_degrees | Karmic_Crisis / Blind_Impulse / 外行星排除 / Tier 保護（月亮/上升） | 5 |
+| compute_element_profile | 加權計分 / 月亮精確時才計 / Dominant ≥7.0 / Deficiency ≤1.0 | 6 |
+| extract_retrograde_karma | Venus_Rx / Mars_Rx / Mercury_Rx / 無逆行 / 空 chart | 5 |
+| 整合 | chart → element_profile 完整流程 | 4 |
+
+**test_shadow_engine.py 測試分類（27 tests）：**
+
+| 類別 | 測試項目 | 數量 |
+|------|---------|------|
+| compute_shadow_and_wound | 7 個觸發條件各自隔離測試（Chiron/Moon、Chiron/Mars sq/opp、12th house、Mutual）| 9 |
+| compute_dynamic_attachment | Uranus 張力→焦慮 / Saturn→迴避 / Jupiter 和諧→安全 / 雙向 | 4 |
+| compute_attachment_dynamics | secure+secure / anxious+avoidant / anxious+anxious / avoidant+avoidant / secure+any / fearful+any | 6 |
+| compute_elemental_fulfillment | 填充 +15 / 雙向填充 / 上限 +30 / 無 deficiency | 4 |
+| compute_match_v2 整合 | psychological_tags 存在 / high_voltage 一票否決 | 2 |
+| Edge cases | 缺欄位安全退化 | 2 |
 
 ### API 測試（curl）
 
@@ -750,7 +778,7 @@ UPDATE users SET onboarding_step = 'birth_data' WHERE email = 'test1@example.com
 
 1. 前往 https://supabase.com/dashboard/project/masninqgihbazjirweiy
 2. **Authentication → Users** — 確認用戶已註冊
-3. **Table Editor → users** — 確認各欄位已寫入（含 ZWDS 欄位，Migration 008）
+3. **Table Editor → users** — 確認各欄位已寫入（含 ZWDS 欄位 Migration 008、心理層欄位 Migration 011：`sm_tags`, `karmic_tags`, `element_profile`）
 4. **Table Editor → rectification_events** — 確認 range_initialized 事件記錄
 5. **Table Editor → daily_matches** — 確認配對記錄
 6. **Table Editor → connections** — 確認 mutual accept 後自動建立
@@ -768,10 +796,12 @@ UPDATE users SET onboarding_step = 'birth_data' WHERE email = 'test1@example.com
 | API 邏輯是否正確（快速） | Layer 1: `npm test` (91 tests) |
 | 紫微斗數引擎正確性 | Astro Service: `pytest test_zwds.py` (31 tests) |
 | 星盤/八字計算正確性 | Astro Service: `pytest test_chart.py` (30 tests) |
-| 配對演算法正確性 | Astro Service: `pytest test_matching.py` (71 tests) |
+| 配對演算法正確性 | Astro Service: `pytest test_matching.py` (73 tests) |
+| 心理層標籤（SM/業力/元素/逆行）| Astro Service: `pytest test_psychology.py` (28 tests) |
+| 陰影/依戀/元素填充引擎 | Astro Service: `pytest test_shadow_engine.py` (27 tests) |
 | 完整用戶流程（註冊到聊天）| Layer 2: 瀏覽器 E2E |
 | 單一 API response 格式 | Layer 3: 瀏覽器 Console fetch |
-| DB 是否正確寫入（含 ZWDS）| Supabase Dashboard |
+| DB 是否正確寫入（含 ZWDS + 心理層）| Supabase Dashboard |
 | Error handling (401/400/403) | Layer 1 (mock) 或 Layer 3 (real) |
 | 出生時間校正流程 | Layer 3: rectification endpoints |
 | Realtime 即時訊息 | Layer 2: 兩個瀏覽器視窗互傳 |

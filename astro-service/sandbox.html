@@ -505,6 +505,8 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
   var primary = matchData.primary_track;
   var quadrant = matchData.quadrant;
   var labels = matchData.labels;
+  var psychTags = matchData.psychological_tags || [];
+  var highVoltage = matchData.high_voltage || false;
   var logs = buildLogs(chartA, chartB);
 
   var trackColors = { friend: '#34d399', passion: '#f87171', partner: '#60a5fa', soul: '#c084fc' };
@@ -558,6 +560,15 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
       '<div class="meta-item"><span class="meta-k">frame_break</span><span class="meta-v" style="color:' + (power.frame_break ? '#f87171' : '#34d399') + '">' + power.frame_break + '</span></div>' +
     '</div>' +
     '<div class="labels-row">' + labelsHtml + '</div>' +
+    '<div class="meta-row" style="margin-bottom:8px;padding-top:6px;border-top:1px solid #1f2937">' +
+      '<div class="meta-item"><span class="meta-k" style="color:#a78bfa">心理標籤</span><span class="meta-v" style="color:#c084fc">' +
+        (psychTags.length > 0 ? psychTags.join(', ') : '—') +
+      '</span></div>' +
+      '<div class="meta-item"><span class="meta-k" style="color:#a78bfa">high_voltage (psych)</span>' +
+        '<span class="meta-v" style="color:' + (highVoltage ? '#f87171' : '#4b5563') + ';font-weight:' + (highVoltage ? 'bold' : 'normal') + '">' +
+          (highVoltage ? '⚡ true' : 'false') +
+        '</span></div>' +
+    '</div>' +
     '<div class="archetype-section">' +
       '<h4>AI 原型標籤 + 解讀報告</h4>' +
       '<button class="btn-sm" id="archetype-btn" onclick="generateArchetype()">&#10022; Generate</button>' +
