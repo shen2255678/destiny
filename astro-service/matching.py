@@ -36,7 +36,7 @@ SIGN_ELEMENT = {
 
 # ── WEIGHTS — Centralized weight configuration ─────────────────────────────
 # Edit these values to tune scoring without touching function bodies.
-# All keys are now wired.
+# All keys are wired: lust, soul, kernel, tracks, power, glitch, match.
 WEIGHTS = {
     # ── compute_lust_score ────────── ✅ wired ───────────────────────────────
     "lust_cross_mars_venus":   0.30,   # mars_a × venus_b  (cross-person, tension) ← primary
@@ -50,6 +50,15 @@ WEIGHTS = {
     "lust_karmic":             0.25,   # outer-vs-inner karmic triggers
     "lust_power":              0.30,   # RPV power dynamic
     "lust_bazi_restrict_mult": 1.25,   # upgraded from 1.20; applied in Task 3
+
+    # ── compute_soul_score ────────── ✅ wired ────────────────────────────────
+    "soul_moon":              0.25,   # always present
+    "soul_mercury":           0.20,   # always present
+    "soul_saturn":            0.20,   # always present
+    "soul_house4":            0.15,   # Tier 1 only
+    "soul_juno":              0.20,   # when ephemeris available
+    "soul_attachment":        0.20,   # when questionnaire filled
+    "soul_generation_mult":   1.20,   # × multiplier when BaZi elements generate each other
 
     # ── compute_kernel_score ─── ✅ wired ────────────────────────────────────
     "kernel_t1_sun":           0.20,
@@ -651,42 +660,42 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     score = 0.0
     total_weight = 0.0
 
-    # 1. Moon (0.25) — always present
+    # 1. Moon — always present
     moon = compute_sign_aspect(user_a.get("moon_sign"), user_b.get("moon_sign"), "harmony")
-    score += moon * 0.25
-    total_weight += 0.25
+    score += moon * WEIGHTS["soul_moon"]
+    total_weight += WEIGHTS["soul_moon"]
 
-    # 2. Mercury (0.20) — always present
+    # 2. Mercury — always present
     mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
-    score += mercury * 0.20
-    total_weight += 0.20
+    score += mercury * WEIGHTS["soul_mercury"]
+    total_weight += WEIGHTS["soul_mercury"]
 
-    # 3. Saturn (0.20) — always present
+    # 3. Saturn — always present
     saturn = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"), "harmony")
-    score += saturn * 0.20
-    total_weight += 0.20
+    score += saturn * WEIGHTS["soul_saturn"]
+    total_weight += WEIGHTS["soul_saturn"]
 
-    # 4. House 4 (0.15) — Tier 1 only
+    # 4. House 4 — Tier 1 only
     h4_a = user_a.get("house4_sign")
     h4_b = user_b.get("house4_sign")
     if h4_a and h4_b:
-        score += compute_sign_aspect(h4_a, h4_b, "harmony") * 0.15
-        total_weight += 0.15
+        score += compute_sign_aspect(h4_a, h4_b, "harmony") * WEIGHTS["soul_house4"]
+        total_weight += WEIGHTS["soul_house4"]
 
-    # 5. Juno (0.20) — when ephemeris available
+    # 5. Juno — when ephemeris available
     juno_a = user_a.get("juno_sign")
     juno_b = user_b.get("juno_sign")
     if juno_a and juno_b:
-        score += compute_sign_aspect(juno_a, juno_b, "harmony") * 0.20
-        total_weight += 0.20
+        score += compute_sign_aspect(juno_a, juno_b, "harmony") * WEIGHTS["soul_juno"]
+        total_weight += WEIGHTS["soul_juno"]
 
-    # 6. Attachment style (0.20) — when questionnaire filled
+    # 6. Attachment style — when questionnaire filled
     style_a = user_a.get("attachment_style")
     style_b = user_b.get("attachment_style")
     if style_a and style_b and style_a in ATTACHMENT_FIT and style_b in ATTACHMENT_FIT[style_a]:
         attachment = ATTACHMENT_FIT[style_a][style_b]
-        score += attachment * 0.20
-        total_weight += 0.20
+        score += attachment * WEIGHTS["soul_attachment"]
+        total_weight += WEIGHTS["soul_attachment"]
 
     base_score = score / total_weight if total_weight > 0 else NEUTRAL_SIGNAL
 
@@ -696,7 +705,7 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     if elem_a and elem_b:
         rel = analyze_element_relation(elem_a, elem_b)
         if rel["relation"] in ("a_generates_b", "b_generates_a"):
-            base_score *= 1.2
+            base_score *= WEIGHTS["soul_generation_mult"]
 
     return _clamp(base_score * 100)
 
