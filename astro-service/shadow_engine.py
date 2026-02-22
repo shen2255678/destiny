@@ -66,12 +66,16 @@ def compute_shadow_and_wound(chart_a, chart_b):
     if _conj(chiron_b, moon_a):
         result["soul_mod"] += 25.0
         result["shadow_tags"].append("B_Heals_A_Moon")
+    # 3. Chiron (A) in tension with Mars (B) → B triggers A's wound
+    # Square/opposition only — conjunction excluded per spec (wound trigger requires friction, not fusion)
     if chiron_a is not None and mars_b is not None:
         d = _dist(chiron_a, mars_b)
         if d is not None and (abs(d - 90.0) <= 8.0 or abs(d - 180.0) <= 8.0):
             result["lust_mod"] += 15.0
             result["high_voltage"] = True
             result["shadow_tags"].append("B_Triggers_A_Wound")
+    # 4. Chiron (B) in tension with Mars (A) → A triggers B's wound
+    # Square/opposition only — conjunction excluded per spec (wound trigger requires friction, not fusion)
     if chiron_b is not None and mars_a is not None:
         d = _dist(chiron_b, mars_a)
         if d is not None and (abs(d - 90.0) <= 8.0 or abs(d - 180.0) <= 8.0):

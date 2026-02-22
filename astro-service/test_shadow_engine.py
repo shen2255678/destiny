@@ -71,6 +71,26 @@ def test_mutual_shadow_double_bonus():
     assert result["soul_mod"] >= 80.0   # 20 + 20 + 40
 
 
+
+def test_chiron_b_triggers_a_wound():
+    """Trigger 4: chiron_b square/opp mars_a → A_Triggers_B_Wound."""
+    a = {"mars_degree": 10.0}
+    b = {"chiron_degree": 100.0}   # diff=90° square → triggers
+    result = compute_shadow_and_wound(a, b)
+    assert result["lust_mod"] >= 15.0
+    assert result["high_voltage"] is True
+    assert "A_Triggers_B_Wound" in result["shadow_tags"]
+
+
+def test_b_illuminates_a_shadow():
+    """Trigger 6: sun_b/mars_b in A's 12th house → B_Illuminates_A_Shadow."""
+    a = {"house12_degree": 100.0, "ascendant_degree": 130.0}
+    b = {"sun_degree": 115.0}   # 115 falls between 100 and 130
+    result = compute_shadow_and_wound(a, b)
+    assert "B_Illuminates_A_Shadow" in result["shadow_tags"]
+    assert result["high_voltage"] is True
+    assert result["soul_mod"] >= 20.0
+
 # ── compute_dynamic_attachment ────────────────────────────────────────────────
 
 def test_dynamic_attachment_uranus_makes_anxious():
