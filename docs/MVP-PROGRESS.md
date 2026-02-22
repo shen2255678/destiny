@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-21 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅)
+**Last Updated:** 2026-02-22 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅)
 
 ---
 
@@ -226,8 +226,9 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 8. ~~**Phase D: Connections + Chat**~~ — ✅ Done (GET /api/connections + GET/POST /api/connections/:id/messages + Realtime + 13 new tests)
 9. ~~**Phase G: Matching Algorithm v2**~~ ← ✅ Done (Lust/Soul 雙軸 + 四軌 + Power D/s + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；199 tests)
 10. ~~**Phase H: ZWDS Synastry Engine**~~ ← ✅ Done (ziwei-service Node.js microservice + Python bridge + 飛星四化 + 空宮借星 + /compute-zwds-chart + /zwds-synastry + Migration 008；253 tests)
-11. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
-12. **Phase F: AI/LLM Integration**
+11. ~~**Phase I: Psychology Layer**~~ ← ✅ Done (psychology.py weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms; shadow_engine.py Chiron healing + 12th-house overlay + attachment trap matrix; Migration 011; 253+ tests)
+12. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
+13. **Phase F: AI/LLM Integration**
 
 ---
 
@@ -444,3 +445,5 @@ uvicorn main:app --port 8001
 | ~~Phase E (old): Profile~~ | GET/PATCH API + photos + bio + tags + energy | **Done** ✅ |
 | **Algorithm Validation Sandbox** | `astro-service/sandbox.html` — standalone dev tool for manual algorithm testing | **Done** ✅ |
 | **Phase H: ZWDS Synastry Engine** | `ziwei-service/` Node.js microservice (port 8002) + Python bridge + 飛星四化 + 空宮借星 + 主星人設矩陣；Tier 1 VIP bonus layer；設計文件：`docs/plans/2026-02-21-phase-h-zwds-integration.md`；新端點：`POST /compute-zwds-chart`, `POST /zwds-synastry`；`/compute-match` 現回傳 `zwds + spiciness_level + defense_mechanisms + layered_analysis` | **Done ✅** |
+| **Psychology Layer (Phase I)** | **Done ✅** | `psychology.py`: weighted element scoring (Sun/Moon/ASC=3, Mercury/Venus/Mars=2, Jup/Sat=1), retrograde karma tags (Venus/Mars/Mercury Rx), SM dynamics (7 tags), critical degree alarms (0°/29°). `shadow_engine.py`: Chiron/Moon healing, Chiron/Mars wound triggers, 12th-house shadow overlay, dynamic attachment synastry, attachment trap matrix, elemental fulfillment. Modifier block in `compute_match_v2`. Migration 011. Design: `docs/plans/2026-02-22-psychology-layer-design.md`. |
+| **Mode Filter Phase I.5 (Future)** | **Planned** | Hunt / Nest / Abyss mode via `?mode=` query param on `/api/matches/daily`. Re-weights four-track output. No DB column needed. |
