@@ -32,6 +32,10 @@ def _harmony(a, b, orb=5.0):
     return d <= orb or abs(d - 120.0) <= orb
 
 
+# Orb for Chiron wound triggers (conjunction or opposition only)
+_CHIRON_ORB = 5.0
+
+
 def _in_house(planet_deg, cusp_deg, next_cusp_deg):
     if planet_deg is None or cusp_deg is None or next_cusp_deg is None:
         return False
@@ -68,22 +72,22 @@ def compute_shadow_and_wound(chart_a, chart_b):
         ("Mars",  chart_b.get("mars_degree")),
     ]
 
-    # A's personal planets conjunct/oppose B's Chiron (orb 5°) → wound trigger
+    # A's personal planets conjunct/oppose B's Chiron → wound trigger
     if chiron_b is not None:
         for p_name, p_deg in planets_a:
             d = _dist(p_deg, chiron_b)
-            if d is not None and (d <= 5.0 or abs(d - 180.0) <= 5.0):
+            if d is not None and (d <= _CHIRON_ORB or abs(d - 180.0) <= _CHIRON_ORB):
                 result["soul_mod"] += 15.0
                 if p_name == "Mars":
                     result["lust_mod"] += 10.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"A_{p_name}_Triggers_B_Chiron")
 
-    # B's personal planets conjunct/oppose A's Chiron (orb 5°) → wound trigger
+    # B's personal planets conjunct/oppose A's Chiron → wound trigger
     if chiron_a is not None:
         for p_name, p_deg in planets_b:
             d = _dist(p_deg, chiron_a)
-            if d is not None and (d <= 5.0 or abs(d - 180.0) <= 5.0):
+            if d is not None and (d <= _CHIRON_ORB or abs(d - 180.0) <= _CHIRON_ORB):
                 result["soul_mod"] += 15.0
                 if p_name == "Mars":
                     result["lust_mod"] += 10.0
