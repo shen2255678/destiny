@@ -660,7 +660,10 @@ async function runMatch() {
 
     renderResults(testId, gt, match, matchData, chartA, chartB, nameA, nameB);
 
-    // Fetch ZWDS charts in background and append to results when ready
+    // Fetch ZWDS charts in background and append to results when ready.
+    // Generation counter prevents stale ZWDS from a previous run appearing under new results.
+    window._matchGen = (window._matchGen || 0) + 1;
+    var thisGen = window._matchGen;
     var dateA = document.getElementById('a_birth_date').value;
     var timeA = document.getElementById('a_birth_time_exact').value;
     var genderA = document.getElementById('a_gender').value;
@@ -669,6 +672,7 @@ async function runMatch() {
     var genderB = document.getElementById('b_gender').value;
 
     Promise.all([fetchZwds(dateA, timeA, genderA), fetchZwds(dateB, timeB, genderB)]).then(function(res) {
+      if (window._matchGen !== thisGen) return;  // stale — a newer run has started; discard
       var zwdsA = res[0], zwdsB = res[1];
       if (zwdsA || zwdsB) {
         var container = document.getElementById('results-a');
