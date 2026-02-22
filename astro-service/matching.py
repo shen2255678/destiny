@@ -16,6 +16,12 @@ from typing import Dict, List, Optional
 from bazi import analyze_element_relation, compute_bazi_season_complement, check_branch_relations
 from zwds import compute_zwds_chart
 from zwds_synastry import compute_zwds_synastry
+from shadow_engine import (
+    compute_shadow_and_wound,
+    compute_dynamic_attachment,
+    compute_attachment_dynamics,
+    compute_elemental_fulfillment,
+)
 
 # ── Zodiac Constants ─────────────────────────────────────────
 
@@ -1044,6 +1050,61 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         day_branch_relation = check_branch_relations(day_branch_a, day_branch_b)
         apply_bazi_branch_modifiers(tracks, day_branch_relation)
 
+    # ── Phase II: Psychology Modifiers ────────────────────────────────────────────
+    # Additive modifiers applied after four-track computation. Only activate when
+    # the relevant chart data is present — degrade gracefully otherwise.
+
+    soul_adj    = 0.0
+    lust_adj    = 0.0
+    partner_adj = 0.0
+    high_voltage      = False
+    psychological_tags: List[str] = []
+
+    # 1. Shadow & Wound Engine (Chiron + 12th house cross-chart triggers)
+    try:
+        _shadow = compute_shadow_and_wound(user_a, user_b)
+        soul_adj    += _shadow["soul_mod"]
+        lust_adj    += _shadow["lust_mod"]
+        high_voltage = high_voltage or _shadow["high_voltage"]
+        psychological_tags.extend(_shadow["shadow_tags"])
+    except Exception:
+        pass   # never block matching for shadow engine errors
+
+    # 2. Dynamic Attachment + Attachment Dynamics
+    _att_a = user_a.get("attachment_style")
+    _att_b = user_b.get("attachment_style")
+    if _att_a and _att_b:
+        try:
+            _dyn_a, _dyn_b = compute_dynamic_attachment(
+                _att_a, _att_b, user_a, user_b
+            )
+            _att = compute_attachment_dynamics(_dyn_a, _dyn_b)
+            soul_adj    += _att["soul_mod"]
+            lust_adj    += _att["lust_mod"]
+            partner_adj += _att["partner_mod"]
+            high_voltage = high_voltage or _att["high_voltage"]
+            if _att["trap_tag"]:
+                psychological_tags.append(_att["trap_tag"])
+        except Exception:
+            pass
+
+    # 3. Elemental Fulfillment (from pre-computed element_profile stored in DB)
+    _ep_a = user_a.get("element_profile")
+    _ep_b = user_b.get("element_profile")
+    if _ep_a and _ep_b:
+        try:
+            soul_adj += compute_elemental_fulfillment(_ep_a, _ep_b)
+        except Exception:
+            pass
+
+    # Apply modifiers — clamp each track to [0, 100]
+    if soul_adj != 0.0:
+        tracks["soul"]    = _clamp(tracks["soul"]    + soul_adj)
+    if lust_adj != 0.0:
+        tracks["passion"] = _clamp(tracks["passion"] + lust_adj)
+    if partner_adj != 0.0:
+        tracks["partner"] = _clamp(tracks["partner"] + partner_adj)
+
     primary_track = max(tracks, key=lambda k: tracks[k])
     quadrant      = classify_quadrant(lust, soul)
     label         = TRACK_LABELS.get(primary_track, primary_track)
@@ -1056,6 +1117,10 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         target_idx = _SPICINESS_ORDER.index("HIGH_VOLTAGE")
         if cur_idx < target_idx:
             spiciness = "HIGH_VOLTAGE"
+
+    # high_voltage from psychology modifiers upgrades spiciness if not already HIGH_VOLTAGE/SOULMATE
+    if high_voltage and spiciness not in ("HIGH_VOLTAGE", "SOULMATE"):
+        spiciness = "HIGH_VOLTAGE"
 
     return {
         "lust_score":              round(lust, 1),
@@ -1070,6 +1135,8 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         "useful_god_complement":   round(useful_god_complement, 2),
         "zwds":                    zwds_result,
         "spiciness_level":         spiciness,
+        "psychological_tags":  psychological_tags,
+        "high_voltage":        high_voltage,
         "defense_mechanisms": {
             "viewer": zwds_result["defense_a"] if zwds_result else [],
             "target": zwds_result["defense_b"] if zwds_result else [],

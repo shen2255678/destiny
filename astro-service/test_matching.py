@@ -1586,3 +1586,54 @@ class TestKarmicInSoulTrack:
         assert 0 <= tracks["soul"] <= 100
 
 
+
+# ── Phase II: psychology modifier integration ────────────────────────────────────────────────
+
+def test_compute_match_v2_psychological_tags_key_present():
+    """Result dict must always contain psychological_tags and high_voltage keys."""
+    ua = {
+        "birth_year": 1995, "birth_date": "1995-06-15",
+        "sun_sign": "gemini", "moon_sign": "aries", "venus_sign": "taurus",
+        "mars_sign": "cancer", "mercury_sign": "gemini", "jupiter_sign": "sagittarius",
+        "saturn_sign": "pisces", "uranus_sign": "capricorn", "neptune_sign": "capricorn",
+        "pluto_sign": "scorpio", "chiron_sign": "virgo", "juno_sign": "leo",
+        "bazi_element": "wood",
+    }
+    ub = {
+        "birth_year": 1993, "birth_date": "1993-09-01",
+        "sun_sign": "virgo", "moon_sign": "capricorn", "venus_sign": "leo",
+        "mars_sign": "cancer", "mercury_sign": "virgo", "jupiter_sign": "libra",
+        "saturn_sign": "aquarius", "uranus_sign": "capricorn", "neptune_sign": "capricorn",
+        "pluto_sign": "scorpio", "chiron_sign": "virgo", "juno_sign": "aries",
+        "bazi_element": "fire",
+    }
+    result = compute_match_v2(ua, ub)
+    assert "psychological_tags" in result
+    assert "high_voltage" in result
+    assert isinstance(result["psychological_tags"], list)
+    assert isinstance(result["high_voltage"], bool)
+
+
+def test_compute_match_v2_attachment_dynamics_applied():
+    """Anxious + Avoidant pair should trigger high_voltage in v2 result."""
+    ua = {
+        "birth_year": 1995, "birth_date": "1995-06-15",
+        "sun_sign": "gemini", "moon_sign": "aries", "venus_sign": "taurus",
+        "mars_sign": "cancer", "mercury_sign": "gemini", "jupiter_sign": "sagittarius",
+        "saturn_sign": "pisces", "uranus_sign": "capricorn", "neptune_sign": "capricorn",
+        "pluto_sign": "scorpio", "chiron_sign": "virgo", "juno_sign": "leo",
+        "bazi_element": "wood",
+        "attachment_style": "anxious",
+    }
+    ub = {
+        "birth_year": 1993, "birth_date": "1993-09-01",
+        "sun_sign": "virgo", "moon_sign": "capricorn", "venus_sign": "leo",
+        "mars_sign": "cancer", "mercury_sign": "virgo", "jupiter_sign": "libra",
+        "saturn_sign": "aquarius", "uranus_sign": "capricorn", "neptune_sign": "capricorn",
+        "pluto_sign": "scorpio", "chiron_sign": "virgo", "juno_sign": "aries",
+        "bazi_element": "fire",
+        "attachment_style": "avoidant",
+    }
+    result = compute_match_v2(ua, ub)
+    assert result["high_voltage"] is True
+    assert "Anxious_Avoidant_Trap" in result["psychological_tags"]
