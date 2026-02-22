@@ -1,6 +1,6 @@
 """Tests for psychology.py — per-user tag extraction."""
 import pytest
-from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile
+from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile, extract_retrograde_karma
 
 
 def _chart(**kwargs):
@@ -92,40 +92,104 @@ def test_critical_no_degrees_no_tags():
     tags = extract_critical_degrees({}, is_exact_time=True)
     assert tags == []
 
-def test_element_profile_all_fire():
+def test_element_profile_all_fire_weighted():
+    # Even without Moon (no exact time), all fire signs get fire scores
     chart = {
-        "sun_sign": "aries", "moon_sign": "leo", "mercury_sign": "sagittarius",
-        "venus_sign": "aries", "mars_sign": "leo",
-        "jupiter_sign": "sagittarius", "saturn_sign": "aries",
-        "uranus_sign": "leo", "neptune_sign": "sagittarius", "pluto_sign": "aries"
+        "sun_sign": "aries",        # fire, 3.0
+        "mercury_sign": "sagittarius",  # fire, 2.0
+        "venus_sign": "aries",      # fire, 2.0
+        "mars_sign": "leo",         # fire, 2.0
+        "jupiter_sign": "sagittarius",  # fire, 1.0
+        "saturn_sign": "aries",     # fire, 1.0
     }
-    profile = compute_element_profile(chart)
-    assert profile["counts"]["Fire"] == 10
-    assert profile["counts"]["Earth"] == 0
-    assert "Fire" in profile["dominant"]
-    assert "Earth" in profile["deficiency"]
+    profile = compute_element_profile(chart, is_exact_time=False)
+    assert profile["scores"]["Fire"] == 11.0   # 3+2+2+2+1+1 without moon/asc
+    assert profile["scores"]["Earth"] == 0.0
+    assert "Fire" in profile["dominant"]   # 11 >= 7
+    assert "Earth" in profile["deficiency"]  # 0 <= 1
 
 def test_element_profile_mixed():
+    # Without exact time: sun(3)+mars(2)=5 fire, jupiter(1)=1 earth, mercury(2)+saturn(1)=3 air, venus(2)=2 water
     chart = {
-        "sun_sign": "aries", "moon_sign": "taurus", "mercury_sign": "gemini",
-        "venus_sign": "cancer", "mars_sign": "leo", "jupiter_sign": "virgo",
-        "saturn_sign": "libra", "uranus_sign": "scorpio",
-        "neptune_sign": "sagittarius", "pluto_sign": "capricorn",
+        "sun_sign": "aries",        # fire, 3.0
+        "moon_sign": "taurus",       # earth -- excluded (no exact time)
+        "mercury_sign": "gemini",    # air, 2.0
+        "venus_sign": "cancer",      # water, 2.0
+        "mars_sign": "leo",          # fire, 2.0
+        "jupiter_sign": "virgo",     # earth, 1.0
+        "saturn_sign": "libra",      # air, 1.0
+        "uranus_sign": "scorpio",    # excluded
+        "neptune_sign": "sagittarius", # excluded
+        "pluto_sign": "capricorn",   # excluded
     }
-    profile = compute_element_profile(chart)
-    assert profile["counts"] == {"Fire": 3, "Earth": 3, "Air": 2, "Water": 2}
-    assert profile["deficiency"] == []
-    assert profile["dominant"] == []
+    profile = compute_element_profile(chart, is_exact_time=False)
+    assert profile["scores"]["Fire"] == 5.0   # sun(3)+mars(2)
+    assert profile["scores"]["Earth"] == 1.0  # jupiter(1)
+    assert profile["scores"]["Air"] == 3.0    # mercury(2)+saturn(1)
+    assert profile["scores"]["Water"] == 2.0  # venus(2)
+    assert "Earth" in profile["deficiency"]   # 1.0 <= 1.0
+    assert profile["dominant"] == []          # nothing >= 7
 
 def test_element_profile_missing_planets_graceful():
-    chart = {"sun_sign": "aries"}
-    profile = compute_element_profile(chart)
-    assert profile["counts"]["Fire"] == 1
+    chart = {"sun_sign": "aries"}  # only sun known, weight=3.0
+    profile = compute_element_profile(chart, is_exact_time=False)
+    assert profile["scores"]["Fire"] == 3.0
     assert "Earth" in profile["deficiency"]
     assert "Air" in profile["deficiency"]
     assert "Water" in profile["deficiency"]
 
 def test_element_profile_unknown_sign_ignored():
     chart = {"sun_sign": "aries", "moon_sign": None}
-    profile = compute_element_profile(chart)
-    assert profile["counts"]["Fire"] == 1
+    profile = compute_element_profile(chart, is_exact_time=False)
+    assert profile["scores"]["Fire"] == 3.0  # only sun counted (moon=None)
+
+
+def test_element_profile_moon_counted_with_exact_time():
+    chart = {"sun_sign": "aries", "moon_sign": "leo"}  # both fire
+    profile_inexact = compute_element_profile(chart, is_exact_time=False)
+    profile_exact   = compute_element_profile(chart, is_exact_time=True)
+    assert profile_inexact["scores"]["Fire"] == 3.0   # only sun (moon excluded)
+    assert profile_exact["scores"]["Fire"] == 6.0     # sun(3)+moon(3)
+
+
+def test_element_profile_dominant_requires_score_7():
+    # Sun(3) + Moon(3) = 6 -- NOT dominant
+    chart = {"sun_sign": "aries", "moon_sign": "leo"}
+    profile = compute_element_profile(chart, is_exact_time=True)
+    assert profile["dominant"] == []   # 6 < 7
+
+    # Sun(3) + Moon(3) + Mercury(2) = 8 -- dominant
+    chart2 = {"sun_sign": "aries", "moon_sign": "leo", "mercury_sign": "sagittarius"}
+    profile2 = compute_element_profile(chart2, is_exact_time=True)
+    assert "Fire" in profile2["dominant"]
+
+
+# -- extract_retrograde_karma --------------------------------------------------
+
+def test_retrograde_venus_tag():
+    chart = {"venus_rx": True}
+    tags = extract_retrograde_karma(chart)
+    assert "Karmic_Love_Venus_Rx" in tags
+
+
+def test_retrograde_mars_tag():
+    chart = {"mars_rx": True}
+    tags = extract_retrograde_karma(chart)
+    assert "Suppressed_Anger_Mars_Rx" in tags
+
+
+def test_retrograde_mercury_tag():
+    chart = {"mercury_rx": True}
+    tags = extract_retrograde_karma(chart)
+    assert "Internal_Dialogue_Mercury_Rx" in tags
+
+
+def test_retrograde_no_rx_no_tags():
+    chart = {"venus_rx": False, "mars_rx": False, "mercury_rx": False}
+    tags = extract_retrograde_karma(chart)
+    assert tags == []
+
+
+def test_retrograde_missing_keys_no_error():
+    tags = extract_retrograde_karma({})
+    assert tags == []

@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 import swisseph as swe
-from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile
+from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile, extract_retrograde_karma
 
 def _resolve_ephe_path() -> str:
     """Return an ASCII-safe path to the ephemeris directory.
@@ -253,12 +253,16 @@ def calculate_chart(
     # ── Planetary positions ──────────────────────────────────────
     result: dict[str, str | int | None] = {"data_tier": data_tier}
 
+    _RX_PLANETS = {"mercury", "venus", "mars"}
     for name, planet_id in PLANETS.items():
         # swe.calc_ut returns (longitude, latitude, distance, speed_lon, speed_lat, speed_dist)
         pos, _ret_flag = swe.calc_ut(jd, planet_id)
         sign = longitude_to_sign(pos[0])
         result[f"{name}_sign"] = sign
         result[f"{name}_degree"] = round(pos[0], 2)  # absolute ecliptic longitude 0-360
+        # Retrograde detection for inner planets only (speed < 0 = retrograde)
+        if name in _RX_PLANETS:
+            result[f"{name}_rx"] = pos[3] < 0.0
 
     # ── Asteroids (Chiron, Juno) ─────────────────────────────────
     for name, asteroid_id in ASTEROIDS.items():
@@ -326,6 +330,7 @@ def calculate_chart(
     is_exact = (data_tier == 1)
     result["sm_tags"]         = extract_sm_dynamics(result)
     result["karmic_tags"]     = extract_critical_degrees(result, is_exact_time=is_exact)
-    result["element_profile"] = compute_element_profile(result)
+    result["karmic_tags"]     = result["karmic_tags"] + extract_retrograde_karma(result)
+    result["element_profile"] = compute_element_profile(result, is_exact_time=is_exact)
 
     return result

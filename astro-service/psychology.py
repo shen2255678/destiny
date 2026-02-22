@@ -2,15 +2,16 @@
 DESTINY — Psychology Layer
 Extracts psychological tags from a natal chart dict.
 
-Three public functions:
-  - extract_sm_dynamics(chart)        -> List[str]
-  - extract_critical_degrees(chart)   -> List[str]
-  - compute_element_profile(chart)    -> dict
+Four public functions:
+  - extract_sm_dynamics(chart)               -> List[str]
+  - extract_critical_degrees(chart)          -> List[str]
+  - compute_element_profile(chart, is_exact_time) -> dict
+  - extract_retrograde_karma(chart)          -> List[str]
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
 # Aspect helpers
@@ -175,39 +176,101 @@ _ELEMENT_MAP: Dict[str, str] = {
     "cancer": "Water", "scorpio": "Water", "pisces": "Water",
 }
 
-_PLANETS = [
-    "sun", "moon", "mercury", "venus", "mars",
-    "jupiter", "saturn", "uranus", "neptune", "pluto",
-]
-
 _ELEMENTS = ["Fire", "Earth", "Air", "Water"]
 
-_DEFICIENCY_THRESHOLD = 1   # <= N planets in element → psychological black hole
-_DOMINANCE_THRESHOLD  = 4   # >= N planets in element → dominant strength
+_DEFICIENCY_THRESHOLD = 1.0  # weighted score <= 1.0 → psychological black hole
+_DOMINANCE_THRESHOLD  = 7.0  # weighted score >= 7.0 → dominant strength
+
+_WEIGHTS_MAP: Dict[str, float] = {
+    "sun":     3.0,
+    "moon":    3.0,
+    "asc":     3.0,
+    "mercury": 2.0,
+    "venus":   2.0,
+    "mars":    2.0,
+    "jupiter": 1.0,
+    "saturn":  1.0,
+    # Uranus, Neptune, Pluto excluded — generational planets, not personal markers
+}
 
 
-def compute_element_profile(chart: dict) -> dict:
-    """Count 10 core planets across the 4 Western elements.
+def compute_element_profile(chart: Dict[str, Any],
+                            is_exact_time: bool = False) -> Dict[str, Any]:
+    """Compute weighted element scores across personal and social planets.
 
-    Returns:
-      {
-        "counts":     {"Fire": int, "Earth": int, "Air": int, "Water": int},
-        "deficiency": [elements with count <= 1],
-        "dominant":   [elements with count >= 4],
-      }
+    Uses professional weighted scoring:
+      Sun / Moon / ASC  → 3 pts each  (core identity)
+      Mercury / Venus / Mars → 2 pts each  (personal expression)
+      Jupiter / Saturn  → 1 pt each  (social orientation)
+      Outer planets     → excluded  (generational, not personal)
+
+    Moon and ASC weights are zeroed when is_exact_time is False to avoid
+    false deficiency labels from noon-approximated positions.
+
+    Parameters
+    ----------
+    chart         : dict   Natal chart dict with ``*_sign`` keys.
+    is_exact_time : bool   True when user has precise birth time (Tier 1).
+
+    Returns
+    -------
+    dict with keys:
+      - ``scores``     : {Fire, Earth, Air, Water} weighted totals
+      - ``deficiency`` : elements with score <= 1.0  (soul "black holes")
+      - ``dominant``   : elements with score >= 7.0  (soul "strengths")
     """
-    counts: Dict[str, int] = {e: 0 for e in _ELEMENTS}
+    weights = dict(_WEIGHTS_MAP)
+    if not is_exact_time:
+        weights["moon"] = 0.0
+        weights["asc"]  = 0.0
 
-    for planet in _PLANETS:
-        sign = chart.get(f"{planet}_sign")
-        if sign is None:
+    scores: Dict[str, float] = {"Fire": 0.0, "Earth": 0.0, "Air": 0.0, "Water": 0.0}
+
+    for point, weight in weights.items():
+        if weight == 0.0:
             continue
-        element = _ELEMENT_MAP.get(sign.lower())
-        if element is None:
-            continue
-        counts[element] += 1
+        if point == "asc":
+            # Handle both key naming conventions
+            sign = (chart.get("asc_sign") or chart.get("ascendant_sign") or "").lower()
+        else:
+            sign = (chart.get(f"{point}_sign") or "").lower()
+        element = _ELEMENT_MAP.get(sign)
+        if element:
+            scores[element] += weight
 
-    deficiency = [e for e in _ELEMENTS if counts[e] <= _DEFICIENCY_THRESHOLD]
-    dominant   = [e for e in _ELEMENTS if counts[e] >= _DOMINANCE_THRESHOLD]
+    deficiency = [elem for elem, score in scores.items() if score <= _DEFICIENCY_THRESHOLD]
+    dominant   = [elem for elem, score in scores.items() if score >= _DOMINANCE_THRESHOLD]
 
-    return {"counts": counts, "deficiency": deficiency, "dominant": dominant}
+    return {
+        "scores":     scores,
+        "deficiency": deficiency,
+        "dominant":   dominant,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Retrograde karma
+# ---------------------------------------------------------------------------
+
+def extract_retrograde_karma(chart: Dict[str, Any]) -> List[str]:
+    """Extract inner-planet retrograde karma tags.
+
+    Only inner planets (Mercury, Venus, Mars) are evaluated — outer planets
+    retrograde too frequently (>40% of year) to be personal markers.
+
+    Parameters
+    ----------
+    chart : dict   Natal chart dict with ``{planet}_rx`` boolean keys.
+
+    Returns
+    -------
+    List[str]   Tags to be merged into karmic_tags.
+    """
+    tags: List[str] = []
+    if chart.get("venus_rx"):
+        tags.append("Karmic_Love_Venus_Rx")
+    if chart.get("mars_rx"):
+        tags.append("Suppressed_Anger_Mars_Rx")
+    if chart.get("mercury_rx"):
+        tags.append("Internal_Dialogue_Mercury_Rx")
+    return tags
