@@ -265,6 +265,9 @@ def calculate_chart(
             result[f"{name}_rx"] = pos[3] < 0.0
 
     # ── Asteroids (Chiron, Juno) ─────────────────────────────────
+    # Re-apply ephemeris path before asteroid calls — some ASGI server import
+    # sequences reset pyswisseph's C-library global path to the default '\sweph\ephe\'.
+    swe.set_ephe_path(_EPHE_DIR)
     for name, asteroid_id in ASTEROIDS.items():
         try:
             pos, _ret = swe.calc_ut(jd, asteroid_id)
