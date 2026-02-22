@@ -748,3 +748,185 @@ class TestPlanetDegrees:
         result = calculate_chart(birth_date="1988-03-21", data_tier=3)
         sun_deg = result["sun_degree"]
         assert round(sun_deg, 2) == sun_deg
+
+
+# ── Natal Aspects ─────────────────────────────────────────────────────────────
+
+_VALID_ASPECT_TYPES = {"conjunction", "sextile", "square", "trine", "opposition"}
+
+
+class TestNatalAspects:
+    """Tests for compute_natal_aspects() via calculate_chart()."""
+
+    # 1. natal_aspects key is present in Tier 1 chart result
+    def test_natal_aspects_key_present_tier1(self):
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        assert "natal_aspects" in result
+        assert isinstance(result["natal_aspects"], list)
+
+    # Also present for Tier 2 and Tier 3
+    def test_natal_aspects_key_present_tier2(self):
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="morning",
+            lat=25.033,
+            lng=121.565,
+            data_tier=2,
+        )
+        assert "natal_aspects" in result
+        assert isinstance(result["natal_aspects"], list)
+
+    def test_natal_aspects_key_present_tier3(self):
+        result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+        assert "natal_aspects" in result
+        assert isinstance(result["natal_aspects"], list)
+
+    # 2. Each aspect dict has required keys: a, b, aspect, orb, strength
+    def test_aspect_dict_has_required_keys(self):
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        aspects = result["natal_aspects"]
+        # A real chart will always have at least one aspect within orb
+        assert len(aspects) > 0, "Expected at least one natal aspect for Tier 1 chart"
+        for asp in aspects:
+            assert "a" in asp, f"Missing key 'a' in aspect: {asp}"
+            assert "b" in asp, f"Missing key 'b' in aspect: {asp}"
+            assert "aspect" in asp, f"Missing key 'aspect' in aspect: {asp}"
+            assert "orb" in asp, f"Missing key 'orb' in aspect: {asp}"
+            assert "strength" in asp, f"Missing key 'strength' in aspect: {asp}"
+
+    # 3. No duplicate pairs (a-b same as b-a)
+    def test_no_duplicate_pairs(self):
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        seen: set = set()
+        for asp in result["natal_aspects"]:
+            # Canonical form: always alphabetical order of the pair
+            pair = tuple(sorted([asp["a"], asp["b"]]))
+            assert pair not in seen, f"Duplicate pair found: {asp['a']}-{asp['b']}"
+            seen.add(pair)
+
+    # 4. All aspect types are valid strings
+    def test_all_aspect_types_valid(self):
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        for asp in result["natal_aspects"]:
+            assert asp["aspect"] in _VALID_ASPECT_TYPES, (
+                f"Invalid aspect type: {asp['aspect']}"
+            )
+
+    # 5. strength is between 0 and 1 (inclusive)
+    def test_strength_in_range(self):
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        for asp in result["natal_aspects"]:
+            assert 0.0 <= asp["strength"] <= 1.0, (
+                f"strength out of range: {asp['strength']} for {asp}"
+            )
+
+    # 6. If planet degree is None, that pair is skipped (no crash)
+    def test_none_degree_skipped_no_crash(self):
+        """Tier 3 sets moon_degree to None — no crash, pair simply excluded."""
+        result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+        # Should not raise; moon-related pairs are silently skipped
+        aspects = result["natal_aspects"]
+        assert isinstance(aspects, list)
+        # moon_degree is None in Tier 3; verify no aspect has moon as a or b
+        for asp in aspects:
+            assert asp["a"] != "moon", "moon should be skipped in Tier 3 (degree is None)"
+            assert asp["b"] != "moon", "moon should be skipped in Tier 3 (degree is None)"
+
+    # 7. Aspects are sorted by strength descending
+    def test_sorted_by_strength_descending(self):
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        strengths = [asp["strength"] for asp in result["natal_aspects"]]
+        assert strengths == sorted(strengths, reverse=True), (
+            "natal_aspects should be sorted by strength descending"
+        )
+
+    # 8. Tier 1 may include ascendant in aspects; Tier 2/3 should not
+    def test_tier1_may_include_ascendant_aspects(self):
+        """Tier 1 has ascendant_degree set, so ascendant can appear in aspects."""
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        # ascendant_degree is not None for Tier 1
+        assert result.get("ascendant_degree") is not None
+        # It's valid for aspects to include ascendant (not required, but possible)
+        # No assertion on count — just confirm no crash and result is a list
+        assert isinstance(result["natal_aspects"], list)
+
+    def test_tier3_no_ascendant_in_aspects(self):
+        """Tier 3 has ascendant_degree = None, so ascendant should never appear."""
+        result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+        assert result.get("ascendant_degree") is None
+        for asp in result["natal_aspects"]:
+            assert asp["a"] != "ascendant"
+            assert asp["b"] != "ascendant"
+
+    # 9. orb is non-negative and less than the maximum orb for that aspect type
+    def test_orb_within_max_orb(self):
+        MAX_ORBS = {
+            "conjunction": 8.0,
+            "sextile": 6.0,
+            "square": 8.0,
+            "trine": 8.0,
+            "opposition": 8.0,
+        }
+        result = calculate_chart(
+            birth_date="1997-03-08",
+            birth_time="precise",
+            birth_time_exact="20:00",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        for asp in result["natal_aspects"]:
+            max_orb = MAX_ORBS[asp["aspect"]]
+            assert asp["orb"] >= 0.0, f"Negative orb: {asp}"
+            assert asp["orb"] <= max_orb, (
+                f"orb {asp['orb']} exceeds max {max_orb} for {asp['aspect']}: {asp}"
+            )

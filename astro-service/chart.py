@@ -336,4 +336,93 @@ def calculate_chart(
     result["karmic_tags"]     = result["karmic_tags"] + extract_retrograde_karma(result)
     result["element_profile"] = compute_element_profile(result, is_exact_time=is_exact)
 
+    # ── Natal Aspects ────────────────────────────────────────────────
+    result["natal_aspects"] = compute_natal_aspects(result, data_tier)
+
     return result
+
+
+# ── Natal Aspects Calculator ─────────────────────────────────────────────────
+
+# Aspects to check: name → (exact_angle_degrees, max_orb_degrees)
+_ASPECT_RULES: list[tuple[str, float, float]] = [
+    ("conjunction",  0.0,  8.0),
+    ("sextile",     60.0,  6.0),
+    ("square",      90.0,  8.0),
+    ("trine",      120.0,  8.0),
+    ("opposition", 180.0,  8.0),
+]
+
+# Personal planets always included
+_NATAL_PLANETS_BASE = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn", "chiron"]
+
+# Tier 1 adds the ascendant
+_NATAL_PLANETS_TIER1_EXTRA = ["ascendant"]
+
+
+def _angular_distance(a: float, b: float) -> float:
+    """Shortest arc between two ecliptic longitudes (0–360). Returns value in [0, 180]."""
+    diff = abs(a - b) % 360.0
+    return min(diff, 360.0 - diff)
+
+
+def compute_natal_aspects(result: dict, data_tier: int) -> list:
+    """Compute all notable aspects between personal planets in the natal chart.
+
+    Parameters
+    ----------
+    result     : dict  The chart result dict (must contain {planet}_degree keys).
+    data_tier  : int   1 = Tier 1 (Gold) — also checks ascendant.
+
+    Returns
+    -------
+    list of dicts, sorted by strength descending:
+        {
+            "a": str,        # planet name (lowercase)
+            "b": str,        # planet name (lowercase)
+            "aspect": str,   # conjunction/sextile/square/trine/opposition
+            "orb": float,    # angular distance from exact aspect angle (degrees)
+            "strength": float  # 1.0 - (orb / max_orb), clamped [0, 1]
+        }
+    Only pairs whose angular distance falls within any aspect's orb are included.
+    Pairs where either planet's degree is None are skipped.
+    """
+    planets = list(_NATAL_PLANETS_BASE)
+    if data_tier == 1:
+        planets = planets + _NATAL_PLANETS_TIER1_EXTRA
+
+    aspects_found: list[dict] = []
+
+    # Iterate over every unique unordered pair
+    for i in range(len(planets)):
+        for j in range(i + 1, len(planets)):
+            name_a = planets[i]
+            name_b = planets[j]
+
+            deg_a = result.get(f"{name_a}_degree")
+            deg_b = result.get(f"{name_b}_degree")
+
+            # Skip if either degree is missing / None
+            if deg_a is None or deg_b is None:
+                continue
+
+            arc = _angular_distance(deg_a, deg_b)
+
+            # Check each aspect rule
+            for aspect_name, exact_angle, max_orb in _ASPECT_RULES:
+                orb = abs(arc - exact_angle)
+                if orb <= max_orb:
+                    strength = round(max(0.0, min(1.0, 1.0 - (orb / max_orb))), 4)
+                    aspects_found.append({
+                        "a": name_a,
+                        "b": name_b,
+                        "aspect": aspect_name,
+                        "orb": round(orb, 4),
+                        "strength": strength,
+                    })
+                    break  # Each pair gets at most one aspect (the first matching rule)
+
+    # Sort by strength descending (strongest aspects first)
+    aspects_found.sort(key=lambda x: x["strength"], reverse=True)
+
+    return aspects_found
