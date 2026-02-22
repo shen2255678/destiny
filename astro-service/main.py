@@ -24,6 +24,7 @@ from chart import calculate_chart
 from bazi import analyze_element_relation
 from matching import compute_match_score, compute_match_v2
 from zwds import compute_zwds_chart
+from prompt_manager import get_match_report_prompt, get_simple_report_prompt, get_profile_prompt
 from anthropic import Anthropic
 from google import genai as google_genai
 
@@ -210,35 +211,13 @@ def call_llm(
         return message.content[0].text
 
 
-ARCHETYPE_PROMPT = """\
-你是 DESTINY 平台的靈魂分析師。根據以下兩人的星盤相容性數據，生成配對解讀。
-
-數據：
-- VibeScore（肉體吸引力）: {lust_score}/100
-- ChemistryScore（靈魂深度）: {soul_score}/100
-- 主要連結類型: {primary_track}
-- 四象限: {quadrant}
-- 標籤: {labels}
-- 四軌分數: friend={friend} passion={passion} partner={partner} soul={soul}
-- 權力動態: {viewer_role}（{person_a}）→ {target_role}（{person_b}），RPV={rpv}
-- 框架崩潰（Chiron觸發）: {frame_break}
-
-請只回傳以下 JSON 格式，不要包含任何其他文字或 markdown：
-{{
-  "archetype_tags": ["tag1", "tag2", "tag3"],
-  "report": "約150字的繁體中文解讀報告"
-}}
-
-規則：
-- archetype_tags 為 3 個英文詞組（每個 2-4 個字），描述這段關係的本質
-- report 用自然、有溫度的繁體中文，直接描述這兩人的連結特質
-"""
 
 
 class ArchetypeRequest(BaseModel):
     match_data: dict
     person_a_name: str = "A"
     person_b_name: str = "B"
+    mode: str = "auto"           # "auto" | "hunt" | "nest" | "abyss" | "friend"
     language: str = "zh-TW"
     provider: str = "anthropic"  # "anthropic" | "gemini"
     api_key: str = ""            # overrides server env var when provided
@@ -247,63 +226,27 @@ class ArchetypeRequest(BaseModel):
 
 @app.post("/generate-archetype")
 def generate_archetype(req: ArchetypeRequest):
-    """Generate AI archetype tags + interpretation report via Claude or Gemini."""
-    md = req.match_data
-    tracks = md.get("tracks", {})
-    power = md.get("power", {})
+    """Generate DESTINY archetype report (5-section) via Claude or Gemini.
 
-    prompt = ARCHETYPE_PROMPT.format(
-        lust_score=round(md.get("lust_score", 0), 1),
-        soul_score=round(md.get("soul_score", 0), 1),
-        primary_track=md.get("primary_track", "unknown"),
-        quadrant=md.get("quadrant", "unknown"),
-        labels=", ".join(md.get("labels", [])),
-        friend=tracks.get("friend", 0),
-        passion=tracks.get("passion", 0),
-        partner=tracks.get("partner", 0),
-        soul=tracks.get("soul", 0),
-        viewer_role=power.get("viewer_role", "Equal"),
-        target_role=power.get("target_role", "Equal"),
-        person_a=req.person_a_name,
-        person_b=req.person_b_name,
-        rpv=power.get("rpv", 0),
-        frame_break=power.get("frame_break", False),
+    Returns: {archetype_tags, resonance, shadow, reality_check, evolution, core}
+    Mode auto-selects track template from primary_track + high_voltage.
+    """
+    prompt, effective_mode = get_match_report_prompt(
+        req.match_data, mode=req.mode,
+        person_a=req.person_a_name, person_b=req.person_b_name,
     )
-
     raw = ""
     try:
-        raw = call_llm(prompt, provider=req.provider, max_tokens=600, api_key=req.api_key, gemini_model=req.gemini_model)
-        return json.loads(raw)
+        raw = call_llm(prompt, provider=req.provider, max_tokens=900, api_key=req.api_key, gemini_model=req.gemini_model)
+        result = json.loads(raw)
+        result["effective_mode"] = effective_mode
+        return result
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-PROFILE_CARD_PROMPT = """\
-你是一個精通心理學與占星八字的現代交友顧問。請根據以下使用者的命理特徵參數，生成一份適合在交友軟體上展示的個人名片。
-文案需要生活化、有吸引力，絕對不要使用生硬的算命術語（如：食神、七殺、刑衝剋害），請轉化為白話的性格描述。必須以 JSON 格式回傳。
-
-使用者特徵：
-- 太陽星座: {sun_sign}
-- 月亮星座: {moon_sign}
-- 上升星座: {ascendant_sign}
-- 八字日主五行: {bazi_element}
-- 依戀風格: {attachment_style}
-- 衝突處理: {rpv_conflict}
-- 權力偶好: {rpv_power}
-- 能量模式: {rpv_energy}
-
-請只回傳以下 JSON 格式，不要包含任何其他文字：
-{{
-  "headline": "3-6字的人格標題（例：靈魂探索者、溫柔颶風）",
-  "tags": ["標籤1", "標籤2", "標籤3", "標籤4"],
-  "bio": "約80字的交友自介，第一人稱，生活化，有個性",
-  "vibe_keywords": ["氛圍關鍵字1", "氛圍關鍵字2", "氛圍關鍵字3"]
-}}
-"""
 
 
 class ProfileCardRequest(BaseModel):
@@ -318,23 +261,15 @@ class ProfileCardRequest(BaseModel):
 
 @app.post("/generate-profile-card")
 def generate_profile_card(req: ProfileCardRequest):
-    """Generate a dating-app profile card via Claude or Gemini."""
-    cd = req.chart_data
-    rpv = req.rpv_data
-    prompt = PROFILE_CARD_PROMPT.format(
-        sun_sign=cd.get("sun_sign", "unknown"),
-        moon_sign=cd.get("moon_sign", "unknown"),
-        ascendant_sign=cd.get("ascendant_sign", "unknown"),
-        bazi_element=cd.get("bazi_element", "unknown"),
-        attachment_style=req.attachment_style,
-        rpv_conflict=rpv.get("rpv_conflict", "unknown"),
-        rpv_power=rpv.get("rpv_power", "unknown"),
-        rpv_energy=rpv.get("rpv_energy", "unknown"),
-    )
+    """Generate a DESTINY soul profile card via Claude or Gemini.
+
+    Returns: {headline, shadow_trait, avoid_types, evolution, core}
+    """
+    prompt = get_profile_prompt(req.chart_data, req.rpv_data, req.attachment_style)
 
     raw = ""
     try:
-        raw = call_llm(prompt, provider=req.provider, max_tokens=500, api_key=req.api_key, gemini_model=req.gemini_model)
+        raw = call_llm(prompt, provider=req.provider, max_tokens=600, api_key=req.api_key, gemini_model=req.gemini_model)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
@@ -344,37 +279,11 @@ def generate_profile_card(req: ProfileCardRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-MATCH_REPORT_PROMPT = """\
-你是一位高情商的關係諮商師。請根據 {person_a} 與 {person_b} 兩人的合盤分數與互動特徵，\
-寫出一份雙方都能看懂的「關係潛力報告」。
-請分為「閃光點（高分項目）」與「潛在雷區（低分項目）」，並給出具體的相處建議。
-請客觀且帶有溫度，若有衝突點，請包裝成「成長課題」而非缺點。
-
-合盤數據：
-- VibeScore（肉體吸引力）: {lust_score}/100
-- ChemistryScore（靈魂深度）: {soul_score}/100
-- 主要連結類型: {primary_track}
-- 四象限: {quadrant}
-- 四軌: friend={friend} passion={passion} partner={partner} soul={soul}
-- 權力動態: {person_a}={viewer_role}，{person_b}={target_role}，RPV={rpv}
-- Chiron框架觸發: {frame_break}
-- 系統標籤: {labels}
-
-請只回傳以下 JSON，不要包含任何其他文字：
-{{
-  "title": "這段關係的標題（8字以內）",
-  "sparks": ["閃光點1", "閃光點2", "閃光點3"],
-  "landmines": ["成長課題1", "成長課題2"],
-  "advice": "約100字的相處建議，具體可操作",
-  "one_liner": "一句話描述這段關係的本質（詩意但直白）"
-}}
-"""
-
-
 class MatchReportRequest(BaseModel):
     match_data: dict
     person_a_name: str = "A"
     person_b_name: str = "B"
+    mode: str = "auto"           # "auto" | "hunt" | "nest" | "abyss" | "friend"
     provider: str = "anthropic"  # "anthropic" | "gemini"
     api_key: str = ""            # overrides server env var when provided
     gemini_model: str = "gemini-2.0-flash"  # used only when provider="gemini"
@@ -382,26 +291,14 @@ class MatchReportRequest(BaseModel):
 
 @app.post("/generate-match-report")
 def generate_match_report(req: MatchReportRequest):
-    """Generate a full synastry relationship report via Claude or Gemini."""
-    md = req.match_data
-    tracks = md.get("tracks", {})
-    power = md.get("power", {})
-    prompt = MATCH_REPORT_PROMPT.format(
-        person_a=req.person_a_name,
-        person_b=req.person_b_name,
-        lust_score=round(md.get("lust_score", 0), 1),
-        soul_score=round(md.get("soul_score", 0), 1),
-        primary_track=md.get("primary_track", "unknown"),
-        quadrant=md.get("quadrant", "unknown"),
-        friend=tracks.get("friend", 0),
-        passion=tracks.get("passion", 0),
-        partner=tracks.get("partner", 0),
-        soul=tracks.get("soul", 0),
-        viewer_role=power.get("viewer_role", "Equal"),
-        target_role=power.get("target_role", "Equal"),
-        rpv=power.get("rpv", 0),
-        frame_break=power.get("frame_break", False),
-        labels=", ".join(md.get("labels", [])),
+    """Generate a DESTINY relationship report via Claude or Gemini.
+
+    Returns: {title, one_liner, sparks, landmines, advice, core}
+    Mode auto-selects track template from primary_track + high_voltage.
+    """
+    prompt = get_simple_report_prompt(
+        req.match_data, mode=req.mode,
+        person_a=req.person_a_name, person_b=req.person_b_name,
     )
 
     raw = ""

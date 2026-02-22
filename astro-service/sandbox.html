@@ -276,7 +276,7 @@
       <div class="field"><label>partner</label><input type="number" id="mr_partner" value="60" min="0" max="100"></div>
       <div class="field"><label>soul</label><input type="number" id="mr_soul_t" value="55" min="0" max="100"></div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:12px">
       <div class="field"><label>primary_track</label>
         <select id="mr_primary"><option>passion</option><option>partner</option><option>friend</option><option>soul</option></select>
       </div>
@@ -284,6 +284,9 @@
         <select id="mr_quad"><option>lover</option><option>soulmate</option><option>partner</option><option>colleague</option></select>
       </div>
       <div class="field"><label>RPV</label><input type="number" id="mr_rpv" value="25"></div>
+      <div class="field"><label>模式</label>
+        <select id="mr_mode"><option value="auto">auto</option><option value="abyss">abyss</option><option value="hunt">hunt</option><option value="nest">nest</option><option value="friend">friend</option></select>
+      </div>
     </div>
     <div>
       <button class="btn" onclick="fillFromLastMatch()">&#8592; &#24478;&#19978;&#27425;&#21512;&#30424;&#22586;&#20837;</button>
@@ -571,7 +574,16 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
     '</div>' +
     '<div class="archetype-section">' +
       '<h4>AI 原型標籤 + 解讀報告</h4>' +
-      '<button class="btn-sm" id="archetype-btn" onclick="generateArchetype()">&#10022; Generate</button>' +
+      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<select id="archetype-mode" style="background:#1f2937;border:1px solid #374151;color:#e0dff8;padding:4px 8px;border-radius:4px;font-size:12px;font-family:inherit">' +
+          '<option value="auto">auto（系統自動）</option>' +
+          '<option value="abyss">abyss（靈魂/修羅）</option>' +
+          '<option value="hunt">hunt（激情/狩獵）</option>' +
+          '<option value="nest">nest（伴侶/築巢）</option>' +
+          '<option value="friend">friend（朋友/默契）</option>' +
+        '</select>' +
+        '<button class="btn-sm" id="archetype-btn" onclick="generateArchetype()">&#10022; Generate</button>' +
+      '</div>' +
       '<div id="archetype-output" style="margin-top:8px"></div>' +
     '</div>';
 
@@ -633,6 +645,8 @@ async function generateArchetype() {
   var provider = document.getElementById('llmProvider').value;
   out.innerHTML = '<div class="loading">\u547c\u53eb ' + (provider === 'gemini' ? 'Gemini' : 'Claude') + ' API...</div>';
 
+  var mode = document.getElementById('archetype-mode') ? document.getElementById('archetype-mode').value : 'auto';
+
   try {
     var r = await fetch(BASE + '/generate-archetype', {
       method: 'POST',
@@ -641,6 +655,7 @@ async function generateArchetype() {
         match_data: window._lastMatchData,
         person_a_name: window._lastNameA || 'A',
         person_b_name: window._lastNameB || 'B',
+        mode: mode,
         provider: provider,
         api_key: getApiKey(),
         gemini_model: getGeminiModel(),
@@ -651,9 +666,22 @@ async function generateArchetype() {
     var tagsHtml = (data.archetype_tags || []).map(function(t) {
       return '<span class="archetype-tag">' + t + '</span>';
     }).join('');
+    var realityHtml = (data.reality_check || []).map(function(s) {
+      return '<li style="color:#fca5a5;font-size:12px;line-height:1.8">' + s + '</li>';
+    }).join('');
+    var evolutionHtml = (data.evolution || []).map(function(s) {
+      return '<li style="color:#6ee7b7;font-size:12px;line-height:1.8">' + s + '</li>';
+    }).join('');
+    var effectiveMode = data.effective_mode ? ' <span style="color:#6b7280;font-size:10px">(' + data.effective_mode + ')</span>' : '';
     out.innerHTML =
-      '<div class="archetype-tags">' + tagsHtml + '</div>' +
-      '<div class="report-text">' + (data.report || '') + '</div>';
+      '<div class="archetype-tags" style="margin-bottom:10px">' + tagsHtml + effectiveMode + '</div>' +
+      '<div style="background:#0f172a;border:1px solid #7c3aed;border-radius:10px;padding:14px">' +
+        (data.resonance ? '<div style="margin-bottom:10px"><div style="color:#a78bfa;font-size:10px;margin-bottom:3px">一、共振</div><div class="report-text">' + data.resonance + '</div></div>' : '') +
+        (data.shadow    ? '<div style="margin-bottom:10px"><div style="color:#a78bfa;font-size:10px;margin-bottom:3px">二、陰影</div><div class="report-text">' + data.shadow + '</div></div>' : '') +
+        (realityHtml    ? '<div style="margin-bottom:10px"><div style="color:#f87171;font-size:10px;margin-bottom:3px">三、會痛的關卡</div><ul style="list-style:none;padding:0">' + realityHtml + '</ul></div>' : '') +
+        (evolutionHtml  ? '<div style="margin-bottom:10px"><div style="color:#34d399;font-size:10px;margin-bottom:3px">四、進化心法</div><ul style="list-style:none;padding:0">' + evolutionHtml + '</ul></div>' : '') +
+        (data.core      ? '<div style="border-top:1px solid #374151;padding-top:10px;font-style:italic;color:#c084fc;font-size:12px">' + data.core + '</div>' : '') +
+      '</div>';
   } catch(e) {
     var errDiv = document.createElement('div');
     errDiv.className = 'error-msg';
@@ -849,20 +877,20 @@ async function generateProfileCard() {
     if (!r.ok) { var e2 = await r.json(); throw new Error(e2.detail || r.statusText); }
     var data = await r.json();
 
-    var tagsHtml = (data.tags || []).map(function(t) {
-      return '<span class="label-tag">' + t + '</span>';
+    var avoidHtml = (data.avoid_types || []).map(function(t) {
+      return '<span class="label-tag" style="background:#7f1d1d;border-color:#dc2626;color:#fca5a5">' + t + '</span>';
     }).join('');
-    var vibeHtml = (data.vibe_keywords || []).map(function(t) {
-      return '<span class="archetype-tag">' + t + '</span>';
+    var evolutionHtml2 = (data.evolution || []).map(function(s) {
+      return '<li style="color:#6ee7b7;font-size:12px;line-height:1.8">' + s + '</li>';
     }).join('');
 
     out.innerHTML =
       '<div style="background:#0f172a;border:1px solid #7c3aed;border-radius:10px;padding:16px">' +
-        '<div style="color:#c084fc;font-size:16px;font-weight:bold;margin-bottom:8px">' + (data.headline || '') + '</div>' +
-        '<div class="labels-row" style="margin-bottom:8px">' + tagsHtml + '</div>' +
-        '<div class="report-text" style="margin-bottom:10px">' + (data.bio || '') + '</div>' +
-        '<div style="color:#6b7280;font-size:10px;margin-bottom:4px">\u6c1b\u570d\u95dc\u9375\u5b57</div>' +
-        '<div class="archetype-tags">' + vibeHtml + '</div>' +
+        '<div style="color:#c084fc;font-size:16px;font-weight:bold;margin-bottom:10px">' + (data.headline || '') + '</div>' +
+        (data.shadow_trait ? '<div style="margin-bottom:10px"><div style="color:#a78bfa;font-size:10px;margin-bottom:3px">迷人的反派特質</div><div class="report-text">' + data.shadow_trait + '</div></div>' : '') +
+        (avoidHtml ? '<div style="margin-bottom:10px"><div style="color:#f87171;font-size:10px;margin-bottom:4px">絕對要避開的對象類型</div><div>' + avoidHtml + '</div></div>' : '') +
+        (evolutionHtml2 ? '<div style="margin-bottom:10px"><div style="color:#34d399;font-size:10px;margin-bottom:3px">破局心法</div><ul style="list-style:none;padding:0">' + evolutionHtml2 + '</ul></div>' : '') +
+        (data.core ? '<div style="border-top:1px solid #374151;padding-top:10px;font-style:italic;color:#c084fc;font-size:12px">' + data.core + '</div>' : '') +
       '</div>';
     status.textContent = '';
   } catch(err) {
@@ -916,18 +944,23 @@ async function generateMatchReport() {
     },
   };
   if (window._lastMatchData) {
-    matchData.labels = window._lastMatchData.labels || [];
-    matchData.power  = window._lastMatchData.power  || matchData.power;
+    matchData.labels             = window._lastMatchData.labels             || [];
+    matchData.power              = window._lastMatchData.power              || matchData.power;
+    matchData.psychological_tags = window._lastMatchData.psychological_tags || [];
+    matchData.high_voltage       = window._lastMatchData.high_voltage       || false;
+    matchData.zwds               = window._lastMatchData.zwds               || null;
   }
 
   try {
     var provider = document.getElementById('llmProvider').value;
+    var mrMode = document.getElementById('mr_mode') ? document.getElementById('mr_mode').value : 'auto';
     var r = await fetch(BASE + '/generate-match-report', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         match_data: matchData,
         person_a_name: document.getElementById('mr_name_a').value,
         person_b_name: document.getElementById('mr_name_b').value,
+        mode: mrMode,
         provider: provider,
         api_key: getApiKey(),
         gemini_model: getGeminiModel(),
@@ -951,10 +984,11 @@ async function generateMatchReport() {
           '<div style="color:#f87171;font-size:11px;margin-bottom:4px">&#9889; \u6210\u9577\u8ab2\u984c</div>' +
           '<ul style="list-style:none;font-size:12px;line-height:2">' + landminesHtml + '</ul>' +
         '</div>' +
-        '<div>' +
+        '<div style="margin-bottom:10px">' +
           '<div style="color:#6b7280;font-size:11px;margin-bottom:4px">\u76f8\u8655\u5efa\u8b70</div>' +
           '<div class="report-text">' + (data.advice || '') + '</div>' +
         '</div>' +
+        (data.core ? '<div style="border-top:1px solid #374151;padding-top:10px;font-style:italic;color:#c084fc;font-size:12px">' + data.core + '</div>' : '') +
       '</div>';
     status.textContent = '';
   } catch(e) {
