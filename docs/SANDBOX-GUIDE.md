@@ -196,7 +196,13 @@ RPV 和依戀風格**不需手動填寫**，點擊 **▶ Run Match** 後系統�
    - 四軌分數（friend / passion / partner / soul）與 primary_track
    - 權力動態（viewer_role / target_role / RPV / frame_break）
    - 系統標籤（labels）
+   - **Phase I 心理層欄位**：`心理標籤`（psychological_tags，如 `Healing_Anchor`、`Anxious_Avoidant_Trap`、`A_Heals_B_Moon`）、`high_voltage (psych)`（心理層高壓警告，獨立於 ZWDS spiciness）
    - **Phase H ZWDS 欄位**（Tier 1 only）：`spiciness_level`（STABLE / MEDIUM / HIGH_VOLTAGE / SOULMATE）、`defense_mechanisms`（viewer/target 煞星防禦機制）、`layered_analysis`（業力羈絆 + 化権動態 + 命宮星群）
+
+> **核心分數 vs 四軌差異說明：**
+> - `soul_score`（ChemistryScore Y 軸）= 星象相位計算，**心理層不影響**，用於象限分類
+> - `soul track` = 心理層 modifier 已加入（如 Healing_Anchor +20），可高於 soul_score
+> - 兩者差距越大，代表心理動力學對這段關係的影響越大
 
 ### AI Archetype 解讀報告
 
