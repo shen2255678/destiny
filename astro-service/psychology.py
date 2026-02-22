@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 # Aspect helpers
 # ---------------------------------------------------------------------------
 
-_ORB = 8.0  # degrees, used for all aspect checks
+_ORB = 8.0  # Natal psychology uses a wider orb than synastry aspect scoring in matching.py
 
 
 def _dist(a: float, b: float) -> float:
@@ -141,7 +141,9 @@ def extract_critical_degrees(chart: dict, is_exact_time: bool = False) -> List[s
     for point in points:
         if point == "asc":
             # Handle both key naming conventions
-            degree = chart.get("asc_degree") or chart.get("ascendant_degree")
+            degree = chart.get("asc_degree")
+            if degree is None:
+                degree = chart.get("ascendant_degree")
         else:
             degree = chart.get(f"{point}_degree")
 
@@ -180,6 +182,9 @@ _PLANETS = [
 
 _ELEMENTS = ["Fire", "Earth", "Air", "Water"]
 
+_DEFICIENCY_THRESHOLD = 1   # <= N planets in element → psychological black hole
+_DOMINANCE_THRESHOLD  = 4   # >= N planets in element → dominant strength
+
 
 def compute_element_profile(chart: dict) -> dict:
     """Count 10 core planets across the 4 Western elements.
@@ -202,7 +207,7 @@ def compute_element_profile(chart: dict) -> dict:
             continue
         counts[element] += 1
 
-    deficiency = [e for e in _ELEMENTS if counts[e] <= 1]
-    dominant = [e for e in _ELEMENTS if counts[e] >= 4]
+    deficiency = [e for e in _ELEMENTS if counts[e] <= _DEFICIENCY_THRESHOLD]
+    dominant   = [e for e in _ELEMENTS if counts[e] >= _DOMINANCE_THRESHOLD]
 
     return {"counts": counts, "deficiency": deficiency, "dominant": dominant}
