@@ -150,6 +150,12 @@
           <option value="3">Tier 3&#65288;&#21482;&#26377;&#26085;&#26399;&#65289;</option>
         </select>
       </div>
+      <div class="field"><label>&#24615;&#21029;</label>
+        <select id="a_gender">
+          <option value="M" selected>&#30007;&#65288;M&#65289;</option>
+          <option value="F">&#22899;&#65288;F&#65289;</option>
+        </select>
+      </div>
       <div class="inferred-display" id="a_inferred">
         <div class="inf-title">&#8594; RPV / &#20381;&#25200;&#39118;&#26684;&#65288;&#30001;&#21629;&#30424;&#33258;&#21160;&#25512;&#31639;&#65289;</div>
         <span class="inf-tag pending">&#31561;&#24453;&#36939;&#31639;...</span>
@@ -170,6 +176,12 @@
           <option value="1" selected>Tier 1&#65288;&#31291;&#30830;&#20986;&#29983;&#26178;&#38291;&#65289;</option>
           <option value="2">Tier 2&#65288;&#27169;&#31958;&#26178;&#27573;&#65289;</option>
           <option value="3">Tier 3&#65288;&#21482;&#26377;&#26085;&#26399;&#65289;</option>
+        </select>
+      </div>
+      <div class="field"><label>&#24615;&#21029;</label>
+        <select id="b_gender">
+          <option value="M" selected>&#30007;&#65288;M&#65289;</option>
+          <option value="F">&#22899;&#65288;F&#65289;</option>
         </select>
       </div>
       <div class="inferred-display" id="b_inferred">
@@ -242,6 +254,12 @@
       <div><label>&#32302;&#24230;</label><input type="number" id="pc_lat" value="25.033" step="0.001"></div>
       <div><label>&#32147;&#24230;</label><input type="number" id="pc_lng" value="121.565" step="0.001"></div>
     </div>
+    <div class="field"><label>&#24615;&#21029;</label>
+      <select id="pc_gender">
+        <option value="M" selected>&#30007;&#65288;M&#65289;</option>
+        <option value="F">&#22899;&#65288;F&#65289;</option>
+      </select>
+    </div>
     <div class="inferred-display" id="pc_inferred">
       <div class="inf-title">→ RPV / 依戀風格（由命盤自動推算）</div>
       <span class="inf-tag pending">等待運算...</span>
@@ -256,6 +274,7 @@
       <span id="ideal-match-status" class="loading" style="margin-left:8px"></span>
       <div id="ideal-match-output" style="margin-top:10px"></div>
     </div>
+    <div id="pc_zwds_output" style="margin-top:14px"></div>
   </div>
 </div><!-- end tab-c -->
 
@@ -640,6 +659,27 @@ async function runMatch() {
     var match = computeIsMatch(gt, matchData.lust_score, matchData.soul_score, matchData.primary_track);
 
     renderResults(testId, gt, match, matchData, chartA, chartB, nameA, nameB);
+
+    // Fetch ZWDS charts in background and append to results when ready
+    var dateA = document.getElementById('a_birth_date').value;
+    var timeA = document.getElementById('a_birth_time_exact').value;
+    var genderA = document.getElementById('a_gender').value;
+    var dateB = document.getElementById('b_birth_date').value;
+    var timeB = document.getElementById('b_birth_time_exact').value;
+    var genderB = document.getElementById('b_gender').value;
+
+    Promise.all([fetchZwds(dateA, timeA, genderA), fetchZwds(dateB, timeB, genderB)]).then(function(res) {
+      var zwdsA = res[0], zwdsB = res[1];
+      if (zwdsA || zwdsB) {
+        var container = document.getElementById('results-a');
+        var zwdsDiv = document.createElement('div');
+        zwdsDiv.style.marginTop = '14px';
+        if (zwdsA) zwdsDiv.innerHTML += renderZwdsTable(zwdsA, nameA + ' \u7d2b\u5fae\u547d\u76e4');
+        if (zwdsB) zwdsDiv.innerHTML += renderZwdsTable(zwdsB, nameB + ' \u7d2b\u5fae\u547d\u76e4');
+        container.appendChild(zwdsDiv);
+      }
+    }).catch(function(){});  // never block main results on ZWDS failure
+
     status.textContent = '';
   } catch(e) {
     status.textContent = '';
@@ -847,6 +887,99 @@ function showRectResult() {
     '</div>';
 }
 
+// ── ZWDS 12-palace table renderer ───────────────────────────
+var _PALACE_INFO = [
+  {key:"ming",     zh:"\u547d\u5bae", opp:"travel"},
+  {key:"parent",   zh:"\u7236\u6bcd\u5bae", opp:"health"},
+  {key:"karma",    zh:"\u798f\u5fb7\u5bae", opp:"wealth"},
+  {key:"property", zh:"\u7530\u5b85\u5bae", opp:"children"},
+  {key:"career",   zh:"\u5b98\u797f\u5bae", opp:"spouse"},
+  {key:"friends",  zh:"\u4ea4\u53cb\u5bae", opp:"siblings"},
+  {key:"travel",   zh:"\u9077\u79fb\u5bae", opp:"ming"},
+  {key:"health",   zh:"\u75be\u5384\u5bae", opp:"parent"},
+  {key:"wealth",   zh:"\u8ca1\u5e1b\u5bae", opp:"karma"},
+  {key:"children", zh:"\u5b50\u5973\u5bae", opp:"property"},
+  {key:"spouse",   zh:"\u592b\u59bb\u5bae", opp:"career"},
+  {key:"siblings", zh:"\u5144\u5f1f\u5bae", opp:"friends"},
+];
+var _PALACE_ZH = {};
+_PALACE_INFO.forEach(function(p){ _PALACE_ZH[p.key] = p.zh; });
+
+function renderZwdsTable(zwdsChart, title) {
+  if (!zwdsChart || !zwdsChart.palaces) return '';
+  var palaces = zwdsChart.palaces;
+  var bodyName = zwdsChart.body_palace_name || '';
+  var fourTr = zwdsChart.four_transforms || {};
+  var fiveEl = zwdsChart.five_element || '';
+
+  var rows = _PALACE_INFO.map(function(info) {
+    var p = palaces[info.key] || {};
+    var oppKey = info.opp;
+    var oppP = palaces[oppKey] || {};
+    var oppMain = (oppP.main_stars || []).join(' ');
+    var oppZh = _PALACE_ZH[oppKey] || oppKey;
+    var oppCell = oppMain
+      ? '<span style="color:#6b7280;font-size:10px">' + oppZh + '：</span>' + oppMain
+      : '<span style="color:#374151">' + oppZh + '（空）</span>';
+
+    var isBody = (_PALACE_ZH[info.key] === bodyName);
+    var tdStyle = p.is_empty ? 'color:#4b5563' : '';
+    var palaceLabel = info.zh + (isBody ? ' <span style="color:#fbbf24;font-size:10px">身</span>' : '');
+
+    return '<tr>' +
+      '<td style="' + tdStyle + '">' + palaceLabel + '</td>' +
+      '<td style="color:#c084fc">' + (p.main_stars || []).join('<br>') + '</td>' +
+      '<td style="color:#34d399;font-size:11px">' + (p.auspicious_stars || []).join(' ') + '</td>' +
+      '<td style="color:#f87171;font-size:11px">' + (p.malevolent_stars || []).join(' ') + '</td>' +
+      '<td style="font-size:11px">' + oppCell + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var transforms = [
+    ['化祿', fourTr.hua_lu, '#34d399'],
+    ['化權', fourTr.hua_quan, '#60a5fa'],
+    ['化科', fourTr.hua_ke, '#a78bfa'],
+    ['化忌', fourTr.hua_ji, '#f87171'],
+  ].filter(function(t){ return t[1]; }).map(function(t){
+    return '<span style="margin-right:10px"><span style="color:#6b7280">' + t[0] + '：</span><span style="color:' + t[2] + '">' + t[1] + '</span></span>';
+  }).join('');
+
+  return '<div style="margin-top:12px;border:1px solid #374151;border-radius:8px;overflow:hidden">' +
+    '<div style="background:#1e1b4b;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">' +
+      '<span style="color:#818cf8;font-size:12px;font-weight:bold">' + (title || '\u7d2b\u5fae\u6597\u6578\u547d\u76e4') + '</span>' +
+      '<span style="color:#6b7280;font-size:11px">' + fiveEl + '</span>' +
+    '</div>' +
+    (transforms ? '<div style="padding:6px 12px;background:#0f172a;font-size:11px">' + transforms + '</div>' : '') +
+    '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+      '<thead><tr style="background:#1f2937;color:#6b7280;font-size:11px">' +
+        '<th style="padding:4px 8px;text-align:left">\u5bae\u4f4d</th>' +
+        '<th style="padding:4px 8px;text-align:left">\u4e3b\u661f</th>' +
+        '<th style="padding:4px 8px;text-align:left">\u5409\u661f</th>' +
+        '<th style="padding:4px 8px;text-align:left">\u715e\u661f</th>' +
+        '<th style="padding:4px 8px;text-align:left">\u5c0d\u5bae</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table></div>';
+}
+
+async function fetchZwds(dateStr, timeStr, gender) {
+  if (!timeStr) return null;   // ZWDS needs birth time (Tier 1 only)
+  var parts = dateStr.split('-');
+  var r = await fetch(BASE + '/compute-zwds-chart', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      birth_year:  parseInt(parts[0]),
+      birth_month: parseInt(parts[1]),
+      birth_day:   parseInt(parts[2]),
+      birth_time:  timeStr,
+      gender:      gender || 'M',
+    })
+  });
+  if (!r.ok) return null;
+  var d = await r.json();
+  return d.chart || null;
+}
+
 // ── Shared profile card renderer ────────────────────────────
 function renderProfileCard(data, label, targetId) {
   var target = document.getElementById(targetId);
@@ -972,6 +1105,18 @@ async function generateProfileCard() {
 
     renderProfileCard(data, null, 'pc_output');
     status.textContent = '';
+
+    // Fetch ZWDS in background (only for Tier 1)
+    var zwdsOut = document.getElementById('pc_zwds_output');
+    if (zwdsOut) zwdsOut.innerHTML = '';
+    var pcTime = document.getElementById('pc_time').value;
+    if (pcTime && zwdsOut) {
+      var pcDate = document.getElementById('pc_date').value;
+      var pcGender = document.getElementById('pc_gender').value;
+      fetchZwds(pcDate, pcTime, pcGender).then(function(zwds) {
+        if (zwds) zwdsOut.innerHTML = renderZwdsTable(zwds, '\u7d2b\u5fae\u6597\u6578\u547d\u76e4');
+      }).catch(function(){});
+    }
   } catch(err) {
     var errDiv = document.createElement('div');
     errDiv.className = 'error-msg';
