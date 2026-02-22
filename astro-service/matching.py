@@ -824,9 +824,18 @@ def compute_tracks(
     capacity_b = user_b.get("emotional_capacity", 50)
 
     # harmony planets: friend / partner tracks
-    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
-    jupiter = compute_sign_aspect(user_a.get("jupiter_sign"), user_b.get("jupiter_sign"), "harmony")
-    moon    = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"),    "harmony")
+    mercury    = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
+    # Jupiter Friend Track: cross-aspect (A's Jupiter × B's Sun + B's Jupiter × A's Sun) / 2.
+    # Same-sign Jupiter comparison is unreliable because Jupiter moves ~1 sign/year, so
+    # age-peers all share the same Jupiter sign and would be artificially rewarded.
+    jupiter_a  = user_a.get("jupiter_sign")
+    jupiter_b  = user_b.get("jupiter_sign")
+    sun_a      = user_a.get("sun_sign")
+    sun_b      = user_b.get("sun_sign")
+    jup_a_sun_b = compute_sign_aspect(jupiter_a, sun_b, "harmony")
+    jup_b_sun_a = compute_sign_aspect(jupiter_b, sun_a, "harmony")
+    jupiter    = (jup_a_sun_b + jup_b_sun_a) / 2.0
+    moon       = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"),    "harmony")
     juno_a, juno_b = user_a.get("juno_sign"), user_b.get("juno_sign")
     juno_present = bool(juno_a and juno_b)
     juno = compute_sign_aspect(juno_a, juno_b, "harmony") if juno_present else 0.0

@@ -1587,6 +1587,189 @@ class TestKarmicInSoulTrack:
 
 
 
+# ════════════════════════════════════════════════════════════════
+# Task 80: Jupiter Friend Track cross-aspect fix
+# ════════════════════════════════════════════════════════════════
+
+class TestJupiterFriendTrackCrossAspect:
+    """Verify that compute_tracks Friend Track uses cross-aspect Jupiter scoring.
+
+    Before the fix: jupiter = compute_sign_aspect(jupiter_a, jupiter_b, "harmony")
+    After the fix:  jupiter = (jup_a_sun_b + jup_b_sun_a) / 2.0
+
+    People born in the same year share the same Jupiter sign (Jupiter moves ~1 sign/year).
+    The old same-planet comparison rewarded age-peers regardless of actual synastry fit.
+    The fix uses A's Jupiter × B's Sun + B's Jupiter × A's Sun, which is the correct
+    astrological cross-aspect measuring whether A's expansion energy aligns with B's identity.
+    """
+
+    def _power_no_frame_break(self):
+        return {"rpv": 0.0, "frame_break": False, "viewer_role": "Equal", "target_role": "Equal"}
+
+    def _minimal_user(self, sun_sign, jupiter_sign, **kwargs):
+        """Minimal user dict with only the fields compute_tracks needs."""
+        defaults = {
+            "sun_sign": sun_sign,
+            "jupiter_sign": jupiter_sign,
+            "mercury_sign": None,
+            "moon_sign": None,
+            "mars_sign": None,
+            "venus_sign": None,
+            "saturn_sign": None,
+            "chiron_sign": None,
+            "juno_sign": None,
+            "house8_sign": None,
+            "bazi_element": None,
+            "rpv_power": None,
+            "rpv_conflict": None,
+            "rpv_energy": None,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_cross_aspect_elevated_when_jupiter_harmonizes_with_sun_not_jupiter(self):
+        """Friend track is elevated when jupiter_a harmonizes with sun_b (Fire/Fire trine),
+        even though jupiter_a does NOT harmonize with jupiter_b (Fire/Earth semi-sextile → 0.10).
+
+        Setup:
+          jupiter_a = Aries  (Fire)
+          sun_b     = Leo    (Fire) → trine, harmony score = 0.85
+          jupiter_b = Taurus (Earth) → semi-sextile from Aries, score = 0.10
+
+          Under the OLD same-planet formula:
+            jupiter = compute_sign_aspect("aries", "taurus", "harmony") = 0.10 (semi-sextile)
+          Under the NEW cross-aspect formula:
+            jup_a_sun_b = compute_sign_aspect("aries", "leo", "harmony") = 0.85 (trine)
+            jup_b_sun_a = compute_sign_aspect("taurus", sun_a, "harmony")
+            jupiter = (jup_a_sun_b + jup_b_sun_a) / 2.0  → significantly higher than 0.10
+        """
+        # jupiter_a=Aries (Fire), sun_b=Leo (Fire) → trine = 0.85
+        # jupiter_b=Taurus (Earth), sun_a=Capricorn (Earth) → trine = 0.85 too
+        chart_a = self._minimal_user(sun_sign="capricorn", jupiter_sign="aries")
+        chart_b = self._minimal_user(sun_sign="leo",       jupiter_sign="taurus")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(chart_a, chart_b, power, useful_god_complement=0.0)
+
+        # Cross-aspect jupiter: (0.85 + 0.85) / 2.0 = 0.85
+        # friend = 0.40 * mercury_neutral + 0.40 * 0.85 + 0.20 * 0.0
+        #        = 0.40 * 0.65 + 0.40 * 0.85
+        mercury_score = compute_sign_aspect(None, None, "harmony")  # 0.65 neutral
+        expected_jupiter = (
+            compute_sign_aspect("aries", "leo", "harmony") +
+            compute_sign_aspect("taurus", "capricorn", "harmony")
+        ) / 2.0
+        expected_friend = (
+            0.40 * mercury_score +
+            0.40 * expected_jupiter +
+            0.20 * 0.0
+        ) * 100
+
+        assert tracks["friend"] == pytest.approx(expected_friend, abs=0.5)
+
+        # Also verify it is higher than what the old same-planet formula would produce.
+        # Old formula: compute_sign_aspect("aries", "taurus", "harmony") = 0.10 (semi-sextile)
+        old_jupiter = compute_sign_aspect("aries", "taurus", "harmony")
+        old_expected_friend = (
+            0.40 * mercury_score +
+            0.40 * old_jupiter +
+            0.20 * 0.0
+        ) * 100
+        assert tracks["friend"] > old_expected_friend, (
+            "Cross-aspect formula must produce a higher friend score than "
+            "the old same-planet formula when jupiter_a trines sun_b but not jupiter_b."
+        )
+
+    def test_friend_track_jupiter_component_is_symmetric(self):
+        """compute_tracks(a, b)['friend'] == compute_tracks(b, a)['friend'].
+
+        The cross-aspect formula (jup_a_sun_b + jup_b_sun_a) / 2.0 is symmetric by
+        construction. This test guards against future regressions that would break symmetry.
+        """
+        chart_a = self._minimal_user(sun_sign="gemini",  jupiter_sign="cancer")
+        chart_b = self._minimal_user(sun_sign="scorpio", jupiter_sign="pisces")
+        power = self._power_no_frame_break()
+
+        tracks_ab = compute_tracks(chart_a, chart_b, power, useful_god_complement=0.0)
+        tracks_ba = compute_tracks(chart_b, chart_a, power, useful_god_complement=0.0)
+
+        assert tracks_ab["friend"] == pytest.approx(tracks_ba["friend"], abs=0.01)
+
+    def test_friend_track_exact_formula_mercury_and_jupiter(self):
+        """friend = mercury*0.40 + jupiter_cross*0.40 + bazi_same*0.20.
+
+        All values are deterministic here so we can verify the exact calculation.
+
+        Setup: both users share the same mercury (Gemini), which is conjunction (0.90).
+          jupiter_a = Sagittarius, sun_b = Aries → trine (4 signs apart) = 0.85
+          jupiter_b = Leo,         sun_a = Cancer → sextile (2 signs apart) = 0.75
+          cross_jupiter = (0.85 + 0.75) / 2.0 = 0.80
+          No bazi_element on either user → bazi_harmony = False → bazi term = 0.
+          friend = 0.40 * 0.90 + 0.40 * 0.80 + 0.20 * 0.0 = 0.36 + 0.32 = 0.68 → 68.0
+        """
+        chart_a = self._minimal_user(
+            sun_sign="cancer",      # sun_a
+            jupiter_sign="sagittarius",  # jupiter_a
+            mercury_sign="gemini",
+        )
+        chart_b = self._minimal_user(
+            sun_sign="aries",       # sun_b
+            jupiter_sign="leo",     # jupiter_b
+            mercury_sign="gemini",
+        )
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(chart_a, chart_b, power, useful_god_complement=0.0)
+
+        mercury_score   = compute_sign_aspect("gemini", "gemini", "harmony")     # 0.90
+        jup_a_sun_b     = compute_sign_aspect("sagittarius", "aries", "harmony") # 0.85 (trine)
+        jup_b_sun_a     = compute_sign_aspect("leo", "cancer", "harmony")        # 0.75 (sextile)
+        cross_jupiter   = (jup_a_sun_b + jup_b_sun_a) / 2.0                     # 0.80
+        expected_friend = (0.40 * mercury_score + 0.40 * cross_jupiter + 0.20 * 0.0) * 100
+
+        assert tracks["friend"] == pytest.approx(expected_friend, abs=0.5)
+
+    def test_same_birth_year_peers_no_longer_get_inflated_friend_score(self):
+        """Age-peers (same Jupiter sign) should NOT automatically get a high friend score.
+
+        Under the OLD same-planet formula, two people born in the same year share the
+        same Jupiter sign (conjunction → 0.90), inflating their friend score regardless
+        of real synastry. Under the NEW cross-aspect formula, the score depends on whether
+        their Jupiters align with each other's Suns, which varies by individual.
+
+        This test uses a pair where same Jupiter sign gives 0.90 same-planet score,
+        but the cross-aspect (jupiter × sun) gives a different (lower in this case) result.
+
+        Setup:
+          Both users have jupiter_sign=Scorpio (same year — old formula gives conjunction 0.90).
+          sun_a = Gemini, sun_b = Gemini (same Sun for simplicity).
+          jup_a_sun_b = compute_sign_aspect("scorpio", "gemini", "harmony")
+            Scorpio(7) → Gemini(2): distance = 5 → quincunx → 0.10
+          cross_jupiter = (0.10 + 0.10) / 2.0 = 0.10
+          This is much lower than the old conjunction score of 0.90.
+        """
+        chart_a = self._minimal_user(sun_sign="gemini", jupiter_sign="scorpio")
+        chart_b = self._minimal_user(sun_sign="gemini", jupiter_sign="scorpio")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(chart_a, chart_b, power, useful_god_complement=0.0)
+
+        # New cross-aspect score
+        jup_cross = compute_sign_aspect("scorpio", "gemini", "harmony")  # quincunx = 0.10
+        mercury_score = compute_sign_aspect(None, None, "harmony")        # neutral = 0.65
+        expected_new = (0.40 * mercury_score + 0.40 * jup_cross + 0.20 * 0.0) * 100
+
+        # Old same-planet score would have been conjunction (0.90)
+        old_jupiter = compute_sign_aspect("scorpio", "scorpio", "harmony")  # conjunction = 0.90
+        expected_old = (0.40 * mercury_score + 0.40 * old_jupiter + 0.20 * 0.0) * 100
+
+        assert tracks["friend"] == pytest.approx(expected_new, abs=0.5)
+        assert expected_old > expected_new, (
+            "Old same-planet formula inflated age-peer friend score; "
+            "new cross-aspect formula correctly reduces it."
+        )
+
+
 # ── Phase II: psychology modifier integration ────────────────────────────────────────────────
 
 def test_compute_match_v2_psychological_tags_key_present():
