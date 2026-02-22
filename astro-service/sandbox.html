@@ -585,11 +585,22 @@ function renderResults(testId, gt, match, matchData, chartA, chartB, nameA, name
         '<button class="btn-sm" id="archetype-btn" onclick="generateArchetype()">&#10022; Generate</button>' +
       '</div>' +
       '<div id="archetype-output" style="margin-top:8px"></div>' +
+    '</div>' +
+    '<div style="border-top:1px solid #374151;padding-top:12px;margin-top:14px">' +
+      '<div style="color:#6b7280;font-size:11px;margin-bottom:8px">個人解析</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+        '<button class="btn-sm" id="profile-btn-a" onclick="generatePersonProfile(\'a\')">&#10022; A 個人解析</button>' +
+        '<button class="btn-sm" id="profile-btn-b" onclick="generatePersonProfile(\'b\')">&#10022; B 個人解析</button>' +
+        '<span id="profile-status" class="loading" style="margin-left:4px"></span>' +
+      '</div>' +
+      '<div id="tab-a-profile-result"></div>' +
     '</div>';
 
   window._lastMatchData = matchData;
   window._lastNameA = nameA;
   window._lastNameB = nameB;
+  window._lastChartA = chartA;
+  window._lastChartB = chartB;
 }
 
 async function runMatch() {
@@ -831,6 +842,82 @@ function showRectResult() {
     '</div>';
 }
 
+// ── Shared profile card renderer ────────────────────────────
+function renderProfileCard(data, label, targetId) {
+  var target = document.getElementById(targetId);
+  if (!target) return;
+  var avoidHtml = (data.avoid_types || []).map(function(t) {
+    return '<span class="label-tag" style="background:#7f1d1d;border-color:#dc2626;color:#fca5a5">' + t + '</span>';
+  }).join('');
+  var evolutionHtml = (data.evolution || []).map(function(s) {
+    return '<li style="color:#6ee7b7;font-size:12px;line-height:1.8">' + s + '</li>';
+  }).join('');
+  target.innerHTML =
+    (label ? '<div style="color:#6b7280;font-size:11px;margin-bottom:8px;letter-spacing:0.5px">' + label + '</div>' : '') +
+    '<div style="background:#0f172a;border:1px solid #7c3aed;border-radius:10px;padding:16px">' +
+      '<div style="color:#c084fc;font-size:16px;font-weight:bold;margin-bottom:10px">' + (data.headline || '') + '</div>' +
+      (data.shadow_trait ? '<div style="margin-bottom:10px"><div style="color:#a78bfa;font-size:10px;margin-bottom:3px">迷人的反派特質</div><div class="report-text">\uD83C\uDF11 ' + data.shadow_trait + '</div></div>' : '') +
+      (avoidHtml ? '<div style="margin-bottom:10px"><div style="color:#f87171;font-size:10px;margin-bottom:4px">絕對要避開的對象類型</div><div>' + avoidHtml + '</div></div>' : '') +
+      (evolutionHtml ? '<div style="margin-bottom:10px"><div style="color:#34d399;font-size:10px;margin-bottom:3px">破局心法</div><ul style="list-style:none;padding:0">' + evolutionHtml + '</ul></div>' : '') +
+      (data.core ? '<div style="border-top:1px solid #374151;padding-top:10px;font-style:italic;color:#c084fc;font-size:12px">' + data.core + '</div>' : '') +
+    '</div>';
+}
+
+async function generatePersonProfile(person) {
+  var chart = person === 'a' ? window._lastChartA : window._lastChartB;
+  if (!chart) { alert('\u8acb\u5148\u57f7\u884c\u300c Run Match \u300d\u4ee5\u7372\u53d6\u661f\u76e4\u8cc7\u6599'); return; }
+
+  var btnId = 'profile-btn-' + person;
+  var btn = document.getElementById(btnId);
+  var status = document.getElementById('profile-status');
+  var target = document.getElementById('tab-a-profile-result');
+
+  btn.disabled = true;
+  var otherBtnId = person === 'a' ? 'profile-btn-b' : 'profile-btn-a';
+  var otherBtn = document.getElementById(otherBtnId);
+  if (otherBtn) otherBtn.disabled = true;
+
+  var savedText = btn.textContent;
+  btn.textContent = '\u5206\u6790\u4e2d\u2026';
+  status.textContent = '';
+  target.innerHTML = '';
+
+  var provider = document.getElementById('llmProvider').value;
+
+  try {
+    var r = await fetch(BASE + '/generate-profile-card', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        chart_data: chart,
+        rpv_data: null,
+        attachment_style: null,
+        provider: provider,
+        api_key: getApiKey(),
+        gemini_model: getGeminiModel(),
+      })
+    });
+    if (!r.ok) { var e = await r.json(); throw new Error(e.detail || r.statusText); }
+    var data = await r.json();
+    var nameA = window._lastNameA || 'A';
+    var nameB = window._lastNameB || 'B';
+    var label = person === 'a'
+      ? '\u3010' + nameA + ' \u7684\u500b\u4eba\u89e3\u6790\u3011'
+      : '\u3010' + nameB + ' \u7684\u500b\u4eba\u89e3\u6790\u3011';
+    renderProfileCard(data, label, 'tab-a-profile-result');
+  } catch(err) {
+    var errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = 'Error: ' + err.message;
+    target.innerHTML = '';
+    target.appendChild(errDiv);
+  }
+
+  btn.textContent = savedText;
+  btn.disabled = false;
+  if (otherBtn) otherBtn.disabled = false;
+  status.textContent = '';
+}
+
 async function generateProfileCard() {
   var status = document.getElementById('pc_status');
   var out = document.getElementById('pc_output');
@@ -877,21 +964,7 @@ async function generateProfileCard() {
     if (!r.ok) { var e2 = await r.json(); throw new Error(e2.detail || r.statusText); }
     var data = await r.json();
 
-    var avoidHtml = (data.avoid_types || []).map(function(t) {
-      return '<span class="label-tag" style="background:#7f1d1d;border-color:#dc2626;color:#fca5a5">' + t + '</span>';
-    }).join('');
-    var evolutionHtml2 = (data.evolution || []).map(function(s) {
-      return '<li style="color:#6ee7b7;font-size:12px;line-height:1.8">' + s + '</li>';
-    }).join('');
-
-    out.innerHTML =
-      '<div style="background:#0f172a;border:1px solid #7c3aed;border-radius:10px;padding:16px">' +
-        '<div style="color:#c084fc;font-size:16px;font-weight:bold;margin-bottom:10px">' + (data.headline || '') + '</div>' +
-        (data.shadow_trait ? '<div style="margin-bottom:10px"><div style="color:#a78bfa;font-size:10px;margin-bottom:3px">迷人的反派特質</div><div class="report-text">' + data.shadow_trait + '</div></div>' : '') +
-        (avoidHtml ? '<div style="margin-bottom:10px"><div style="color:#f87171;font-size:10px;margin-bottom:4px">絕對要避開的對象類型</div><div>' + avoidHtml + '</div></div>' : '') +
-        (evolutionHtml2 ? '<div style="margin-bottom:10px"><div style="color:#34d399;font-size:10px;margin-bottom:3px">破局心法</div><ul style="list-style:none;padding:0">' + evolutionHtml2 + '</ul></div>' : '') +
-        (data.core ? '<div style="border-top:1px solid #374151;padding-top:10px;font-style:italic;color:#c084fc;font-size:12px">' + data.core + '</div>' : '') +
-      '</div>';
+    renderProfileCard(data, null, 'pc_output');
     status.textContent = '';
   } catch(err) {
     var errDiv = document.createElement('div');
