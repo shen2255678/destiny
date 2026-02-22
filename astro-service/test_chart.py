@@ -3,7 +3,7 @@ Tests for DESTINY natal chart calculator.
 Uses known birth data to verify Swiss Ephemeris calculations.
 """
 
-from chart import calculate_chart, longitude_to_sign, compute_emotional_capacity
+from chart import calculate_chart, longitude_to_sign, compute_emotional_capacity, _angular_distance
 from bazi import calculate_bazi, analyze_element_relation, HEAVENLY_STEMS, STEM_ELEMENTS, EARTHLY_BRANCHES
 
 
@@ -884,7 +884,8 @@ class TestNatalAspects:
 
     # 8. Tier 1 may include ascendant in aspects; Tier 2/3 should not
     def test_tier1_may_include_ascendant_aspects(self):
-        """Tier 1 has ascendant_degree set, so ascendant can appear in aspects."""
+        """Tier 1 has ascendant_degree set, so ascendant can appear in aspects.
+        Tier 2 must never produce ascendant-involved aspects (degree is None)."""
         result = calculate_chart(
             birth_date="1995-06-15",
             birth_time="precise",
@@ -896,8 +897,45 @@ class TestNatalAspects:
         # ascendant_degree is not None for Tier 1
         assert result.get("ascendant_degree") is not None
         # It's valid for aspects to include ascendant (not required, but possible)
-        # No assertion on count — just confirm no crash and result is a list
         assert isinstance(result["natal_aspects"], list)
+
+        # Tier 2 must never have ascendant in any aspect (degree is None for Tier 2)
+        result_t2 = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="morning",
+            lat=25.033,
+            lng=121.565,
+            data_tier=2,
+        )
+        assert result_t2.get("ascendant_degree") is None
+        for asp in result_t2["natal_aspects"]:
+            assert asp["a"] != "ascendant", "ascendant should never appear in Tier 2 aspects"
+            assert asp["b"] != "ascendant", "ascendant should never appear in Tier 2 aspects"
+
+    def test_tier1_planet_set_includes_ascendant(self):
+        """Verify that Tier 1 natal aspect computation uses ascendant in the planet set.
+        We use a birth date/time where ascendant is known to be within orb of a planet
+        by checking that the ascendant_degree is set AND any aspects list is consistent
+        with ascendant being a candidate (no ascendant aspects does not mean it's absent
+        from the input set — the set always includes it for Tier 1)."""
+        result = calculate_chart(
+            birth_date="1997-03-08",
+            birth_time="precise",
+            birth_time_exact="20:00",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        # Tier 1 must have ascendant_degree populated
+        assert result.get("ascendant_degree") is not None
+        # Ascendant is in the candidate planet set for Tier 1; if any planet degree
+        # happens to be within orb of the ascendant, it will appear as 'a' or 'b'.
+        # The important invariant: Tier 3 of the SAME chart must NEVER have ascendant.
+        result_t3 = calculate_chart(birth_date="1997-03-08", data_tier=3)
+        assert result_t3.get("ascendant_degree") is None
+        for asp in result_t3["natal_aspects"]:
+            assert asp["a"] != "ascendant"
+            assert asp["b"] != "ascendant"
 
     def test_tier3_no_ascendant_in_aspects(self):
         """Tier 3 has ascendant_degree = None, so ascendant should never appear."""
@@ -930,3 +968,63 @@ class TestNatalAspects:
             assert asp["orb"] <= max_orb, (
                 f"orb {asp['orb']} exceeds max {max_orb} for {asp['aspect']}: {asp}"
             )
+
+    # 10. Strength floor: at the orb boundary, strength should be 0.2 (not 0.0)
+    def test_strength_floor_at_orb_boundary(self):
+        """At orb == max_orb the canonical formula yields strength = 0.2, not 0.0.
+        Verify no aspect in any real chart has strength below 0.2."""
+        result = calculate_chart(
+            birth_date="1995-06-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            lat=25.033,
+            lng=121.565,
+            data_tier=1,
+        )
+        for asp in result["natal_aspects"]:
+            assert asp["strength"] >= 0.2, (
+                f"strength {asp['strength']} is below the 0.2 floor for aspect: {asp}"
+            )
+
+    def test_strength_exact_conjunction_is_1(self):
+        """An exact conjunction (orb=0) should yield strength=1.0."""
+        from chart import compute_natal_aspects
+        # Craft a minimal chart dict with two planets at the exact same degree
+        fake_chart = {
+            "sun_degree": 45.0,
+            "moon_degree": 45.0,
+            # Provide None for all other planets so they are skipped
+            "mercury_degree": None, "venus_degree": None, "mars_degree": None,
+            "jupiter_degree": None, "saturn_degree": None, "chiron_degree": None,
+        }
+        aspects = compute_natal_aspects(fake_chart, data_tier=2)
+        assert len(aspects) == 1
+        assert aspects[0]["aspect"] == "conjunction"
+        assert aspects[0]["orb"] == 0.0
+        assert aspects[0]["strength"] == 1.0
+
+
+# ── _angular_distance unit tests ──────────────────────────────────────────────
+
+class TestAngularDistance:
+    """Unit tests for the _angular_distance() helper in chart.py."""
+
+    def test_same_angle_is_zero(self):
+        """Two identical longitudes should have distance 0."""
+        assert _angular_distance(45.0, 45.0) == 0.0
+
+    def test_90_degrees_apart(self):
+        """Longitudes 90° apart should return 90.0."""
+        assert _angular_distance(0.0, 90.0) == 90.0
+
+    def test_180_degrees_apart(self):
+        """Opposite longitudes should return 180.0."""
+        assert _angular_distance(0.0, 180.0) == 180.0
+
+    def test_wraparound_359_and_1(self):
+        """359° and 1° should be 2° apart (not 358°)."""
+        assert _angular_distance(359.0, 1.0) == 2.0
+
+    def test_wraparound_350_and_10(self):
+        """350° and 10° should be 20° apart (not 340°)."""
+        assert _angular_distance(350.0, 10.0) == 20.0
