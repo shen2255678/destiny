@@ -330,7 +330,7 @@ def generate_ideal_match(req: IdealMatchRequest):
 
     raw = ""
     try:
-        raw = call_llm(prompt, provider=req.provider, max_tokens=500, api_key=req.api_key, gemini_model=req.gemini_model)
+        raw = call_llm(prompt, provider=req.provider, max_tokens=600, api_key=req.api_key, gemini_model=req.gemini_model)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")

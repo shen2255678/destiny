@@ -1037,6 +1037,7 @@ async function generateIdealMatch() {
     var errDiv = document.createElement('div');
     errDiv.className = 'error-msg';
     errDiv.textContent = 'Error: ' + err.message;
+    out.innerHTML = '';
     out.appendChild(errDiv);
   }
 

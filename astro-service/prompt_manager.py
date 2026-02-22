@@ -107,6 +107,40 @@ def _element_summary(ep: dict | None) -> str:
     return "；".join(parts) if parts else "四元素均衡"
 
 
+def _profile_context(deficiency: list, dominant: list, sm_tags: list) -> str:
+    """Build additional character context hints for the profile prompt."""
+    hints: list[str] = []
+    if deficiency:
+        elem_hints = {
+            "Fire":  "壓抑自己的野心與衝勁，不敢爭取",
+            "Earth": "缺乏安全感，很難完全放鬆",
+            "Air":   "在表達思想時有障礙或過度分析",
+            "Water": "迴避深層情感，難以完全敞開",
+        }
+        for e in deficiency:
+            h = elem_hints.get(e)
+            if h:
+                hints.append(h)
+    if dominant:
+        elem_hints = {
+            "Fire":  "野心強烈、行動力爆棚，但容易燃燒自己",
+            "Earth": "極度務實穩重，但可能過於保守",
+            "Air":   "思維敏銳、善於溝通，但容易想太多",
+            "Water": "情感豐沛、直覺強，但容易被情緒淹沒",
+        }
+        for e in dominant:
+            h = elem_hints.get(e)
+            if h:
+                hints.append(h)
+    if "Natural_Dom" in sm_tags or "Daddy_Dom" in sm_tags:
+        hints.append("骨子裡有掌控一切的慾望，但可能對自己這面有些抗拒")
+    if "Anxious_Sub" in sm_tags:
+        hints.append("在親密關係中容易過度付出，渴望被接住的安全感")
+    if not hints:
+        return ""
+    return "【命盤解讀提示（提供給你的參考，不要直接輸出給用戶）】\n" + "\n".join(f"- {h}" for h in hints)
+
+
 def _pick_mode(match_data: dict, mode: str) -> str:
     """Resolve 'auto' to a concrete mode based on primary_track + high_voltage."""
     if mode != "auto":
@@ -417,37 +451,3 @@ def get_ideal_match_prompt(chart_data: dict) -> str:
 {_IDEAL_MATCH_SCHEMA}"""
 
     return prompt
-
-
-def _profile_context(deficiency: list, dominant: list, sm_tags: list) -> str:
-    """Build additional character context hints for the profile prompt."""
-    hints: list[str] = []
-    if deficiency:
-        elem_hints = {
-            "Fire":  "壓抑自己的野心與衝勁，不敢爭取",
-            "Earth": "缺乏安全感，很難完全放鬆",
-            "Air":   "在表達思想時有障礙或過度分析",
-            "Water": "迴避深層情感，難以完全敞開",
-        }
-        for e in deficiency:
-            h = elem_hints.get(e)
-            if h:
-                hints.append(h)
-    if dominant:
-        elem_hints = {
-            "Fire":  "野心強烈、行動力爆棚，但容易燃燒自己",
-            "Earth": "極度務實穩重，但可能過於保守",
-            "Air":   "思維敏銳、善於溝通，但容易想太多",
-            "Water": "情感豐沛、直覺強，但容易被情緒淹沒",
-        }
-        for e in dominant:
-            h = elem_hints.get(e)
-            if h:
-                hints.append(h)
-    if "Natural_Dom" in sm_tags or "Daddy_Dom" in sm_tags:
-        hints.append("骨子裡有掌控一切的慾望，但可能對自己這面有些抗拒")
-    if "Anxious_Sub" in sm_tags:
-        hints.append("在親密關係中容易過度付出，渴望被接住的安全感")
-    if not hints:
-        return ""
-    return "【命盤解讀提示（提供給你的參考，不要直接輸出給用戶）】\n" + "\n".join(f"- {h}" for h in hints)
