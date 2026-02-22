@@ -689,10 +689,20 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
         total_weight += WEIGHTS["soul_house4"]
 
     # 5. Juno — when ephemeris available
+    # Cross-aspect: A's Juno × B's Moon + B's Juno × A's Moon (averaged).
+    # Juno (asteroid of committed partnerships) should measure whether A's partnership
+    # ideal (Juno) aligns with B's emotional core (Moon), and vice versa.
+    # Same-sign Juno is unreliable: people born in the same year often share Juno signs
+    # (Juno moves ~1-2 signs/year), causing age-peers to get artificially high scores.
     juno_a = user_a.get("juno_sign")
     juno_b = user_b.get("juno_sign")
+    moon_a = user_a.get("moon_sign")
+    moon_b = user_b.get("moon_sign")
     if juno_a and juno_b:
-        score += compute_sign_aspect(juno_a, juno_b, "harmony") * WEIGHTS["soul_juno"]
+        juno_a_moon_b = compute_sign_aspect(juno_a, moon_b, "harmony")
+        juno_b_moon_a = compute_sign_aspect(juno_b, moon_a, "harmony")
+        juno = (juno_a_moon_b + juno_b_moon_a) / 2.0
+        score += juno * WEIGHTS["soul_juno"]
         total_weight += WEIGHTS["soul_juno"]
 
     # 6. Attachment style — when questionnaire filled
@@ -835,10 +845,22 @@ def compute_tracks(
     jup_a_sun_b = compute_sign_aspect(jupiter_a, sun_b, "harmony")
     jup_b_sun_a = compute_sign_aspect(jupiter_b, sun_a, "harmony")
     jupiter    = (jup_a_sun_b + jup_b_sun_a) / 2.0
-    moon       = compute_sign_aspect(user_a.get("moon_sign"),    user_b.get("moon_sign"),    "harmony")
+    moon_a     = user_a.get("moon_sign")
+    moon_b     = user_b.get("moon_sign")
+    moon       = compute_sign_aspect(moon_a, moon_b, "harmony")
     juno_a, juno_b = user_a.get("juno_sign"), user_b.get("juno_sign")
     juno_present = bool(juno_a and juno_b)
-    juno = compute_sign_aspect(juno_a, juno_b, "harmony") if juno_present else 0.0
+    # Juno Partner Track: cross-aspect (A's Juno × B's Moon + B's Juno × A's Moon) / 2.
+    # Juno (asteroid of committed partnerships) should measure whether A's partnership
+    # ideal aligns with B's emotional core (Moon), and vice versa.
+    # Same-sign Juno is unreliable: people born in the same year often share Juno signs,
+    # causing age-peers to get artificially high partner scores.
+    if juno_present:
+        juno_a_moon_b = compute_sign_aspect(juno_a, moon_b, "harmony")
+        juno_b_moon_a = compute_sign_aspect(juno_b, moon_a, "harmony")
+        juno = (juno_a_moon_b + juno_b_moon_a) / 2.0
+    else:
+        juno = 0.0
 
     # tension planets: passion / soul tracks
     mars  = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),   "tension")

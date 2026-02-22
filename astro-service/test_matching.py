@@ -980,19 +980,26 @@ class TestSoulScoreDynamicWeighting:
         """Tier 1 user with all fields present: score uses all 6 components
         with total_weight = 1.20.
 
+        Juno now uses cross-aspect (juno_a × moon_b + juno_b × moon_a) / 2.0.
+        With juno="sagittarius" and moon="cancer" for both users:
+        juno_v = (sign_aspect("sagittarius","cancer") + sign_aspect("sagittarius","cancer")) / 2.0
+               = sign_aspect("sagittarius","cancer","harmony")  [square: 3 signs apart = 0.40]
+
         Expected = (moon*0.25 + mercury*0.20 + saturn*0.20
-                    + house4*0.15 + juno*0.20 + attachment*0.20) / 1.20 * 100
+                    + house4*0.15 + juno_cross*0.20 + attachment*0.20) / 1.20 * 100
         """
         a = self._tier1_user(moon="cancer", mercury="gemini", saturn="capricorn",
                               house4="pisces", juno="sagittarius", attachment="secure")
         b = self._tier1_user(moon="cancer", mercury="gemini", saturn="capricorn",
                               house4="pisces", juno="sagittarius", attachment="secure")
 
-        moon_v       = compute_sign_aspect("cancer",      "cancer",      "harmony")
-        mercury_v    = compute_sign_aspect("gemini",      "gemini",      "harmony")
-        saturn_v     = compute_sign_aspect("capricorn",   "capricorn",   "harmony")
-        house4_v     = compute_sign_aspect("pisces",      "pisces",      "harmony")
-        juno_v       = compute_sign_aspect("sagittarius", "sagittarius", "harmony")
+        moon_v       = compute_sign_aspect("cancer",    "cancer",    "harmony")
+        mercury_v    = compute_sign_aspect("gemini",    "gemini",    "harmony")
+        saturn_v     = compute_sign_aspect("capricorn", "capricorn", "harmony")
+        house4_v     = compute_sign_aspect("pisces",    "pisces",    "harmony")
+        # Cross-aspect: juno_a × moon_b + juno_b × moon_a (both users same signs)
+        juno_v       = (compute_sign_aspect("sagittarius", "cancer", "harmony") +
+                        compute_sign_aspect("sagittarius", "cancer", "harmony")) / 2.0
         attachment_v = ATTACHMENT_FIT["secure"]["secure"]  # 0.90
 
         numerator = (moon_v * 0.25 + mercury_v * 0.20 + saturn_v * 0.20
@@ -1144,6 +1151,11 @@ class TestTracksNullHandling:
     def test_partner_track_with_juno_uses_original_weights(self):
         """When juno_sign is present, partner uses original weights:
         moon*0.35 + juno*0.35 + bazi_generation*0.30.
+
+        Juno now uses cross-aspect (juno_a × moon_b + juno_b × moon_a) / 2.0.
+        With juno="libra" and moon="cancer": both users share the same signs, so
+        juno = (sign_aspect("libra","cancer") + sign_aspect("libra","cancer")) / 2.0
+             = sign_aspect("libra", "cancer", "harmony")  [square = 0.40]
         """
         a = self._base_user(moon_sign="cancer", juno_sign="libra")
         b = self._base_user(moon_sign="cancer", juno_sign="libra")
@@ -1151,7 +1163,9 @@ class TestTracksNullHandling:
 
         tracks = compute_tracks(a, b, power, useful_god_complement=0.0)
         moon_v = compute_sign_aspect("cancer", "cancer", "harmony")  # 0.90
-        juno_v = compute_sign_aspect("libra",  "libra",  "harmony")  # 0.90
+        # Cross-aspect: juno_a × moon_b + juno_b × moon_a
+        juno_v = (compute_sign_aspect("libra", "cancer", "harmony") +
+                  compute_sign_aspect("libra", "cancer", "harmony")) / 2.0  # square = 0.40
         expected_partner = (moon_v * 0.35 + juno_v * 0.35 + 0.0 * 0.30) * 100
         assert tracks["partner"] == pytest.approx(expected_partner, abs=0.5)
 
@@ -1820,3 +1834,218 @@ def test_compute_match_v2_attachment_dynamics_applied():
     result = compute_match_v2(ua, ub)
     assert result["high_voltage"] is True
     assert "Anxious_Avoidant_Trap" in result["psychological_tags"]
+
+
+# ════════════════════════════════════════════════════════════════
+# Task 81: Juno Partner Track cross-aspect fix
+# ════════════════════════════════════════════════════════════════
+
+class TestJunoPartnerTrackCrossAspect:
+    """Verify that compute_tracks Partner Track and compute_soul_score use
+    cross-aspect Juno scoring (juno × moon) rather than same-planet Juno.
+
+    Before the fix: juno = compute_sign_aspect(juno_a, juno_b, "harmony")
+    After the fix:  juno = (compute_sign_aspect(juno_a, moon_b, "harmony")
+                          + compute_sign_aspect(juno_b, moon_a, "harmony")) / 2.0
+
+    People born in the same year often share the same Juno sign (Juno moves
+    ~1-2 signs/year).  The old same-planet comparison rewarded age-peers
+    regardless of whether A's partnership ideal (Juno) actually aligns with
+    B's emotional core (Moon).  The fix uses the correct astrological
+    cross-aspect.
+    """
+
+    def _power_no_frame_break(self):
+        return {"rpv": 0.0, "frame_break": False, "viewer_role": "Equal", "target_role": "Equal"}
+
+    def _minimal_user(self, moon_sign, juno_sign, **kwargs):
+        """Minimal user dict with only the fields compute_tracks / compute_soul_score need."""
+        defaults = {
+            "moon_sign": moon_sign,
+            "juno_sign": juno_sign,
+            "sun_sign": None,
+            "mercury_sign": None,
+            "jupiter_sign": None,
+            "mars_sign": None,
+            "venus_sign": None,
+            "saturn_sign": None,
+            "chiron_sign": None,
+            "house8_sign": None,
+            "house4_sign": None,
+            "bazi_element": None,
+            "attachment_style": None,
+            "rpv_power": None,
+            "rpv_conflict": None,
+            "rpv_energy": None,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    # ── Partner track (compute_tracks) ───────────────────────────────────────
+
+    def test_cross_aspect_elevated_when_juno_harmonizes_with_moon_not_juno(self):
+        """Partner track is elevated when juno_a harmonizes with moon_b (trine),
+        even though juno_a does NOT harmonize with juno_b (semi-sextile → 0.10).
+
+        Setup:
+          juno_a  = Aries  (Fire)
+          moon_b  = Leo    (Fire) → trine, harmony score = 0.85
+          juno_b  = Taurus (Earth) → semi-sextile from Aries, score = 0.10
+
+        Under the OLD same-planet formula:
+          juno = compute_sign_aspect("aries", "taurus", "harmony") = 0.10
+        Under the NEW cross-aspect formula:
+          juno_a_moon_b = compute_sign_aspect("aries", "leo",  "harmony") = 0.85 (trine)
+          juno_b_moon_a = compute_sign_aspect("taurus", moon_a, "harmony")
+          juno = (juno_a_moon_b + juno_b_moon_a) / 2.0  → much higher than 0.10
+        """
+        # juno_a=Aries, moon_b=Leo → trine (0.85); juno_b=Taurus, moon_a=Capricorn → trine (0.85)
+        user_a = self._minimal_user(moon_sign="capricorn", juno_sign="aries")
+        user_b = self._minimal_user(moon_sign="leo",       juno_sign="taurus")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(user_a, user_b, power, useful_god_complement=0.0)
+
+        juno_cross = (
+            compute_sign_aspect("aries", "leo",        "harmony") +  # 0.85 trine
+            compute_sign_aspect("taurus", "capricorn", "harmony")    # 0.85 trine
+        ) / 2.0
+        moon_v = compute_sign_aspect("capricorn", "leo", "harmony")
+        expected_partner = (moon_v * 0.35 + juno_cross * 0.35 + 0.0 * 0.30) * 100
+
+        assert tracks["partner"] == pytest.approx(expected_partner, abs=0.5)
+
+        # Confirm it beats the old same-planet formula.
+        old_juno = compute_sign_aspect("aries", "taurus", "harmony")  # semi-sextile = 0.10
+        old_expected_partner = (moon_v * 0.35 + old_juno * 0.35 + 0.0 * 0.30) * 100
+        assert tracks["partner"] > old_expected_partner, (
+            "Cross-aspect formula must produce a higher partner score than "
+            "the old same-planet formula when juno_a trines moon_b but not juno_b."
+        )
+
+    def test_partner_track_juno_cross_aspect_is_symmetric(self):
+        """compute_tracks(a, b)['partner'] == compute_tracks(b, a)['partner'].
+
+        The cross-aspect formula (juno_a × moon_b + juno_b × moon_a) / 2.0 is
+        symmetric by construction.  This test guards against future regressions.
+        """
+        user_a = self._minimal_user(moon_sign="cancer",    juno_sign="sagittarius")
+        user_b = self._minimal_user(moon_sign="capricorn", juno_sign="gemini")
+        power = self._power_no_frame_break()
+
+        tracks_ab = compute_tracks(user_a, user_b, power, useful_god_complement=0.0)
+        tracks_ba = compute_tracks(user_b, user_a, power, useful_god_complement=0.0)
+
+        assert tracks_ab["partner"] == pytest.approx(tracks_ba["partner"], abs=0.01)
+
+    def test_age_peers_same_juno_differing_moon_no_inflated_partner(self):
+        """Age-peers with same Juno sign should NOT get inflated partner scores
+        when their Moon signs are incompatible.
+
+        Under the OLD same-planet formula: juno_a == juno_b (conjunction → 0.90)
+        → age-peers always scored high on partner track regardless of Moon fit.
+
+        Under the NEW cross-aspect formula: juno_a × moon_b matters, so if
+        juno (Scorpio) squares moon_b (Aquarius), the score drops significantly.
+
+        Setup: both users born same year → same Juno = Scorpio
+          moon_a = Aquarius, moon_b = Aquarius (same Moon for this test)
+          juno_a_moon_b = sign_aspect("scorpio", "aquarius") = square = 0.40
+          juno_b_moon_a = sign_aspect("scorpio", "aquarius") = 0.40
+          juno_cross = 0.40 (much lower than old conjunction 0.90)
+        """
+        user_a = self._minimal_user(moon_sign="aquarius", juno_sign="scorpio")
+        user_b = self._minimal_user(moon_sign="aquarius", juno_sign="scorpio")
+        power = self._power_no_frame_break()
+
+        tracks = compute_tracks(user_a, user_b, power, useful_god_complement=0.0)
+
+        # New cross-aspect score (Scorpio vs Aquarius → square = 0.40)
+        juno_cross = compute_sign_aspect("scorpio", "aquarius", "harmony")  # 0.40
+        moon_v = compute_sign_aspect("aquarius", "aquarius", "harmony")     # 0.90
+        expected_new = (moon_v * 0.35 + juno_cross * 0.35 + 0.0 * 0.30) * 100
+
+        # Old same-planet score: Scorpio vs Scorpio → conjunction = 0.90
+        old_juno = compute_sign_aspect("scorpio", "scorpio", "harmony")     # 0.90
+        expected_old = (moon_v * 0.35 + old_juno * 0.35 + 0.0 * 0.30) * 100
+
+        assert tracks["partner"] == pytest.approx(expected_new, abs=0.5)
+        assert expected_old > expected_new, (
+            "Old same-planet formula inflated age-peer partner score; "
+            "new cross-aspect formula correctly reduces it when Juno squares Moon."
+        )
+
+    # ── Soul score (compute_soul_score) ──────────────────────────────────────
+
+    def test_soul_score_juno_cross_aspect_elevated_when_juno_trines_moon(self):
+        """Soul score Juno component is elevated when juno_a trines moon_b.
+
+        Setup:
+          juno_a = Aries (Fire), moon_b = Leo (Fire)  → trine = 0.85
+          juno_b = Aries (Fire), moon_a = Leo  (Fire) → trine = 0.85
+          juno_cross = (0.85 + 0.85) / 2.0 = 0.85
+
+        Verify the score is higher than when juno_a squares moon_b.
+        """
+        # Trine pair: juno=Aries, moon=Leo (Fire trine)
+        user_a_good = self._minimal_user(moon_sign="leo",   juno_sign="aries",
+                                         mercury_sign="gemini", saturn_sign="capricorn")
+        user_b_good = self._minimal_user(moon_sign="leo",   juno_sign="aries",
+                                         mercury_sign="gemini", saturn_sign="capricorn")
+
+        # Square pair: juno=Aries, moon=Cancer (square = 0.40)
+        user_a_bad  = self._minimal_user(moon_sign="cancer", juno_sign="aries",
+                                         mercury_sign="gemini", saturn_sign="capricorn")
+        user_b_bad  = self._minimal_user(moon_sign="cancer", juno_sign="aries",
+                                         mercury_sign="gemini", saturn_sign="capricorn")
+
+        soul_good = compute_soul_score(user_a_good, user_b_good)
+        soul_bad  = compute_soul_score(user_a_bad,  user_b_bad)
+
+        assert soul_good > soul_bad, (
+            f"Juno trine Moon should give higher soul score ({soul_good:.1f}) "
+            f"than Juno square Moon ({soul_bad:.1f})."
+        )
+
+    def test_soul_score_juno_cross_aspect_symmetric(self):
+        """compute_soul_score(a, b) == compute_soul_score(b, a) for Juno component.
+
+        The cross-aspect formula is symmetric by construction.
+        """
+        user_a = self._minimal_user(moon_sign="cancer",  juno_sign="libra",
+                                    mercury_sign="virgo", saturn_sign="aries")
+        user_b = self._minimal_user(moon_sign="scorpio", juno_sign="taurus",
+                                    mercury_sign="virgo", saturn_sign="aries")
+
+        assert compute_soul_score(user_a, user_b) == pytest.approx(
+            compute_soul_score(user_b, user_a), abs=0.1
+        )
+
+    def test_soul_score_age_peers_same_juno_differing_moon_not_inflated(self):
+        """Age-peers sharing the same Juno sign do not get inflated soul scores
+        when their Moon signs are incompatible with that Juno.
+
+        Old formula: juno_a == juno_b (same sign) → conjunction = 0.90 always.
+        New formula: juno_a × moon_b → score depends on how juno relates to Moon.
+        If Juno (Scorpio) vs Moon (Aquarius) = square = 0.40, soul score drops.
+        """
+        user_a = self._minimal_user(moon_sign="aquarius", juno_sign="scorpio",
+                                    mercury_sign="gemini", saturn_sign="capricorn")
+        user_b = self._minimal_user(moon_sign="aquarius", juno_sign="scorpio",
+                                    mercury_sign="gemini", saturn_sign="capricorn")
+
+        soul = compute_soul_score(user_a, user_b)
+
+        # If old same-planet formula were used, juno_v would be 0.90 (conjunction).
+        # With new cross-aspect, juno_v = sign_aspect("scorpio","aquarius") = 0.40 (square).
+        # Build a "perfect juno trine moon" baseline to confirm cross-aspect is lower.
+        user_a_trine = self._minimal_user(moon_sign="cancer", juno_sign="scorpio",
+                                          mercury_sign="gemini", saturn_sign="capricorn")
+        user_b_trine = self._minimal_user(moon_sign="cancer", juno_sign="scorpio",
+                                          mercury_sign="gemini", saturn_sign="capricorn")
+        soul_trine = compute_soul_score(user_a_trine, user_b_trine)
+
+        assert soul < soul_trine, (
+            "Age-peers with incompatible Juno × Moon (square) should score "
+            f"lower ({soul:.1f}) than pairs where Juno trines Moon ({soul_trine:.1f})."
+        )
