@@ -698,7 +698,7 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     juno_b = user_b.get("juno_sign")
     moon_a = user_a.get("moon_sign")
     moon_b = user_b.get("moon_sign")
-    if juno_a and juno_b:
+    if juno_a and juno_b and moon_a and moon_b:
         juno_a_moon_b = compute_sign_aspect(juno_a, moon_b, "harmony")
         juno_b_moon_a = compute_sign_aspect(juno_b, moon_a, "harmony")
         juno = (juno_a_moon_b + juno_b_moon_a) / 2.0
@@ -849,7 +849,7 @@ def compute_tracks(
     moon_b     = user_b.get("moon_sign")
     moon       = compute_sign_aspect(moon_a, moon_b, "harmony")
     juno_a, juno_b = user_a.get("juno_sign"), user_b.get("juno_sign")
-    juno_present = bool(juno_a and juno_b)
+    juno_present = bool(juno_a and juno_b and moon_a and moon_b)
     # Juno Partner Track: cross-aspect (A's Juno × B's Moon + B's Juno × A's Moon) / 2.
     # Juno (asteroid of committed partnerships) should measure whether A's partnership
     # ideal aligns with B's emotional core (Moon), and vice versa.
