@@ -24,7 +24,7 @@ from chart import calculate_chart
 from bazi import analyze_element_relation
 from matching import compute_match_score, compute_match_v2
 from zwds import compute_zwds_chart
-from prompt_manager import get_match_report_prompt, get_simple_report_prompt, get_profile_prompt
+from prompt_manager import get_match_report_prompt, get_simple_report_prompt, get_profile_prompt, get_ideal_match_prompt
 from anthropic import Anthropic
 from google import genai as google_genai
 
@@ -304,6 +304,33 @@ def generate_match_report(req: MatchReportRequest):
     raw = ""
     try:
         raw = call_llm(prompt, provider=req.provider, max_tokens=700, api_key=req.api_key, gemini_model=req.gemini_model)
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class IdealMatchRequest(BaseModel):
+    chart_data: dict
+    provider: str = "anthropic"  # "anthropic" | "gemini"
+    api_key: str = ""            # overrides server env var when provided
+    gemini_model: str = "gemini-2.0-flash"  # used only when provider="gemini"
+
+
+@app.post("/generate-ideal-match")
+def generate_ideal_match(req: IdealMatchRequest):
+    """Generate an ideal partner profile based on a single person's natal chart.
+
+    Returns: {antidote, reality_anchors, core_need}
+    """
+    prompt = get_ideal_match_prompt(req.chart_data)
+
+    raw = ""
+    try:
+        raw = call_llm(prompt, provider=req.provider, max_tokens=500, api_key=req.api_key, gemini_model=req.gemini_model)
         return json.loads(raw)
     except json.JSONDecodeError:
         raise HTTPException(status_code=500, detail=f"LLM returned invalid JSON: {raw[:300]}")

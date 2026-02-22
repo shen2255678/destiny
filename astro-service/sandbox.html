@@ -251,6 +251,11 @@
       <span id="pc_status" class="loading" style="margin-left:8px"></span>
     </div>
     <div id="pc_output" style="margin-top:16px"></div>
+    <div style="border-top:1px solid #374151;padding-top:12px;margin-top:14px">
+      <button class="btn-sm" id="ideal-match-btn" onclick="generateIdealMatch()">&#10022; &#26368;&#20339;&#37197;&#23565;&#36684;&#24405;</button>
+      <span id="ideal-match-status" class="loading" style="margin-left:8px"></span>
+      <div id="ideal-match-output" style="margin-top:10px"></div>
+    </div>
   </div>
 </div><!-- end tab-c -->
 
@@ -942,6 +947,7 @@ async function generateProfileCard() {
 
     var inferred = inferFromChart(chart);
     renderInferred('pc', inferred, chart);
+    window._lastProfileChart = chart;
 
     var provider = document.getElementById('llmProvider').value;
     status.textContent = '生成名片中 (' + provider + ')...';
@@ -974,6 +980,68 @@ async function generateProfileCard() {
     out.appendChild(errDiv);
     status.textContent = '';
   }
+}
+
+async function generateIdealMatch() {
+  var btn = document.getElementById('ideal-match-btn');
+  var status = document.getElementById('ideal-match-status');
+  var out = document.getElementById('ideal-match-output');
+
+  if (!window._lastProfileChart) {
+    alert('\u8acb\u5148\u9ede\u300c\u751f\u6210\u500b\u4eba\u540d\u7247\u300d\u4ee5\u7372\u53d6\u661f\u76e4\u8cc7\u6599');
+    return;
+  }
+
+  btn.disabled = true;
+  var savedText = btn.textContent;
+  btn.textContent = '\u5206\u6790\u4e2d\u2026';
+  status.textContent = '';
+  out.innerHTML = '';
+
+  var provider = document.getElementById('llmProvider').value;
+
+  try {
+    var r = await fetch(BASE + '/generate-ideal-match', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        chart_data: window._lastProfileChart,
+        provider: provider,
+        api_key: getApiKey(),
+        gemini_model: getGeminiModel(),
+      })
+    });
+    if (!r.ok) { var e = await r.json(); throw new Error(e.detail || r.statusText); }
+    var data = await r.json();
+
+    var html = '<div style="background:#0f172a;border:1px solid #374151;border-radius:8px;padding:14px;font-size:12px">';
+    html += '<div style="color:#c084fc;font-weight:bold;font-size:13px;margin-bottom:10px">\u6700\u4f73\u914d\u5c0d\u8f2a\u5ed3</div>';
+    if (data.antidote) {
+      html += '<div style="color:#6b7280;font-size:11px;margin-bottom:2px">\u3010\u89e3\u85e5\u3011</div>';
+      html += '<div style="color:#e2e8f0;line-height:1.6;margin-bottom:10px">' + data.antidote + '</div>';
+    }
+    if (data.reality_anchors && data.reality_anchors.length) {
+      html += '<div style="color:#6b7280;font-size:11px;margin-bottom:6px">\u3010\u73fe\u5be6\u63a5\u4f4f\u4f60\u7684\u4eba\u3011</div>';
+      html += '<ul style="list-style:none;padding:0;margin:0 0 10px 0">';
+      data.reality_anchors.forEach(function(a) {
+        html += '<li style="color:#6ee7b7;padding:2px 0">' + a + '</li>';
+      });
+      html += '</ul>';
+    }
+    if (data.core_need) {
+      html += '<div style="color:#6b7280;font-size:11px;margin-bottom:2px">\u3010\u6838\u5fc3\u6e34\u671b\u3011</div>';
+      html += '<div style="color:#e2e8f0;font-style:italic">' + data.core_need + '</div>';
+    }
+    html += '</div>';
+    out.innerHTML = html;
+  } catch(err) {
+    var errDiv = document.createElement('div');
+    errDiv.className = 'error-msg';
+    errDiv.textContent = 'Error: ' + err.message;
+    out.appendChild(errDiv);
+  }
+
+  btn.textContent = savedText;
+  btn.disabled = false;
 }
 
 function fillFromLastMatch() {

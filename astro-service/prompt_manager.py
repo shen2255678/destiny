@@ -2,7 +2,7 @@
 DESTINY — LLM Prompt Manager
 Assembles DESTINY-worldview-enriched prompts for AI report generation.
 
-Three public functions:
+Four public functions:
   get_match_report_prompt(match_data, mode, person_a, person_b)
       → (prompt: str, effective_mode: str)
       Used by /generate-archetype and /generate-match-report
@@ -14,6 +14,10 @@ Three public functions:
   get_simple_report_prompt(match_data, person_a, person_b)
       → prompt: str
       Used by /generate-match-report (Tab D, structured report format)
+
+  get_ideal_match_prompt(chart_data)
+      → prompt: str
+      Used by /generate-ideal-match (Tab C, ideal partner profile)
 """
 
 from __future__ import annotations
@@ -349,6 +353,68 @@ def get_profile_prompt(
 {_profile_context(deficiency, dominant, sm_tags)}
 
 {_PROFILE_SCHEMA}"""
+
+    return prompt
+
+
+# ── Ideal Match Profile Prompt (for /generate-ideal-match, Tab C) ─────────────
+
+_IDEAL_MATCH_SCHEMA = """\
+請只回傳以下 JSON，不要包含任何其他文字或 markdown：
+{
+  "antidote": "【解藥】約60字：什麼樣的人能平衡他的靈魂黑洞？不說星座，說具體特質與行為。",
+  "reality_anchors": [
+    "👉 具體的行為要求1（≤15字）",
+    "👉 具體的行為要求2（≤15字）",
+    "👉 具體的行為要求3（≤15字）"
+  ],
+  "core_need": "一句話道出這個人最深的靈魂渴望（≤30字）"
+}"""
+
+
+def get_ideal_match_prompt(chart_data: dict) -> str:
+    """
+    Build a DESTINY-worldview-enriched prompt for ideal partner profile (Tab C).
+
+    chart_data : return value of /calculate-chart
+    Returns a prompt that produces {antidote, reality_anchors, core_need}.
+    """
+    ep = chart_data.get("element_profile") or {}
+    deficiency = ep.get("deficiency", [])
+    dominant   = ep.get("dominant", [])
+
+    sm_tags    = chart_data.get("sm_tags", [])
+    karmic     = chart_data.get("karmic_tags", [])
+    all_tags   = sm_tags + karmic
+
+    bazi = chart_data.get("bazi") or {}
+    bazi_day_master = bazi.get("day_master", "?")
+    bazi_element    = chart_data.get("bazi_element", "?")
+
+    elem_context = _element_summary(ep)
+
+    prompt = f"""{DESTINY_WORLDVIEW}
+
+【本次任務：最佳配對輪廓】
+根據此人的命盤數據，描繪出他靈魂真正渴求的「承載者」。
+核心原則：不說星座或玄學術語，只說具體的人格特質與生活行為。
+用第二人稱「你需要...」直接對此人說話。
+
+【輸入數據】
+太陽星座: {chart_data.get('sun_sign', 'unknown')}
+月亮星座: {chart_data.get('moon_sign', 'unknown') or '（無精確時間）'}
+上升星座: {chart_data.get('ascendant_sign', 'unknown') or '（無精確時間）'}
+火星星座: {chart_data.get('mars_sign', 'unknown')}
+金星星座: {chart_data.get('venus_sign', 'unknown')}
+日主五行: {bazi_day_master}（{bazi_element}）
+元素結構: {elem_context}
+
+【心理與業力特徵（請轉譯為白話，禁止直接輸出原始標籤）】
+{_translate_psych_tags(all_tags)}
+
+{_profile_context(deficiency, dominant, sm_tags)}
+
+{_IDEAL_MATCH_SCHEMA}"""
 
     return prompt
 
