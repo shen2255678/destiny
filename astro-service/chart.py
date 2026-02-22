@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 import swisseph as swe
+from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile
 
 def _resolve_ephe_path() -> str:
     """Return an ASCII-safe path to the ephemeris directory.
@@ -320,5 +321,11 @@ def calculate_chart(
     # Callers with ZWDS data should call compute_emotional_capacity(chart_data, zwds_data)
     # separately and update this field after computing the ZWDS chart.
     result["emotional_capacity"] = compute_emotional_capacity(result)
+
+    # ── Psychology Layer (Phase I) ───────────────────────────────────────────
+    is_exact = (data_tier == 1)
+    result["sm_tags"]         = extract_sm_dynamics(result)
+    result["karmic_tags"]     = extract_critical_degrees(result, is_exact_time=is_exact)
+    result["element_profile"] = compute_element_profile(result)
 
     return result

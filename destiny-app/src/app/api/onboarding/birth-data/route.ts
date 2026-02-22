@@ -305,6 +305,10 @@ export async function POST(request: Request) {
           emotional_capacity: chart.emotional_capacity ?? 50,
           // Phase I: exact planet degrees for orb-based aspect matching
           planet_degrees: Object.keys(planetDegrees).length > 0 ? planetDegrees : null,
+          // Phase I: Psychology Layer tags
+          sm_tags:         chart.sm_tags         ?? [],
+          karmic_tags:     chart.karmic_tags      ?? [],
+          element_profile: chart.element_profile  ?? null,
         })
         .eq('id', user.id)
     }
