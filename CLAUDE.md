@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Status:** Active development — Phase A ✅, Phase B ✅, Phase C ✅, Phase D ✅, Phase B.5 ✅, Phase E (AI Archetypes) **NEXT**.
 
+**Algorithm:** v1.6 — Centralized `WEIGHTS` dict, linear orb decay, cross-person Mars×Venus synastry aspects.
+
 ## Repository Structure
 
 ```
@@ -39,12 +41,14 @@ destiny/
 │   ├── bazi.py                   # BaZi (八字四柱): Four Pillars + Five Elements + true solar time
 │   ├── matching.py               # Compatibility scoring: WesternScore + BaZiScore → Match_Score
 │   ├── test_chart.py             # pytest (30 tests)
-│   ├── test_matching.py          # pytest (41 tests)
+│   ├── test_matching.py          # pytest (161 tests)
 │   └── requirements.txt
 ├── docs/
 │   ├── MVP-PROGRESS.md           # Progress tracker (source of truth)
 │   ├── TESTING-GUIDE.md          # Three-layer testing strategy + astro-service
 │   ├── ASTRO-SERVICE.md          # Astro microservice API guide
+│   ├── HOW-IT-WORKS.md           # User-facing algorithm explanation (繁體中文)
+│   ├── WEIGHTS-TUNING-GUIDE.md   # Algorithm weight tuning reference (v1.6)
 │   ├── DEPLOYMENT.md             # Vercel + Railway + AI API strategy
 │   ├── Dynamic_BirthTimeRectification_Spec.md  # Phase B.5 完整 spec
 │   ├── TECH-STACK.md
@@ -60,6 +64,8 @@ destiny/
 - `docs/MVP-PROGRESS.md` — Progress tracker with all endpoints, test coverage, known issues (**read this first**)
 - `docs/TESTING-GUIDE.md` — Three-layer testing strategy (unit/E2E/API) + astro-service
 - `docs/ASTRO-SERVICE.md` — Python astro microservice API guide
+- `docs/HOW-IT-WORKS.md` — User-facing explanation of matching algorithm (繁體中文)
+- `docs/WEIGHTS-TUNING-GUIDE.md` — How to adjust algorithm weights; all WEIGHTS keys documented
 - `docs/TECH-STACK.md` — Architecture details and DB schema
 - `docs/superbase.md` — Supabase project config (ref: `masninqgihbazjirweiy`)
 - `docs/DEPLOYMENT.md` — Hosting guide: Vercel (Next.js) + Railway (Python) + AI API timeout strategy
@@ -94,8 +100,8 @@ cd astro-service
 pip install -r requirements.txt   # Install dependencies (first time)
 uvicorn main:app --port 8001      # Start service
 pytest test_chart.py -v           # Run chart tests (30 tests)
-pytest test_matching.py -v        # Run matching tests (41 tests)
-pytest -v                         # Run all Python tests (71 tests)
+pytest test_matching.py -v        # Run matching tests (161 tests)
+pytest -v                         # Run all Python tests (191 tests)
 ```
 
 ## Architecture
@@ -106,15 +112,37 @@ pytest -v                         # Run all Python tests (71 tests)
 2. **Match Engine ("Black Box")** — Pushes 3 daily candidates; blind matching with labels, not photos
 3. **Interaction Layer** — Progressive unlock: Lv.1 (text) → Lv.2 (50% photo) → Lv.3 (full HD); 24hr auto-disconnect
 
-### Core Matching Algorithm
+### Core Matching Algorithm (v1.6)
 
+All weights are centralized in the `WEIGHTS` dict at the top of `matching.py`. See `docs/WEIGHTS-TUNING-GUIDE.md` for the full reference.
+
+**v1 formula (compute_match_score):**
 ```
 Match_Score = (Kernel_Compatibility × 0.5) + (Power_Dynamic_Fit × 0.3) + (Glitch_Tolerance × 0.2)
 ```
 
-Kernel_Compatibility 由兩套系統組成：
-- **西洋占星 (Western Astrology)** — 6 行星 + 上升星座 → 吸引的成因
-- **八字四柱 (BaZi)** — 日主五行 + 相生相剋 → 相處的姿態
+**v2 formula (compute_match_v2)** — 雙軸 + 四軌：
+```
+compute_match_v2()
+├── compute_lust_score()      → X 軸（生理吸引力）
+│   ├── mars_a × venus_b      → cross-person primary (WEIGHTS["lust_cross_mars_venus"] = 0.30)
+│   ├── mars_b × venus_a      → cross-person primary (WEIGHTS["lust_cross_venus_mars"] = 0.30)
+│   ├── venus × venus / mars × mars  → same-planet secondary
+│   ├── house8, karmic triggers, power score
+│   └── BaZi restriction multiplier (× 1.25 if 相剋)
+├── compute_soul_score()      → Y 軸（靈魂深度）
+│   ├── Moon, Mercury, Saturn, House4, Juno, Attachment
+│   └── BaZi generation multiplier (× 1.20 if 相生)
+├── compute_tracks()          → 四軌（friend / passion / partner / soul）
+└── compute_power_v2()        → RPV 動力（conflict / power / energy）
+```
+
+**Aspect scoring (linear orb decay):**
+```
+strength_ratio = 1.0 - (diff / orb)
+final_score = 0.2 + (max_score - 0.2) × strength_ratio
+```
+0° conjunction → 1.0; 7° conjunction → ~0.30. Defined in `ASPECT_RULES` module constant.
 
 Implemented in `astro-service/matching.py`:
 - `POST /score-compatibility` — Returns Match_Score + breakdown (western, bazi, power_dynamic, glitch)
