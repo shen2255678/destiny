@@ -13,19 +13,19 @@ def _dist(a, b):
     return min(d, 360.0 - d)
 
 
-def _conj(a, b, orb=8.0):
+def _conj(a, b, orb=5.0):
     d = _dist(a, b)
     return d is not None and d <= orb
 
 
-def _tension(a, b, orb=8.0):
+def _tension(a, b, orb=5.0):
     d = _dist(a, b)
     if d is None:
         return False
     return d <= orb or abs(d - 90.0) <= orb or abs(d - 180.0) <= orb
 
 
-def _harmony(a, b, orb=8.0):
+def _harmony(a, b, orb=5.0):
     d = _dist(a, b)
     if d is None:
         return False
@@ -49,45 +49,53 @@ def compute_shadow_and_wound(chart_a, chart_b):
     }
     chiron_a = chart_a.get("chiron_degree")
     chiron_b = chart_b.get("chiron_degree")
-    moon_a   = chart_a.get("moon_degree")
-    moon_b   = chart_b.get("moon_degree")
-    mars_a   = chart_a.get("mars_degree")
-    mars_b   = chart_b.get("mars_degree")
-    sun_a    = chart_a.get("sun_degree")
-    sun_b    = chart_b.get("sun_degree")
     h12_a    = chart_a.get("house12_degree")
     asc_a    = chart_a.get("ascendant_degree")
     h12_b    = chart_b.get("house12_degree")
     asc_b    = chart_b.get("ascendant_degree")
 
-    if _conj(chiron_a, moon_b):
-        result["soul_mod"] += 25.0
-        result["shadow_tags"].append("A_Heals_B_Moon")
-    if _conj(chiron_b, moon_a):
-        result["soul_mod"] += 25.0
-        result["shadow_tags"].append("B_Heals_A_Moon")
-    # 3. Chiron (A) in tension with Mars (B) → B triggers A's wound
-    # Square/opposition only — conjunction excluded per spec (wound trigger requires friction, not fusion)
-    if chiron_a is not None and mars_b is not None:
-        d = _dist(chiron_a, mars_b)
-        if d is not None and (abs(d - 90.0) <= 8.0 or abs(d - 180.0) <= 8.0):
-            result["lust_mod"] += 15.0
-            result["high_voltage"] = True
-            result["shadow_tags"].append("B_Triggers_A_Wound")
-    # 4. Chiron (B) in tension with Mars (A) → A triggers B's wound
-    # Square/opposition only — conjunction excluded per spec (wound trigger requires friction, not fusion)
-    if chiron_b is not None and mars_a is not None:
-        d = _dist(chiron_b, mars_a)
-        if d is not None and (abs(d - 90.0) <= 8.0 or abs(d - 180.0) <= 8.0):
-            result["lust_mod"] += 15.0
-            result["high_voltage"] = True
-            result["shadow_tags"].append("A_Triggers_B_Wound")
-    a_in_b12 = _in_house(sun_a, h12_b, asc_b) or _in_house(mars_a, h12_b, asc_b)
+    # Personal planets: Sun/Moon/Venus/Mars
+    planets_a = [
+        ("Sun",   chart_a.get("sun_degree")),
+        ("Moon",  chart_a.get("moon_degree")),
+        ("Venus", chart_a.get("venus_degree")),
+        ("Mars",  chart_a.get("mars_degree")),
+    ]
+    planets_b = [
+        ("Sun",   chart_b.get("sun_degree")),
+        ("Moon",  chart_b.get("moon_degree")),
+        ("Venus", chart_b.get("venus_degree")),
+        ("Mars",  chart_b.get("mars_degree")),
+    ]
+
+    # A's personal planets conjunct/oppose B's Chiron (orb 5°) → wound trigger
+    if chiron_b is not None:
+        for p_name, p_deg in planets_a:
+            d = _dist(p_deg, chiron_b)
+            if d is not None and (d <= 5.0 or abs(d - 180.0) <= 5.0):
+                result["soul_mod"] += 15.0
+                if p_name == "Mars":
+                    result["lust_mod"] += 10.0
+                result["high_voltage"] = True
+                result["shadow_tags"].append(f"A_{p_name}_Triggers_B_Chiron")
+
+    # B's personal planets conjunct/oppose A's Chiron (orb 5°) → wound trigger
+    if chiron_a is not None:
+        for p_name, p_deg in planets_b:
+            d = _dist(p_deg, chiron_a)
+            if d is not None and (d <= 5.0 or abs(d - 180.0) <= 5.0):
+                result["soul_mod"] += 15.0
+                if p_name == "Mars":
+                    result["lust_mod"] += 10.0
+                result["high_voltage"] = True
+                result["shadow_tags"].append(f"B_{p_name}_Triggers_A_Chiron")
+
+    a_in_b12 = _in_house(chart_a.get("sun_degree"), h12_b, asc_b) or _in_house(chart_a.get("mars_degree"), h12_b, asc_b)
     if a_in_b12:
         result["soul_mod"] += 20.0
         result["high_voltage"] = True
         result["shadow_tags"].append("A_Illuminates_B_Shadow")
-    b_in_a12 = _in_house(sun_b, h12_a, asc_a) or _in_house(mars_b, h12_a, asc_a)
+    b_in_a12 = _in_house(chart_b.get("sun_degree"), h12_a, asc_a) or _in_house(chart_b.get("mars_degree"), h12_a, asc_a)
     if b_in_a12:
         result["soul_mod"] += 20.0
         result["high_voltage"] = True

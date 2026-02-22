@@ -11,30 +11,36 @@ from shadow_engine import (
 # ── compute_shadow_and_wound ──────────────────────────────────────────────────
 
 def test_chiron_heals_moon_soul_bonus():
+    """B's Moon conjunct A's Chiron (diff=4° ≤ 5°) → B_Moon_Triggers_A_Chiron + soul_mod +15."""
     a = {"chiron_degree": 100.0}
-    b = {"moon_degree": 104.0}   # diff=4° < 8° → conjunction
+    b = {"moon_degree": 104.0}   # diff=4° < 5° → conjunction
     result = compute_shadow_and_wound(a, b)
-    assert result["soul_mod"] >= 25.0
-    assert "A_Heals_B_Moon" in result["shadow_tags"]
-    assert result["high_voltage"] is False
+    assert result["soul_mod"] >= 15.0
+    assert "B_Moon_Triggers_A_Chiron" in result["shadow_tags"]
+    assert result["high_voltage"] is True
 
 
 def test_chiron_heals_moon_bidirectional():
+    """Both A's Moon conjunct B's Chiron and B's Moon conjunct A's Chiron → both tags."""
     a = {"chiron_degree": 100.0, "moon_degree": 200.0}
     b = {"chiron_degree": 195.0, "moon_degree": 104.0}
+    # B's Moon (104) vs chiron_a (100): diff=4 ≤ 5 → B_Moon_Triggers_A_Chiron
+    # A's Moon (200) vs chiron_b (195): diff=5 ≤ 5 → A_Moon_Triggers_B_Chiron
     result = compute_shadow_and_wound(a, b)
-    assert "A_Heals_B_Moon" in result["shadow_tags"]
-    assert "B_Heals_A_Moon" in result["shadow_tags"]
-    assert result["soul_mod"] >= 50.0
+    assert "A_Moon_Triggers_B_Chiron" in result["shadow_tags"]
+    assert "B_Moon_Triggers_A_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] >= 30.0
 
 
 def test_chiron_triggers_wound_lust_bonus_and_high_voltage():
-    a = {"chiron_degree": 10.0}
-    b = {"mars_degree": 100.0}   # diff=90° square → tension
+    """A's Mars conjunct B's Chiron (diff=0°) → A_Mars_Triggers_B_Chiron + lust_mod +10 + soul_mod +15."""
+    a = {"mars_degree": 100.0}
+    b = {"chiron_degree": 100.0}   # diff=0° conjunction → trigger
     result = compute_shadow_and_wound(a, b)
-    assert result["lust_mod"] >= 15.0
+    assert result["lust_mod"] >= 10.0
+    assert result["soul_mod"] >= 15.0
     assert result["high_voltage"] is True
-    assert "B_Triggers_A_Wound" in result["shadow_tags"]
+    assert "A_Mars_Triggers_B_Chiron" in result["shadow_tags"]
 
 
 def test_12th_house_shadow_a_in_b_12th_requires_tier1():
@@ -48,8 +54,9 @@ def test_12th_house_shadow_a_in_b_12th_requires_tier1():
 
 
 def test_no_trigger_far_degrees():
+    """Chiron at 0° vs Moon at 90° — not a conjunction or opposition (orb=5°) → no trigger."""
     a = {"chiron_degree": 0.0}
-    b = {"moon_degree": 90.0}   # 90° apart — not a conjunction (orb=8°)
+    b = {"moon_degree": 90.0}   # 90° apart — not a conjunction or opposition
     result = compute_shadow_and_wound(a, b)
     assert result["soul_mod"] == 0.0
     assert result["lust_mod"] == 0.0
@@ -71,15 +78,15 @@ def test_mutual_shadow_double_bonus():
     assert result["soul_mod"] >= 80.0   # 20 + 20 + 40
 
 
-
 def test_chiron_b_triggers_a_wound():
-    """Trigger 4: chiron_b square/opp mars_a → A_Triggers_B_Wound."""
-    a = {"mars_degree": 10.0}
-    b = {"chiron_degree": 100.0}   # diff=90° square → triggers
+    """B's Mars conjunct A's Chiron (diff=0°) → B_Mars_Triggers_A_Chiron."""
+    a = {"chiron_degree": 100.0}
+    b = {"mars_degree": 100.0}   # diff=0° conjunction → triggers
     result = compute_shadow_and_wound(a, b)
-    assert result["lust_mod"] >= 15.0
+    assert result["lust_mod"] >= 10.0
+    assert result["soul_mod"] >= 15.0
     assert result["high_voltage"] is True
-    assert "A_Triggers_B_Wound" in result["shadow_tags"]
+    assert "B_Mars_Triggers_A_Chiron" in result["shadow_tags"]
 
 
 def test_b_illuminates_a_shadow():
@@ -90,6 +97,149 @@ def test_b_illuminates_a_shadow():
     assert "B_Illuminates_A_Shadow" in result["shadow_tags"]
     assert result["high_voltage"] is True
     assert result["soul_mod"] >= 20.0
+
+
+# ── New tests: expanded Chiron triggers (all personal planets) ────────────────
+
+def test_a_sun_triggers_b_chiron_conjunction():
+    """A's Sun conjunct B's Chiron (diff=2°) → A_Sun_Triggers_B_Chiron + soul_mod +15."""
+    a = {"sun_degree": 50.0}
+    b = {"chiron_degree": 52.0}   # diff=2° ≤ 5°
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Sun_Triggers_B_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["lust_mod"] == pytest.approx(0.0)
+    assert result["high_voltage"] is True
+
+
+def test_a_venus_triggers_b_chiron_conjunction():
+    """A's Venus conjunct B's Chiron (diff=3°) → A_Venus_Triggers_B_Chiron + soul_mod +15."""
+    a = {"venus_degree": 120.0}
+    b = {"chiron_degree": 123.0}   # diff=3° ≤ 5°
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Venus_Triggers_B_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["lust_mod"] == pytest.approx(0.0)
+    assert result["high_voltage"] is True
+
+
+def test_a_mars_triggers_b_chiron_adds_lust_mod():
+    """A's Mars conjunct B's Chiron → soul_mod +15 AND lust_mod +10."""
+    a = {"mars_degree": 0.0}
+    b = {"chiron_degree": 0.0}
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Mars_Triggers_B_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["lust_mod"] == pytest.approx(10.0)
+    assert result["high_voltage"] is True
+
+
+def test_a_moon_triggers_b_chiron_no_lust_mod():
+    """A's Moon conjunct B's Chiron → soul_mod +15, lust_mod stays 0 (Moon is not Mars)."""
+    a = {"moon_degree": 200.0}
+    b = {"chiron_degree": 200.0}
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Moon_Triggers_B_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["lust_mod"] == pytest.approx(0.0)
+
+
+def test_opposition_within_5deg_triggers():
+    """A's Moon opposite B's Chiron (diff=180°, within orb=5°) → triggers."""
+    a = {"moon_degree": 0.0}
+    b = {"chiron_degree": 180.0}   # exact opposition
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Moon_Triggers_B_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] >= 15.0
+    assert result["high_voltage"] is True
+
+
+def test_opposition_exactly_at_orb_boundary_triggers():
+    """A's Sun at 175° vs B's Chiron at 0° → diff=175°, abs(175-180)=5° ≤ 5° → triggers."""
+    a = {"sun_degree": 175.0}
+    b = {"chiron_degree": 0.0}   # diff=175, abs(175-180)=5 → exactly at boundary
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Sun_Triggers_B_Chiron" in result["shadow_tags"]
+
+
+def test_orb_6deg_does_not_trigger():
+    """A's Moon at 6° from B's Chiron → strictly outside orb of 5° → no trigger."""
+    a = {"moon_degree": 0.0}
+    b = {"chiron_degree": 6.0}   # diff=6° > 5°
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Moon_Triggers_B_Chiron" not in result["shadow_tags"]
+    assert result["soul_mod"] == 0.0
+    assert result["high_voltage"] is False
+
+
+def test_square_90deg_does_not_trigger():
+    """A's Mars at 90° from B's Chiron → square NOT in new trigger list → no tag."""
+    a = {"mars_degree": 0.0}
+    b = {"chiron_degree": 90.0}
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Mars_Triggers_B_Chiron" not in result["shadow_tags"]
+    assert result["lust_mod"] == 0.0
+
+
+def test_b_sun_triggers_a_chiron():
+    """B's Sun conjunct A's Chiron → B_Sun_Triggers_A_Chiron."""
+    a = {"chiron_degree": 300.0}
+    b = {"sun_degree": 302.0}   # diff=2° ≤ 5°
+    result = compute_shadow_and_wound(a, b)
+    assert "B_Sun_Triggers_A_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["high_voltage"] is True
+
+
+def test_b_mars_triggers_a_chiron_adds_lust_mod():
+    """B's Mars opposite A's Chiron (diff=180°) → B_Mars_Triggers_A_Chiron + lust_mod +10."""
+    a = {"chiron_degree": 0.0}
+    b = {"mars_degree": 180.0}   # diff=180° exact opposition
+    result = compute_shadow_and_wound(a, b)
+    assert "B_Mars_Triggers_A_Chiron" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["lust_mod"] == pytest.approx(10.0)
+    assert result["high_voltage"] is True
+
+
+def test_multiple_planets_all_trigger_independently():
+    """All 4 of A's personal planets conjunct B's Chiron → 4 tags, soul_mod=60, lust_mod=10."""
+    a = {
+        "sun_degree": 50.0,
+        "moon_degree": 50.0,
+        "venus_degree": 50.0,
+        "mars_degree": 50.0,
+    }
+    b = {"chiron_degree": 50.0}
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Sun_Triggers_B_Chiron" in result["shadow_tags"]
+    assert "A_Moon_Triggers_B_Chiron" in result["shadow_tags"]
+    assert "A_Venus_Triggers_B_Chiron" in result["shadow_tags"]
+    assert "A_Mars_Triggers_B_Chiron" in result["shadow_tags"]
+    # soul_mod: 4 triggers × 15 = 60; lust_mod: Mars only × 10 = 10
+    assert result["soul_mod"] == pytest.approx(60.0)
+    assert result["lust_mod"] == pytest.approx(10.0)
+
+
+def test_no_chiron_b_no_trigger_for_a_planets():
+    """No chiron_b → A's planets cannot trigger anything."""
+    a = {"sun_degree": 50.0, "moon_degree": 50.0, "venus_degree": 50.0, "mars_degree": 50.0}
+    b = {}   # no chiron_degree
+    result = compute_shadow_and_wound(a, b)
+    assert result["soul_mod"] == 0.0
+    assert result["lust_mod"] == 0.0
+    assert result["shadow_tags"] == []
+
+
+def test_no_chiron_a_no_trigger_for_b_planets():
+    """No chiron_a → B's planets cannot trigger anything."""
+    a = {}   # no chiron_degree
+    b = {"sun_degree": 50.0, "moon_degree": 50.0, "venus_degree": 50.0, "mars_degree": 50.0}
+    result = compute_shadow_and_wound(a, b)
+    assert result["soul_mod"] == 0.0
+    assert result["lust_mod"] == 0.0
+    assert result["shadow_tags"] == []
+
 
 # ── compute_dynamic_attachment ────────────────────────────────────────────────
 
@@ -117,7 +267,7 @@ def test_dynamic_attachment_jupiter_heals_to_secure():
 
 def test_dynamic_attachment_no_aspect_unchanged():
     chart_a = {"moon_degree": 50.0}
-    chart_b = {"uranus_degree": 10.0}    # diff=40° — no aspect (orb 8°)
+    chart_b = {"uranus_degree": 10.0}    # diff=40° — no aspect (orb 5°)
     dyn_a, dyn_b = compute_dynamic_attachment("secure", "avoidant", chart_a, chart_b)
     assert dyn_a == "secure"
     assert dyn_b == "avoidant"
