@@ -2357,3 +2357,253 @@ class TestPartnerTrackSaturnCrossAspect:
         b = self._user("aries", "aries")
         t = compute_tracks(a, b, self._power(), 0.0)
         assert 0 <= t["partner"] <= 100
+
+
+# ── L-2: compute_soul_score degree-level resolution ──────────────────────────
+
+class TestSoulScoreDegreeResolution:
+    """Verify L-2 fix: compute_soul_score uses _resolve_aspect (degree-level)
+    instead of compute_sign_aspect (sign-level) when degree data is available.
+
+    Core scenario — the 'false conjunction' bug:
+      Two planets in the same sign but 25° apart.
+      Sign-level: sees conjunction → 0.90 (harmony).
+      Degree-level: 25° is outside all major aspect orbs → void → 0.10.
+      With the fix, providing degree data REDUCES the soul score in this case,
+      proving the engine is reading actual orb data instead of the sign bucket.
+    """
+
+    def _base_user(self, **overrides):
+        """Minimal user dict; all optional fields absent → Tier 3 baseline."""
+        base = {
+            "sun_sign": "aries",       "sun_degree": None,
+            "moon_sign": "aries",      "moon_degree": None,
+            "mercury_sign": "gemini",  "mercury_degree": None,
+            "saturn_sign": "capricorn","saturn_degree": None,
+            "house4_sign": None,       "house4_degree": None,
+            "juno_sign": None,
+            "attachment_style": None,
+            "bazi_element": None,
+        }
+        base.update(overrides)
+        return base
+
+    def test_moon_false_conjunction_detected_via_degrees(self):
+        """Same moon sign (sign-level conjunction 0.90) but 25° apart (void 0.10).
+
+        WITHOUT degree data: soul score uses sign-level → relatively high.
+        WITH degree data: soul score uses exact orb → lower (void planet pair).
+        """
+        # Same moon_sign = "aries" → sign-level conjunction (0.90 harmony)
+        a_no_deg = self._base_user(moon_sign="aries", moon_degree=None)
+        b_no_deg = self._base_user(moon_sign="aries", moon_degree=None)
+
+        # 25° apart inside "aries" band → no major aspect within orb
+        a_with_deg = self._base_user(moon_sign="aries", moon_degree=0.0)
+        b_with_deg = self._base_user(moon_sign="aries", moon_degree=25.0)
+
+        soul_no_deg   = compute_soul_score(a_no_deg,   b_no_deg)
+        soul_with_deg = compute_soul_score(a_with_deg, b_with_deg)
+
+        assert soul_with_deg < soul_no_deg, (
+            f"Degree-level (void moon, {soul_with_deg:.1f}) should score lower than "
+            f"sign-level conjunction ({soul_no_deg:.1f})"
+        )
+
+    def test_moon_exact_trine_scores_higher_with_degrees(self):
+        """Aries Moon × Leo Moon = sign-level trine (0.85).
+        Exact 120° (0° Aries vs 120° = 0° Leo) → perfect trine → 1.0.
+        Degree-level soul score is higher than sign-level when trine is exact.
+        """
+        a_no_deg   = self._base_user(moon_sign="aries",  moon_degree=None)
+        b_no_deg   = self._base_user(moon_sign="leo",    moon_degree=None)
+        a_with_deg = self._base_user(moon_sign="aries",  moon_degree=0.0)
+        b_with_deg = self._base_user(moon_sign="leo",    moon_degree=120.0)
+
+        soul_no_deg   = compute_soul_score(a_no_deg,   b_no_deg)
+        soul_with_deg = compute_soul_score(a_with_deg, b_with_deg)
+
+        assert soul_with_deg > soul_no_deg, (
+            f"Exact-trine degree ({soul_with_deg:.1f}) should beat sign-level trine "
+            f"({soul_no_deg:.1f})"
+        )
+
+    def test_mercury_false_conjunction_detected_via_degrees(self):
+        """Same mercury sign but 25° apart → degree-level soul score lower."""
+        a_no_deg   = self._base_user(mercury_sign="gemini", mercury_degree=None)
+        b_no_deg   = self._base_user(mercury_sign="gemini", mercury_degree=None)
+        a_with_deg = self._base_user(mercury_sign="gemini", mercury_degree=60.0)
+        b_with_deg = self._base_user(mercury_sign="gemini", mercury_degree=85.0)  # 25° apart
+
+        soul_no_deg   = compute_soul_score(a_no_deg,   b_no_deg)
+        soul_with_deg = compute_soul_score(a_with_deg, b_with_deg)
+
+        assert soul_with_deg < soul_no_deg, (
+            f"Degree-level (void mercury, {soul_with_deg:.1f}) should score lower than "
+            f"sign-level conjunction ({soul_no_deg:.1f})"
+        )
+
+    def test_saturn_false_conjunction_detected_via_degrees(self):
+        """Same saturn sign but 25° apart → degree-level soul score lower."""
+        a_no_deg   = self._base_user(saturn_sign="capricorn", saturn_degree=None)
+        b_no_deg   = self._base_user(saturn_sign="capricorn", saturn_degree=None)
+        a_with_deg = self._base_user(saturn_sign="capricorn", saturn_degree=270.0)
+        b_with_deg = self._base_user(saturn_sign="capricorn", saturn_degree=295.0)  # 25° apart
+
+        soul_no_deg   = compute_soul_score(a_no_deg,   b_no_deg)
+        soul_with_deg = compute_soul_score(a_with_deg, b_with_deg)
+
+        assert soul_with_deg < soul_no_deg, (
+            f"Degree-level (void saturn, {soul_with_deg:.1f}) should score lower than "
+            f"sign-level conjunction ({soul_no_deg:.1f})"
+        )
+
+    def test_sun_moon_cross_false_conjunction_via_degrees(self):
+        """A's Sun same sign as B's Moon but 25° apart → degree-level soul lower."""
+        a_no_deg = self._base_user(sun_sign="aries",  sun_degree=None,
+                                   moon_sign="taurus", moon_degree=None)
+        b_no_deg = self._base_user(sun_sign="leo",    sun_degree=None,
+                                   moon_sign="aries",  moon_degree=None)
+
+        # A's sun_degree=0.0 vs B's moon_degree=25.0 (both in aries band) → void
+        a_with_deg = self._base_user(sun_sign="aries",  sun_degree=0.0,
+                                     moon_sign="taurus", moon_degree=None)
+        b_with_deg = self._base_user(sun_sign="leo",    sun_degree=None,
+                                     moon_sign="aries",  moon_degree=25.0)
+
+        soul_no_deg   = compute_soul_score(a_no_deg,   b_no_deg)
+        soul_with_deg = compute_soul_score(a_with_deg, b_with_deg)
+
+        assert soul_with_deg < soul_no_deg, (
+            f"Degree-level (void Sun-Moon cross, {soul_with_deg:.1f}) should score lower than "
+            f"sign-level conjunction ({soul_no_deg:.1f})"
+        )
+
+
+# ── L-3: compute_tracks degree-level resolution ───────────────────────────────
+
+class TestTracksDegreeResolution:
+    """Verify L-3 fix: compute_tracks uses _resolve_aspect (degree-level) for
+    mercury, jupiter×sun cross, moon, mars, venus, house8, chiron, saturn×moon.
+
+    Tests use the 'false conjunction' scenario: same sign but 25° apart.
+    Degree-level scores lower (void 0.10) than sign-level (conjunction 0.90).
+    """
+
+    def _power(self):
+        return {"rpv": 0.0, "frame_break": False, "viewer_role": "Equal", "target_role": "Equal"}
+
+    def _base_user(self, **overrides):
+        base = {
+            "sun_sign": "aries",       "sun_degree": None,
+            "moon_sign": "aries",      "moon_degree": None,
+            "mercury_sign": "gemini",  "mercury_degree": None,
+            "jupiter_sign": "leo",     "jupiter_degree": None,
+            "mars_sign": "scorpio",    "mars_degree": None,
+            "venus_sign": "taurus",    "venus_degree": None,
+            "saturn_sign": "capricorn","saturn_degree": None,
+            "chiron_sign": None,       "chiron_degree": None,
+            "house8_sign": None,       "house8_degree": None,
+            "juno_sign": None,
+            "bazi_element": None,
+            "rpv_power": None, "rpv_conflict": None, "rpv_energy": None,
+            "emotional_capacity": 60,
+        }
+        base.update(overrides)
+        return base
+
+    def test_mercury_false_conjunction_lowers_friend_track(self):
+        """Same mercury sign (sign-level conj 0.90) but 25° apart → friend lower."""
+        a_no_deg   = self._base_user(mercury_sign="gemini", mercury_degree=None)
+        b_no_deg   = self._base_user(mercury_sign="gemini", mercury_degree=None)
+        a_with_deg = self._base_user(mercury_sign="gemini", mercury_degree=60.0)
+        b_with_deg = self._base_user(mercury_sign="gemini", mercury_degree=85.0)  # 25° apart, void
+
+        t_no_deg   = compute_tracks(a_no_deg,   b_no_deg,   self._power(), 0.0)
+        t_with_deg = compute_tracks(a_with_deg, b_with_deg, self._power(), 0.0)
+
+        assert t_with_deg["friend"] < t_no_deg["friend"], (
+            f"Degree-level (void mercury) friend ({t_with_deg['friend']:.1f}) should be "
+            f"less than sign-level ({t_no_deg['friend']:.1f})"
+        )
+
+    def test_moon_false_conjunction_lowers_partner_track(self):
+        """Same moon sign but 25° apart → partner track lower with degree data."""
+        a_no_deg   = self._base_user(moon_sign="aries", moon_degree=None)
+        b_no_deg   = self._base_user(moon_sign="aries", moon_degree=None)
+        a_with_deg = self._base_user(moon_sign="aries", moon_degree=0.0)
+        b_with_deg = self._base_user(moon_sign="aries", moon_degree=25.0)
+
+        t_no_deg   = compute_tracks(a_no_deg,   b_no_deg,   self._power(), 0.0)
+        t_with_deg = compute_tracks(a_with_deg, b_with_deg, self._power(), 0.0)
+
+        assert t_with_deg["partner"] < t_no_deg["partner"], (
+            f"Degree-level (void moon) partner ({t_with_deg['partner']:.1f}) should be "
+            f"less than sign-level ({t_no_deg['partner']:.1f})"
+        )
+
+    def test_mars_false_conjunction_lowers_passion_track(self):
+        """Same mars sign but 25° apart → passion track lower with degree data."""
+        a_no_deg   = self._base_user(mars_sign="scorpio", mars_degree=None)
+        b_no_deg   = self._base_user(mars_sign="scorpio", mars_degree=None)
+        a_with_deg = self._base_user(mars_sign="scorpio", mars_degree=210.0)
+        b_with_deg = self._base_user(mars_sign="scorpio", mars_degree=235.0)  # 25° apart, void
+
+        t_no_deg   = compute_tracks(a_no_deg,   b_no_deg,   self._power(), 0.0)
+        t_with_deg = compute_tracks(a_with_deg, b_with_deg, self._power(), 0.0)
+
+        assert t_with_deg["passion"] < t_no_deg["passion"], (
+            f"Degree-level (void mars) passion ({t_with_deg['passion']:.1f}) should be "
+            f"less than sign-level ({t_no_deg['passion']:.1f})"
+        )
+
+    def test_venus_false_conjunction_lowers_passion_track(self):
+        """Same venus sign but 25° apart → passion track lower with degree data."""
+        a_no_deg   = self._base_user(venus_sign="taurus", venus_degree=None)
+        b_no_deg   = self._base_user(venus_sign="taurus", venus_degree=None)
+        a_with_deg = self._base_user(venus_sign="taurus", venus_degree=30.0)
+        b_with_deg = self._base_user(venus_sign="taurus", venus_degree=55.0)  # 25° apart, void
+
+        t_no_deg   = compute_tracks(a_no_deg,   b_no_deg,   self._power(), 0.0)
+        t_with_deg = compute_tracks(a_with_deg, b_with_deg, self._power(), 0.0)
+
+        assert t_with_deg["passion"] < t_no_deg["passion"], (
+            f"Degree-level (void venus) passion ({t_with_deg['passion']:.1f}) should be "
+            f"less than sign-level ({t_no_deg['passion']:.1f})"
+        )
+
+    def test_jupiter_sun_cross_false_conjunction_lowers_friend(self):
+        """A's Jupiter same sign as B's Sun but 25° apart → friend track lower."""
+        # jupiter=leo (index 4), sun=leo (index 4) → sign-level: conjunction 0.90
+        a_no_deg   = self._base_user(jupiter_sign="leo", jupiter_degree=None,
+                                     sun_sign="cancer",  sun_degree=None)
+        b_no_deg   = self._base_user(jupiter_sign="cancer", jupiter_degree=None,
+                                     sun_sign="leo",     sun_degree=None)
+        # A's jupiter_degree=120.0 vs B's sun_degree=145.0 → 25° apart, void
+        a_with_deg = self._base_user(jupiter_sign="leo",    jupiter_degree=120.0,
+                                     sun_sign="cancer",     sun_degree=None)
+        b_with_deg = self._base_user(jupiter_sign="cancer", jupiter_degree=None,
+                                     sun_sign="leo",        sun_degree=145.0)
+
+        t_no_deg   = compute_tracks(a_no_deg,   b_no_deg,   self._power(), 0.0)
+        t_with_deg = compute_tracks(a_with_deg, b_with_deg, self._power(), 0.0)
+
+        assert t_with_deg["friend"] < t_no_deg["friend"], (
+            f"Degree-level (void jupiter×sun) friend ({t_with_deg['friend']:.1f}) should be "
+            f"less than sign-level ({t_no_deg['friend']:.1f})"
+        )
+
+    def test_chiron_false_conjunction_lowers_soul_track(self):
+        """Same chiron sign but 25° apart → soul track lower with degree data."""
+        a_no_deg   = self._base_user(chiron_sign="virgo", chiron_degree=None)
+        b_no_deg   = self._base_user(chiron_sign="virgo", chiron_degree=None)
+        a_with_deg = self._base_user(chiron_sign="virgo", chiron_degree=150.0)
+        b_with_deg = self._base_user(chiron_sign="virgo", chiron_degree=175.0)  # 25° apart, void
+
+        t_no_deg   = compute_tracks(a_no_deg,   b_no_deg,   self._power(), 0.0)
+        t_with_deg = compute_tracks(a_with_deg, b_with_deg, self._power(), 0.0)
+
+        assert t_with_deg["soul"] < t_no_deg["soul"], (
+            f"Degree-level (void chiron) soul ({t_with_deg['soul']:.1f}) should be "
+            f"less than sign-level ({t_no_deg['soul']:.1f})"
+        )

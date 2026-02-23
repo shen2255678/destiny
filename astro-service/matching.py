@@ -705,17 +705,20 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     total_weight = 0.0
 
     # 1. Moon — always present
-    moon = compute_sign_aspect(user_a.get("moon_sign"), user_b.get("moon_sign"), "harmony")
+    moon = _resolve_aspect(user_a.get("moon_degree"), user_a.get("moon_sign"),
+                           user_b.get("moon_degree"), user_b.get("moon_sign"), "harmony")
     score += moon * WEIGHTS["soul_moon"]
     total_weight += WEIGHTS["soul_moon"]
 
     # 2. Mercury — always present
-    mercury = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
+    mercury = _resolve_aspect(user_a.get("mercury_degree"), user_a.get("mercury_sign"),
+                              user_b.get("mercury_degree"), user_b.get("mercury_sign"), "harmony")
     score += mercury * WEIGHTS["soul_mercury"]
     total_weight += WEIGHTS["soul_mercury"]
 
     # 3. Saturn — always present
-    saturn = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"), "harmony")
+    saturn = _resolve_aspect(user_a.get("saturn_degree"), user_a.get("saturn_sign"),
+                             user_b.get("saturn_degree"), user_b.get("saturn_sign"), "harmony")
     score += saturn * WEIGHTS["soul_saturn"]
     total_weight += WEIGHTS["soul_saturn"]
 
@@ -723,7 +726,8 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     h4_a = user_a.get("house4_sign")
     h4_b = user_b.get("house4_sign")
     if h4_a and h4_b:
-        score += compute_sign_aspect(h4_a, h4_b, "harmony") * WEIGHTS["soul_house4"]
+        score += _resolve_aspect(user_a.get("house4_degree"), h4_a,
+                                 user_b.get("house4_degree"), h4_b, "harmony") * WEIGHTS["soul_house4"]
         total_weight += WEIGHTS["soul_house4"]
 
     # 5. Juno — when ephemeris available
@@ -759,8 +763,10 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     sun_a = user_a.get("sun_sign")
     sun_b = user_b.get("sun_sign")
     if sun_a and sun_b and moon_a and moon_b:
-        sun_a_moon_b = compute_sign_aspect(sun_a, moon_b, "harmony")
-        sun_b_moon_a = compute_sign_aspect(sun_b, moon_a, "harmony")
+        sun_a_moon_b = _resolve_aspect(user_a.get("sun_degree"), sun_a,
+                                       user_b.get("moon_degree"), moon_b, "harmony")
+        sun_b_moon_a = _resolve_aspect(user_b.get("sun_degree"), sun_b,
+                                       user_a.get("moon_degree"), moon_a, "harmony")
         sun_moon_cross = (sun_a_moon_b + sun_b_moon_a) / 2.0
         score += sun_moon_cross * WEIGHTS["soul_sun_moon"]
         total_weight += WEIGHTS["soul_sun_moon"]
@@ -887,7 +893,8 @@ def compute_tracks(
     capacity_b = user_b.get("emotional_capacity", 50)
 
     # harmony planets: friend / partner tracks
-    mercury    = compute_sign_aspect(user_a.get("mercury_sign"), user_b.get("mercury_sign"), "harmony")
+    mercury    = _resolve_aspect(user_a.get("mercury_degree"), user_a.get("mercury_sign"),
+                                 user_b.get("mercury_degree"), user_b.get("mercury_sign"), "harmony")
     # Jupiter Friend Track: cross-aspect (A's Jupiter × B's Sun + B's Jupiter × A's Sun) / 2.
     # Same-sign Jupiter comparison is unreliable because Jupiter moves ~1 sign/year, so
     # age-peers all share the same Jupiter sign and would be artificially rewarded.
@@ -895,12 +902,15 @@ def compute_tracks(
     jupiter_b  = user_b.get("jupiter_sign")
     sun_a      = user_a.get("sun_sign")
     sun_b      = user_b.get("sun_sign")
-    jup_a_sun_b = compute_sign_aspect(jupiter_a, sun_b, "harmony")
-    jup_b_sun_a = compute_sign_aspect(jupiter_b, sun_a, "harmony")
+    jup_a_sun_b = _resolve_aspect(user_a.get("jupiter_degree"), jupiter_a,
+                                   user_b.get("sun_degree"), sun_b, "harmony")
+    jup_b_sun_a = _resolve_aspect(user_b.get("jupiter_degree"), jupiter_b,
+                                   user_a.get("sun_degree"), sun_a, "harmony")
     jupiter    = (jup_a_sun_b + jup_b_sun_a) / 2.0
     moon_a     = user_a.get("moon_sign")
     moon_b     = user_b.get("moon_sign")
-    moon       = compute_sign_aspect(moon_a, moon_b, "harmony")
+    moon       = _resolve_aspect(user_a.get("moon_degree"), moon_a,
+                                 user_b.get("moon_degree"), moon_b, "harmony")
     juno_a, juno_b = user_a.get("juno_sign"), user_b.get("juno_sign")
     juno_present = bool(juno_a and juno_b and moon_a and moon_b)
     # Juno Partner Track: cross-aspect (A's Juno × B's Moon + B's Juno × A's Moon) / 2.
@@ -916,15 +926,19 @@ def compute_tracks(
         juno = 0.0
 
     # tension planets: passion / soul tracks
-    mars  = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),   "tension")
-    venus = compute_sign_aspect(user_a.get("venus_sign"),  user_b.get("venus_sign"),  "tension")  # passion context
+    mars  = _resolve_aspect(user_a.get("mars_degree"), user_a.get("mars_sign"),
+                            user_b.get("mars_degree"), user_b.get("mars_sign"), "tension")
+    venus = _resolve_aspect(user_a.get("venus_degree"), user_a.get("venus_sign"),
+                            user_b.get("venus_degree"), user_b.get("venus_sign"), "tension")  # passion context
     # Cross-layer karmic triggers replace same-generation pluto_a vs pluto_b
     karmic = compute_karmic_triggers(user_a, user_b)
     h8_a, h8_b = user_a.get("house8_sign"), user_b.get("house8_sign")
-    house8 = compute_sign_aspect(h8_a, h8_b, "tension") if (h8_a and h8_b) else 0.0
+    house8 = _resolve_aspect(user_a.get("house8_degree"), h8_a,
+                             user_b.get("house8_degree"), h8_b, "tension") if (h8_a and h8_b) else 0.0
     chiron_a, chiron_b = user_a.get("chiron_sign"), user_b.get("chiron_sign")
     chiron_present = bool(chiron_a and chiron_b)
-    chiron = compute_sign_aspect(chiron_a, chiron_b, "tension") if chiron_present else 0.0
+    chiron = _resolve_aspect(user_a.get("chiron_degree"), chiron_a,
+                             user_b.get("chiron_degree"), chiron_b, "tension") if chiron_present else 0.0
 
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")
@@ -964,8 +978,10 @@ def compute_tracks(
     saturn_a = user_a.get("saturn_sign")
     saturn_b = user_b.get("saturn_sign")
     if saturn_a and saturn_b and moon_a and moon_b:
-        sat_a_moon_b = compute_sign_aspect(saturn_a, moon_b, "harmony")
-        sat_b_moon_a = compute_sign_aspect(saturn_b, moon_a, "harmony")
+        sat_a_moon_b = _resolve_aspect(user_a.get("saturn_degree"), saturn_a,
+                                       user_b.get("moon_degree"), moon_b, "harmony")
+        sat_b_moon_a = _resolve_aspect(user_b.get("saturn_degree"), saturn_b,
+                                       user_a.get("moon_degree"), moon_a, "harmony")
         saturn_cross = (sat_a_moon_b + sat_b_moon_a) / 2.0
         partner += saturn_cross * WEIGHTS["track_partner_saturn_cross"]
 
