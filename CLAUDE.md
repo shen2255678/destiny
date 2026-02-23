@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Status:** Active development — Phase A ✅, Phase B ✅, Phase C ✅, Phase D ✅, Phase B.5 ✅, Phase E (AI Archetypes) **NEXT**.
 
-**Algorithm:** v1.6 — Centralized `WEIGHTS` dict, linear orb decay, cross-person Mars×Venus synastry aspects.
+**Algorithm:** v1.7 — Centralized `WEIGHTS` dict, linear orb decay, cross-person Mars×Venus synastry aspects; Jupiter/Juno cross-aspect fixes; Lilith + Vertex Tier 1 bodies; shadow_engine Vertex/Lilith synastry triggers.
 
 ## Repository Structure
 
@@ -37,11 +37,19 @@ destiny/
 │   └── .env.local                # SUPABASE_URL + ANON_KEY
 ├── astro-service/                # Python microservice (FastAPI + Swiss Ephemeris)
 │   ├── main.py                   # FastAPI server (port 8001)
-│   ├── chart.py                  # Western astrology: planetary positions → zodiac signs
+│   ├── chart.py                  # Western astrology: planetary positions → zodiac signs (Tier 1: +Vertex/Lilith)
 │   ├── bazi.py                   # BaZi (八字四柱): Four Pillars + Five Elements + true solar time
-│   ├── matching.py               # Compatibility scoring: WesternScore + BaZiScore → Match_Score
-│   ├── test_chart.py             # pytest (30 tests)
-│   ├── test_matching.py          # pytest (161 tests)
+│   ├── matching.py               # Compatibility scoring v1.7: lust/soul 雙軸 + 四軌 + shadow modifiers
+│   ├── shadow_engine.py          # Chiron wound triggers + Vertex/Lilith synastry + 12th-house + attachment trap
+│   ├── psychology.py             # Weighted element profile + retrograde karma tags + SM dynamics
+│   ├── prompt_manager.py         # Chinese tag translations for shadow/psych/synastry tags
+│   ├── zwds.py                   # ZWDS bridge (ziwei-service HTTP client, Tier 1 only)
+│   ├── test_chart.py             # pytest (102 tests)
+│   ├── test_matching.py          # pytest (173 tests)
+│   ├── test_shadow_engine.py     # pytest (48 tests)
+│   ├── test_psychology.py        # pytest (28 tests)
+│   ├── test_zwds.py              # pytest (31 tests)
+│   ├── test_sandbox.py           # pytest (5 tests)
 │   └── requirements.txt
 ├── docs/
 │   ├── MVP-PROGRESS.md           # Progress tracker (source of truth)
@@ -99,9 +107,9 @@ npm run build        # Production build
 cd astro-service
 pip install -r requirements.txt   # Install dependencies (first time)
 uvicorn main:app --port 8001      # Start service
-pytest test_chart.py -v           # Run chart tests (30 tests)
-pytest test_matching.py -v        # Run matching tests (161 tests)
-pytest -v                         # Run all Python tests (191 tests)
+pytest test_chart.py -v           # Run chart tests (102 tests)
+pytest test_matching.py -v        # Run matching tests (173 tests)
+pytest -v                         # Run all Python tests (387 tests, 6 files)
 ```
 
 ## Architecture
@@ -112,7 +120,7 @@ pytest -v                         # Run all Python tests (191 tests)
 2. **Match Engine ("Black Box")** — Pushes 3 daily candidates; blind matching with labels, not photos
 3. **Interaction Layer** — Progressive unlock: Lv.1 (text) → Lv.2 (50% photo) → Lv.3 (full HD); 24hr auto-disconnect
 
-### Core Matching Algorithm (v1.6)
+### Core Matching Algorithm (v1.7)
 
 All weights are centralized in the `WEIGHTS` dict at the top of `matching.py`. See `docs/WEIGHTS-TUNING-GUIDE.md` for the full reference.
 
@@ -129,9 +137,11 @@ compute_match_v2()
 │   ├── mars_b × venus_a      → cross-person primary (WEIGHTS["lust_cross_venus_mars"] = 0.30)
 │   ├── venus × venus / mars × mars  → same-planet secondary
 │   ├── house8, karmic triggers, power score
+│   ├── Jupiter Friend Track: (jup_a×sun_b + jup_b×sun_a)/2 (fix: no same-year cohort inflation)
 │   └── BaZi restriction multiplier (× 1.25 if 相剋)
 ├── compute_soul_score()      → Y 軸（靈魂深度）
-│   ├── Moon, Mercury, Saturn, House4, Juno, Attachment
+│   ├── Moon, Mercury, Saturn, House4, Attachment
+│   ├── Juno cross-aspect: (juno_a×moon_b + juno_b×moon_a)/2 (fix: no same-sign inflation)
 │   └── BaZi generation multiplier (× 1.20 if 相生)
 ├── compute_tracks()          → 四軌（friend / passion / partner / soul）
 └── compute_power_v2()        → RPV 動力（conflict / power / energy）
@@ -151,12 +161,16 @@ Implemented in `astro-service/matching.py`:
 ### Astro Service (`astro-service/`)
 
 Python FastAPI 微服務，提供：
-- `POST /calculate-chart` — 西洋占星 + 八字計算（自動呼叫於 birth-data API）
+- `POST /calculate-chart` — 西洋占星 + 八字計算 + Tier 1 新增 Vertex/Lilith 提取（自動呼叫於 birth-data API）
 - `POST /score-compatibility` — 完整相容性評分 → Match_Score
 - `POST /analyze-relation` — 五行關係分析（相生/相剋/比和）
+- `POST /compute-match` — v2 雙軸四軌匹配 + shadow modifiers + ZWDS bridge
+- `POST /compute-zwds-chart` — ZWDS 12-palace chart (Tier 1)
 - `GET /health` — Health check
 - **真太陽時 (True Solar Time):** BaZi 時柱使用經度修正 + 均時差 (Equation of Time)
 - **非阻塞式整合:** astro-service 不可用時，onboarding 不受影響，星盤欄位保持 null
+- **Shadow Modifiers (shadow_engine.py):** Chiron wound triggers (5° orb) + Vertex soul triggers (3°) + Lilith lust triggers (3°) + 12th-house overlay + attachment trap matrix
+- **Tier 1 bodies:** Vertex (`ascmc[3]`), Lilith (`swe.MEAN_APOG`) — absent in Tier 2/3
 
 ### Data Integrity Tiers
 
@@ -215,7 +229,7 @@ Via Negativa quiz system — users eliminate what they are NOT to narrow birth t
 
 - **Project ref:** `masninqgihbazjirweiy`
 - **Tables:** users, photos, daily_matches, connections, messages, rectification_events
-- **Migrations:** 001–006 (all pushed to remote)
+- **Migrations:** 001–011 (all pushed to remote)
 - **RLS:** Enabled on all tables
 - **Storage:** `photos` bucket (original + blurred versions)
 - **Auth:** Email/Password

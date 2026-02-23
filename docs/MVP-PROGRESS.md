@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-22 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅)
+**Last Updated:** 2026-02-23 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅)
 
 ---
 
@@ -40,7 +40,7 @@
 | Image Processing | **Done** | sharp 高斯模糊 + 基本驗證 (MIME type + size limit 10MB) — 詳見 `docs/PHOTO-PIPELINE.md` |
 | Archetype Generator | **Done** | `src/lib/ai/archetype.ts` — 8 組 deterministic 原型 (待升級 Claude API) |
 | Matches API (Phase C) | **Done** | run + daily + action 端點，含 mutual accept → 建立 connection |
-| Python Microservice | **Done** | `astro-service/` — FastAPI + Swiss Ephemeris + BaZi 八字四柱 + 真太陽時，30 pytest 通過。已串接 birth-data API 自動回寫 DB。詳見 `docs/ASTRO-SERVICE.md` |
+| Python Microservice | **Done** | `astro-service/` — FastAPI + Swiss Ephemeris + BaZi 八字四柱 + 真太陽時，387 pytest 通過（6 個測試檔案）。已串接 birth-data API 自動回寫 DB。詳見 `docs/ASTRO-SERVICE.md` |
 | Rectification Data Layer | **Done** ✅ | Phase B.5：Migration 006 + types.ts 更新 + birth-data API 接受 accuracy_type/window/fuzzy_period + 初始化 rectification state + log range_initialized event + 4-card 精度 UX + rectification quiz endpoints (next-question + answer) |
 | AI/LLM Integration | Not Started | Claude API 串接 (動態原型、變色龍標籤、破冰題) |
 | **Matching Algorithm v2 (Phase G)** | **Done ✅** | Lust/Soul 雙軸 + 四軌（friend/passion/partner/soul）+ Power D/s frame + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8。Migration 007 + `compute_match_v2` + `/api/onboarding/attachment`。設計文件：`docs/plans/2026-02-20-expanded-matching-algorithm-design.md`，實作計劃：`docs/plans/2026-02-20-phase-g-matching-v2-plan.md` |
@@ -145,13 +145,16 @@
 | `src/__tests__/api/matches-action.test.ts` | 7 | Action API (accept, pass, mutual accept → connection, 401, 400, 404, no duplicate) |
 | `src/__tests__/api/connections.test.ts` | 5 | Connections list API (200 with list, 401 unauth, empty state, other_user, tags) |
 | `src/__tests__/api/connections-messages.test.ts` | 8 | Messages API: GET (401, 403, detail+msgs, is_self) + POST (401, 400, 403, insert) |
-| `astro-service/test_chart.py` | 30 | 西洋占星 (12) + 八字四柱 (11) + 五行關係 (7) |
+| `astro-service/test_chart.py` | 102 | 西洋占星 + 八字四柱 + 五行關係 + Tier 分層 + Lilith/Vertex 提取 |
 | `src/__tests__/api/rectification-next-question.test.ts` | 6 | Rectification next-question API (401, 204 locked, 204 PRECISE, shape, options, boundary priority) |
 | `src/__tests__/api/rectification-answer.test.ts` | 9 | Rectification answer API (401, 400 missing/invalid, 200 state, confidence increase, event log, update users, tier_upgraded) |
-| `astro-service/test_matching.py` | 101 | 配對演算法 v1：sign_aspect(9) + kernel(6) + power(4) + glitch(3) + classify(6) + tags(5) + integration(8)；**Phase G v2：** lust(4) + soul(4) + power_v2(4) + chiron(4) + quadrant(5) + attachment(3) + match_v2(8)；**(Phase H)** zwds_bridge(5) + spiciness(5) + defense(5) + layered(5) + match_v2_zwds(5) |
+| `astro-service/test_matching.py` | 173 | 配對演算法 v1/v2：sign_aspect + kernel + power + glitch + classify + tags；Phase G v2：lust + soul + power_v2 + chiron + quadrant + attachment；Phase H：zwds_bridge + spiciness + defense + layered；**Algorithm Enhancement：** Jupiter cross-aspect(4) + Juno cross-aspect(6) |
 | `astro-service/test_zwds.py` | 31 | **(Phase H)** ZWDS bridge：compute_zwds_chart(8) + zwds_synastry(10) + flying_star_hits(7) + spouse_palace(6) |
+| `astro-service/test_shadow_engine.py` | 48 | Shadow engine：Chiron wound triggers + Vertex/Lilith synastry triggers + 12th-house overlay + attachment trap matrix |
+| `astro-service/test_psychology.py` | 28 | Psychology layer：weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms |
+| `astro-service/test_sandbox.py` | 5 | Sandbox 端點（健康檢查、手動測試工具）|
 | `src/__tests__/api/onboarding/attachment.test.ts` | 7 | **(Phase G)** Attachment API (400 missing, 400 invalid style, 200 valid, 200 all styles, 401 unauth, role included, 400 invalid role) |
-| **Total** | **253** | All passing (91 JS + 162 Python) — +52 Phase G tests, +54 Phase H tests |
+| **Total** | **478** | All passing (91 JS + 387 Python) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement |
 
 ---
 
@@ -227,8 +230,9 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 9. ~~**Phase G: Matching Algorithm v2**~~ ← ✅ Done (Lust/Soul 雙軸 + 四軌 + Power D/s + Chiron rule + Attachment 問卷 + Mercury/Jupiter/Pluto/Chiron/Juno/House4/8；199 tests)
 10. ~~**Phase H: ZWDS Synastry Engine**~~ ← ✅ Done (ziwei-service Node.js microservice + Python bridge + 飛星四化 + 空宮借星 + /compute-zwds-chart + /zwds-synastry + Migration 008；253 tests)
 11. ~~**Phase I: Psychology Layer**~~ ← ✅ Done (psychology.py weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms; shadow_engine.py Chiron healing + 12th-house overlay + attachment trap matrix; Migration 011; 253+ tests)
-12. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
-13. **Phase F: AI/LLM Integration**
+12. ~~**Algorithm Enhancement (2026-02-22)**~~ ← ✅ Done (Tasks 79-83: `_CHIRON_ORB` constant refactor + dead tag cleanup; Jupiter Friend Track cross-aspect fix (jup_a×sun_b); Juno Partner Track cross-aspect fix (juno_a×moon_b) in soul_score+tracks; Lilith/Vertex extraction in chart.py Tier 1; Vertex/Lilith synastry triggers in shadow_engine.py; 18 new zh tag translations in prompt_manager.py; +25 tests → 387 Python total)
+13. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
+14. **Phase F: AI/LLM Integration**
 
 ---
 
@@ -446,4 +450,5 @@ uvicorn main:app --port 8001
 | **Algorithm Validation Sandbox** | `astro-service/sandbox.html` — standalone dev tool for manual algorithm testing | **Done** ✅ |
 | **Phase H: ZWDS Synastry Engine** | `ziwei-service/` Node.js microservice (port 8002) + Python bridge + 飛星四化 + 空宮借星 + 主星人設矩陣；Tier 1 VIP bonus layer；設計文件：`docs/plans/2026-02-21-phase-h-zwds-integration.md`；新端點：`POST /compute-zwds-chart`, `POST /zwds-synastry`；`/compute-match` 現回傳 `zwds + spiciness_level + defense_mechanisms + layered_analysis` | **Done ✅** |
 | **Psychology Layer (Phase I)** | **Done ✅** | `psychology.py`: weighted element scoring (Sun/Moon/ASC=3, Mercury/Venus/Mars=2, Jup/Sat=1), retrograde karma tags (Venus/Mars/Mercury Rx), SM dynamics (7 tags), critical degree alarms (0°/29°). `shadow_engine.py`: Chiron/Moon healing, Chiron/Mars wound triggers, 12th-house shadow overlay, dynamic attachment synastry, attachment trap matrix, elemental fulfillment. Modifier block in `compute_match_v2`. Migration 011. Design: `docs/plans/2026-02-22-psychology-layer-design.md`. |
+| **Algorithm Enhancement (2026-02-22)** | **Done ✅** | Jupiter/Juno cross-aspect bug fix（消除同齡同星座虛假通膨）+ Chiron orb module constant + Lilith/Vertex Tier 1 extraction + shadow_engine Vertex/Lilith synastry triggers (3° orb) + prompt_manager 18 new zh tag translations；+25 tests → 387 Python total |
 | **Mode Filter Phase I.5 (Future)** | **Planned** | Hunt / Nest / Abyss mode via `?mode=` query param on `/api/matches/daily`. Re-weights four-track output. No DB column needed. |

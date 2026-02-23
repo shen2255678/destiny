@@ -92,6 +92,12 @@ juno_sign           str?    小行星，數月換一次星座 → Tier 3 可用
 ascendant_sign      str?    上升星座，~2 小時換一次 → 僅 Tier 1
 house4_sign         str?    第 4 宮宮首，僅 Tier 1
 house8_sign         str?    第 8 宮宮首，僅 Tier 1
+lilith_sign         str?    暗月莉莉絲星座，Tier 1 only（swe.MEAN_APOG）
+lilith_degree       float?  暗月莉莉絲黃道度數，Tier 1 only
+vertex_sign         str?    宿命點星座，Tier 1 only（ascmc[3]）
+vertex_degree       float?  宿命點黃道度數，Tier 1 only
+emotional_capacity  int     情緒承載力分數 0–100，由日月冥土硬相位 + ZWDS規則計算
+natal_aspects       list    本命相位列表（行星對），strength 0.2–1.0
 bazi_element        str?    wood | fire | earth | metal | water
 rpv_conflict        str?    cold_war | argue
 rpv_power           str?    control | follow
@@ -103,8 +109,8 @@ attachment_style    str?    secure | anxious | avoidant
 
 | Tier | 可用欄位 | ZWDS |
 |---|---|---|
-| 1（精確時間） | 全部欄位，含 ASC、House 4、House 8 | ✅ 完整計算 |
-| 2（模糊時段） | 無 ASC / House 宮位 | ❌ 跳過 |
+| 1（精確時間） | 全部欄位，含 ASC、House 4/8、Lilith、Vertex | ✅ 完整計算 |
+| 2（模糊時段） | 無 ASC / House 宮位 / Lilith / Vertex | ❌ 跳過 |
 | 3（僅日期）   | 太陽 + 慢速行星（Juno、Chiron 仍可用） | ❌ 跳過 |
 
 **ZWDS 資格判斷：**
@@ -209,7 +215,8 @@ mercury    = aspect(merc_a,    merc_b,    "harmony") × 0.20
 house4     = aspect(h4_a,      h4_b,      "harmony") × 0.15  (Tier 2/3 → 0.0)
 saturn     = aspect(sat_a,     sat_b,     "harmony") × 0.20
 attachment = ATTACHMENT_FIT[style_a][style_b]         × 0.20
-juno       = aspect(juno_a,    juno_b,    "harmony") × 0.20  (缺失 → 0.65)
+juno       = (aspect(juno_a, moon_b, "harmony") + aspect(juno_b, moon_a, "harmony")) / 2 × 0.20
+             (Cross-aspect：A 的婚神星 × B 的月亮，破除同期出生者的假性共振；缺月亮 → 跳過)
 
 if bazi 相生（a_generates_b 或 b_generates_a）: score × 1.20
 
@@ -265,13 +272,16 @@ Chiron 形成硬相位（四分相 diff=3 或對分相 diff=6）→ `frame_break
 ### `compute_tracks(user_a, user_b, power, useful_god_complement, zwds_mods)` → dict
 
 ```
-friend  = mercury(harmony)×0.40 + jupiter(harmony)×0.40 + bazi_harmony×0.20
+friend  = mercury(harmony)×0.40 + jupiter_cross(harmony)×0.40 + bazi_harmony×0.20
+          其中 jupiter_cross = (aspect(jup_a, sun_b) + aspect(jup_b, sun_a)) / 2
+          （Cross-aspect：避免同年出生者因木星同座獲得虛假高分）
 
 passion = mars(tension)×0.30    + venus(tension)×0.30
         + passion_extremity×0.10 + bazi_clash×0.30
   其中 passion_extremity = max(pluto_tension, house8_tension)
 
-partner = moon(harmony)×0.35    + juno(harmony)×0.35
+partner = moon(harmony)×0.35    + juno_cross(harmony)×0.35
+          其中 juno_cross = (aspect(juno_a, moon_b) + aspect(juno_b, moon_a)) / 2
         + bazi_generation×0.30
 
 soul    = chiron(tension)×0.40  + pluto(tension)×0.40
@@ -369,6 +379,67 @@ ZWDS 貢獻上限 70%，確保西洋 + 八字始終保有 30% 基礎權重。
 
 ---
 
+## Step 8：雙人合盤暗黑修正器（Shadow & Synastry Modifiers）
+
+`compute_shadow_and_wound(chart_a, chart_b)` → `{soul_mod, lust_mod, high_voltage, shadow_tags}`
+
+所有觸發器均以**黃道度數精確相位**計算（非星座等分）。修正值為疊加型（additive modifier），
+不直接修改 lust_score / soul_score，而是透過 `compute_match_v2` 最後加乘。
+
+### 合盤容許度
+
+| 觸發類型 | 容許度 | 相位 |
+|---|---|---|
+| 凱龍傷口觸發 | 5° | 合相 + 對分相 |
+| 宿命點觸發 | 3° | 合相 only |
+| 莉莉絲觸發 | 3° | 合相 only |
+
+### 凱龍傷口觸發（_CHIRON_ORB = 5.0°）
+
+A 的個人行星（日/月/金/火）合相或對分相 B 的凱龍星 → 靈魂傷口激活：
+
+| 觸發行星 | soul_mod | lust_mod | high_voltage | Tag |
+|---|---|---|---|---|
+| 太陽 | +15 | — | ✅ | `A_Sun_Triggers_B_Chiron` |
+| 月亮 | +15 | — | ✅ | `A_Moon_Triggers_B_Chiron` |
+| 金星 | +15 | — | ✅ | `A_Venus_Triggers_B_Chiron` |
+| 火星 | +15 | +10 | ✅ | `A_Mars_Triggers_B_Chiron` |
+
+（B 對 A 的鏡像觸發同理，Tag 前綴為 `B_`）
+
+### 宿命點觸發（_VERTEX_LILITH_ORB = 3.0°）
+
+A 的個人行星（日/月/金）精準合相 B 的宿命點 → 命運之門開啟：
+
+| 觸發行星 | soul_mod | lust_mod | high_voltage | Tag |
+|---|---|---|---|---|
+| 太陽 | +25 | — | ❌ | `A_Sun_Conjunct_Vertex` |
+| 月亮 | +25 | — | ❌ | `A_Moon_Conjunct_Vertex` |
+| 金星 | +25 | — | ❌ | `A_Venus_Conjunct_Vertex` |
+
+（注意：宿命感是業力而非危險，不觸發 high_voltage）
+
+### 莉莉絲觸發（_VERTEX_LILITH_ORB = 3.0°）
+
+A 的慾望行星（金/火）精準合相 B 的暗月莉莉絲 → 禁忌吸引力：
+
+| 觸發行星 | soul_mod | lust_mod | high_voltage | Tag |
+|---|---|---|---|---|
+| 金星 | — | +25 | ✅ | `A_Venus_Conjunct_Lilith` |
+| 火星 | — | +25 | ✅ | `A_Mars_Conjunct_Lilith` |
+
+### 12 宮陰影疊加
+
+A 的太陽或火星落入 B 的第 12 宮 → soul_mod +20，high_voltage，Tag `A_Illuminates_B_Shadow`
+雙向疊加時額外 +40，Tag `Mutual_Shadow_Integration`
+
+### Shadow Tags 完整清單（中文對照）
+
+所有 Shadow Tag 在 `prompt_manager.py` 的 `_PSYCH_TAG_ZH` 中有對應中文翻譯，
+供 LLM 生成「宿命感解析」文案時使用。
+
+---
+
 ## RPV 評分邏輯
 
 三個維度由入職問卷（3 題）收集：
@@ -460,3 +531,6 @@ Response: 見「系統概覽」的輸出結構。
   範圍外的出生日期會讓 `compute_zwds_chart` 回傳 `None`（非阻塞）。
 - ZWDS 修正器採乘積疊加，不直接修改 lust_score / soul_score，
   只調整四軌（tracks）和 RPV power frame。
+- `natal_aspects` 使用 orb-based 精確相位（`chart.py` 的 `compute_natal_aspects()`），線性強度衰退公式：`strength = 0.2 + 0.8 × (1 - orb/max_orb)`，合相 orb 8°（floor 0.2 at boundary, 1.0 at exact）
+- 暗月莉莉絲（`lilith_sign/degree`）與宿命點（`vertex_sign/degree`）僅 Tier 1 有值。在 Tier 2/3 時為缺失欄位（not present in dict），shadow_engine 做 None 防護（觸發器直接跳過）。
+- Jupiter cross-aspect 與 Juno cross-aspect 修正方向：使用「非對稱跨人相位」而非「同行星比較」，消除同齡人（Jupiter 同座）與婚觀相似（Juno 同座）帶來的假性高分。
