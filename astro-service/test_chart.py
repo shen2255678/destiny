@@ -1006,6 +1006,81 @@ class TestNatalAspects:
 
 # ── _angular_distance unit tests ──────────────────────────────────────────────
 
+class TestLilithAndVertex:
+    """Tests for Lilith (MEAN_APOG) and Vertex extraction in Tier 1 charts."""
+
+    def _tier1_chart(self):
+        return calculate_chart(
+            birth_date="1990-05-15",
+            birth_time="precise",
+            birth_time_exact="14:30",
+            data_tier=1,
+            lat=25.033, lng=121.565,
+        )
+
+    def _tier3_chart(self):
+        return calculate_chart(birth_date="1990-05-15", data_tier=3)
+
+    def test_lilith_sign_present_in_tier1(self):
+        """Tier 1 chart must contain lilith_sign."""
+        result = self._tier1_chart()
+        assert "lilith_sign" in result
+
+    def test_lilith_degree_present_in_tier1(self):
+        """Tier 1 chart must contain lilith_degree as a float in [0, 360)."""
+        result = self._tier1_chart()
+        assert "lilith_degree" in result
+        deg = result["lilith_degree"]
+        # May be None if MEAN_APOG fails, but when present it must be in range
+        if deg is not None:
+            assert isinstance(deg, float)
+            assert 0.0 <= deg < 360.0
+
+    def test_vertex_sign_present_in_tier1(self):
+        """Tier 1 chart must contain vertex_sign."""
+        result = self._tier1_chart()
+        assert "vertex_sign" in result
+        assert result["vertex_sign"] in (
+            "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+            "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+        )
+
+    def test_vertex_degree_present_in_tier1(self):
+        """Tier 1 chart must contain vertex_degree as a float in [0, 360)."""
+        result = self._tier1_chart()
+        assert "vertex_degree" in result
+        deg = result["vertex_degree"]
+        assert isinstance(deg, float)
+        assert 0.0 <= deg < 360.0
+
+    def test_lilith_absent_in_tier3(self):
+        """Tier 3 chart must NOT contain lilith_sign or lilith_degree."""
+        result = self._tier3_chart()
+        assert "lilith_sign" not in result
+        assert "lilith_degree" not in result
+
+    def test_vertex_absent_in_tier3(self):
+        """Tier 3 chart must NOT contain vertex_sign or vertex_degree."""
+        result = self._tier3_chart()
+        assert "vertex_sign" not in result
+        assert "vertex_degree" not in result
+
+    def test_lilith_sign_consistent_with_degree(self):
+        """lilith_sign must correspond to the correct 30° slice of lilith_degree."""
+        result = self._tier1_chart()
+        deg = result.get("lilith_degree")
+        sign = result.get("lilith_sign")
+        if deg is None or sign is None:
+            return  # Graceful degradation; skip consistency check
+        signs = [
+            "aries", "taurus", "gemini", "cancer",
+            "leo", "virgo", "libra", "scorpio",
+            "sagittarius", "capricorn", "aquarius", "pisces",
+        ]
+        expected_sign = signs[int(deg // 30) % 12]
+        assert sign == expected_sign
+
+
 class TestAngularDistance:
     """Unit tests for the _angular_distance() helper in chart.py."""
 

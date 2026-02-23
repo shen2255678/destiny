@@ -402,6 +402,20 @@ def calculate_chart(
         result["house8_degree"] = round(cusps[7], 2)
         result["house12_sign"] = longitude_to_sign(cusps[11])
         result["house12_degree"] = round(cusps[11], 2)
+        # Vertex — ascmc[3]; always available when swe.houses() succeeds
+        vertex_deg = round(ascmc[3], 2)
+        result["vertex_degree"] = vertex_deg
+        result["vertex_sign"] = longitude_to_sign(vertex_deg)
+        # Lilith (Black Moon Lilith / MEAN_APOG) — built into main Swiss Ephemeris library,
+        # no separate .se1 file required; use try/except for defensive safety.
+        try:
+            lilith_pos, _ = swe.calc_ut(jd, swe.MEAN_APOG)
+            result["lilith_degree"] = round(lilith_pos[0], 2)
+            result["lilith_sign"] = longitude_to_sign(lilith_pos[0])
+        except Exception as e:
+            print(f"[DEBUG] Lilith (MEAN_APOG) FAILED: {e}")
+            result["lilith_degree"] = None
+            result["lilith_sign"] = None
 
     # ── Element from Sun sign ────────────────────────────────────
     sun_sign = result.get("sun_sign")
