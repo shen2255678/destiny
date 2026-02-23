@@ -189,25 +189,46 @@ Juno、Sun、Asc；朋友軌、伴侶軌。
 
 ### `compute_lust_score(user_a, user_b)` → 0–100
 
-物理/慾望吸引力分數。
+物理/慾望吸引力分數。使用**動態權重分母**——只有在該欄位有值時才納入計算，
+確保 Tier 2/3 用戶不因缺失欄位而被懲罰。
 
 ```
-venus       = aspect(venus_a,  venus_b,  "harmony") × 0.20
-mars        = aspect(mars_a,   mars_b,   "tension")  × 0.25
-pluto       = aspect(pluto_a,  pluto_b,  "tension")  × 0.25
-house8      = aspect(h8_a,     h8_b,     "tension")  × 0.15  (Tier 2/3 → 0.0)
-power_fit   = compute_power_score(user_a, user_b)    × 0.30
+# ── 跨人主要相位（核心驅動，使用 _resolve_aspect 度數精確相位）─────────
+cross_mv    = _resolve_aspect(mars_a, venus_b, "tension") × 0.30   # A追B
+cross_vm    = _resolve_aspect(mars_b, venus_a, "tension") × 0.30   # B追A
 
-if bazi 相剋（a_restricts_b 或 b_restricts_a）: score × 1.20
+# ── 同行星相位（美感/能量頻率同步）────────────────────────────────────
+venus_sync  = _resolve_aspect(venus_a, venus_b, "harmony") × 0.15
+mars_sync   = _resolve_aspect(mars_a,  mars_b,  "harmony") × 0.15
+
+# ── Tier 1 精確宮位 / 上升（僅有精確度數時納入）────────────────────────
+h8_mars_ab  = _resolve_aspect(h8_a, mars_b, "tension") × 0.10      # B的慾望撞A的第8宮
+h8_mars_ba  = _resolve_aspect(h8_b, mars_a, "tension") × 0.10      # A的慾望撞B的第8宮
+mars_asc_ab = _resolve_aspect(mars_a, asc_b, "tension") × 0.10     # A的衝勁被B看見
+mars_asc_ba = _resolve_aspect(mars_b, asc_a, "tension") × 0.10     # B的衝勁被A看見
+venus_asc_ab= _resolve_aspect(venus_a, asc_b, "harmony") × 0.10    # A的美感吸引B
+venus_asc_ba= _resolve_aspect(venus_b, asc_a, "harmony") × 0.10    # B的美感吸引A
+
+# ── 外行星業力張力（Tier 1+ 外行星有值時）─────────────────────────────
+karmic      = compute_karmic_triggers(user_a, user_b) × 0.25
+              （外行星 Uranus/Neptune/Pluto × 內行星 Moon/Venus/Mars，需 ≥ 0.85 才計入）
+
+# ── RPV 權力動態（始終計算）────────────────────────────────────────────
+power_fit   = compute_power_score(user_a, user_b) × 0.30
+
+# ── BaZi 相剋乘數 ─────────────────────────────────────────────────────
+if bazi 相剋（a_restricts_b 或 b_restricts_a）: score × 1.25
 
 result = clamp(score × 100, 0, 100)
 ```
 
 **行星選擇理由：**
-- Venus harmony：美感 / 品味吸引（舒適感）
-- Mars tension：主動慾望 / 主導動能（摩擦感）
-- Pluto tension：執念 / 磁性吸引（深層慾望）
-- House 8 tension：性吸引 / 禁忌領域（僅 Tier 1）
+- 跨人 Mars × Venus（tension）：「追求 vs 被吸引」的費洛蒙核心訊號
+- 同行星 Venus × Venus（harmony）：美感品味同頻
+- 同行星 Mars × Mars（harmony）：慾望節奏同步
+- House 8 × Mars（tension）：禁忌與親密領域的碰撞（Tier 1 only）
+- Mars / Venus × ASC（tension/harmony）：外在費洛蒙的化學反應（Tier 1 only）
+- 外行星業力張力：宿命式的磁力，需精確相位才觸發
 
 ---
 
@@ -292,9 +313,11 @@ partner = moon(harmony)×0.35    + juno_cross(harmony)×0.35
           其中 juno_cross = (aspect(juno_a, moon_b) + aspect(juno_b, moon_a)) / 2
         + bazi_generation×0.30
 
-soul    = chiron(tension)×0.40  + pluto(tension)×0.40
+soul    = chiron(tension)×0.40  + karmic_triggers×0.40
         + useful_god_complement×0.20
         (+ 0.10 bonus if frame_break=True)
+  其中 karmic_triggers = compute_karmic_triggers(user_a, user_b)
+      chiron = compute_sign_aspect(chiron_a, chiron_b, "tension")  ⚠️ 見已知限制 L-2
 
 各軌 = clamp(value × 100, 0, 100)
 ```
@@ -580,18 +603,60 @@ Response: 見「系統概覽」的輸出結構。
 
 ## 注意事項與已知限制
 
-- 目前使用**星座等分相位**（sign-level），非度數精確相位（degree-level）。
-  升級路徑：`chart.py` 回傳行星精確黃道度數後可改用 orb-based aspect。
-- House 4 / House 8 在 Tier 2/3 時設為 0.0（不使用），非 0.65 中性值，
-  這使得有精確時間的用戶分數區別更明顯。
-- Chiron 和 Juno 移動慢（數月至數年/星座），在 Tier 3 仍有高可信度。
-- 分數有意設計為可能超出 0–1 範圍（例如 soul_score 權重合計 1.20），
+### 已部分解決
+
+- **`_resolve_aspect` 精確度數優先**：`compute_lust_score` 的所有主要相位、
+  `shadow_engine.py` 的所有觸發器均使用精確黃道度數（orb-based, 線性衰退）。
+  `chart.py` 已回傳所有行星的精確度數；Tier 1 用戶享有完整度數精確計算。
+- **House 4 / House 8** 在 Tier 2/3 時設為 0.0（不使用），非 0.65 中性值，
+  使有精確時間的用戶分數差異更明顯。
+- **Chiron 和 Juno** 移動慢（數月至數年/星座），在 Tier 3 仍有高可信度。
+- **分數設計上可超出 0–1 範圍**（例如 soul_score 權重合計 1.20），
   最終統一由 `_clamp(value × 100, 0, 100)` 限縮。
-- ZWDS 計算依賴 `lunardate` 套件的陽曆→農曆轉換，支援 1900–2100 年。
-  範圍外的出生日期會讓 `compute_zwds_chart` 回傳 `None`（非阻塞）。
-- ZWDS 修正器採乘積疊加，不直接修改 lust_score / soul_score，
-  只調整四軌（tracks）和 RPV power frame。
-- `natal_aspects` 使用 orb-based 精確相位（`chart.py` 的 `compute_natal_aspects()`），線性強度衰退公式：`strength = 0.2 + 0.8 × (1 - orb/max_orb)`，合相 orb 8°（floor 0.2 at boundary, 1.0 at exact）
-- 暗月莉莉絲（`lilith_sign/degree`）與宿命點（`vertex_sign/degree`）僅 Tier 1 有值。在 Tier 2/3 時為缺失欄位（not present in dict），shadow_engine 做 None 防護（觸發器直接跳過）。
-- Jupiter cross-aspect 與 Juno cross-aspect 修正方向：使用「非對稱跨人相位」而非「同行星比較」，消除同齡人（Jupiter 同座）與婚觀相似（Juno 同座）帶來的假性高分。
-- **v1.9（2026-02-23）：** 第七宮 Descendant 疊圖（`partner_mod`）、南北交點業力觸發（v1.8）、個人業力軸線 `extract_karmic_axis`（Sign Axis 全 Tier + House Axis Tier 1 Whole Sign），所有結果合併進 `karmic_tags` 並有完整中文翻譯。
+- **`natal_aspects`** 使用 orb-based 精確相位，線性強度衰退公式：
+  `strength = 0.2 + 0.8 × (1 - orb/max_orb)`，合相 orb 8°。
+- **Lilith / Vertex** 僅 Tier 1 有值，shadow_engine 做 None 防護（觸發器直接跳過）。
+- **Jupiter / Juno** 使用跨人相位修正，消除同齡人假性高分。
+- **ZWDS** 修正器採乘積疊加，不直接修改 lust/soul 分數，只調整四軌與 RPV frame。
+- **v1.9（2026-02-23）：** Descendant 疊圖（`partner_mod`）、南北交點業力觸發（v1.8）、
+  業力軸線 `extract_karmic_axis`（Sign Axis 全 Tier + House Axis Tier 1 Whole Sign）。
+
+---
+
+### 已知限制與待優化清單（Code Review 2026-02-24）
+
+優先級 **P1（影響評分準確度）**：
+
+| # | 問題 | 影響 | 位置 |
+|---|---|---|---|
+| **L-1** | Shadow modifier 無累計上限：soul_adj / lust_adj 可累加超過 +100，使影子引擎變成分數覆蓋器而非鑑別器 | C | `matching.py:1167` |
+| **L-2** | Chiron 在 soul track 使用同星座比較（非跨人度數相位）：同期出生者（Chiron 同座數年）會獲得虛假最高分 | C | `matching.py:906` |
+| **L-3** | `compute_soul_score` 的 Moon / Mercury / Saturn 仍使用 `compute_sign_aspect`（星座等分），非 `_resolve_aspect`（度數精確）：兩人 Moon 相差 27° 但同座時會被算成合相 | C | `matching.py:703-714` |
+
+優先級 **P2（缺失重要因素）**：
+
+| # | 問題 | 影響 | 建議修法 |
+|---|---|---|---|
+| **L-4** | **缺 Sun-Moon 跨人相位**：A 的太陽 × B 的月亮（雙向）是占星傳統中最重要的合盤指標，目前完全缺席 | I | 加入 `compute_soul_score`，建議 weight `"soul_sun_moon": 0.20` |
+| **L-5** | **缺 Saturn 跨人相位**：A 的土星 × B 的月亮/金星（雙向）是長期承諾與業力束縛的核心指標 | I | 加入 `compute_tracks` partner track |
+| **L-6** | **缺 Moon-Pluto 合盤觸發**：A 的冥王星合相/四分相/對分相 B 的月亮 → 情感操控/深度蛻變/obsessive attachment，與本平台 D/s 主題高度相關 | I | 加入 `shadow_engine.py`，soul_mod +15, lust_mod +10, high_voltage |
+| **L-7** | **缺 Venus-Saturn 合盤觸發**：一方的土星束縛另一方的金星 → 義務感、延遲滿足、業力感情 | I | 加入 `shadow_engine.py` |
+| **L-8** | **外行星業力觸發閾值 0.85 過高**：0.84 的近精確四分相被整個丟棄，造成非線性分數懸崖 | I | 降至 0.70 或改為漸進式貢獻 |
+
+優先級 **P3（校準 / 小問題）**：
+
+| # | 問題 | 影響 | 備注 |
+|---|---|---|---|
+| **L-9** | ZWDS 化科（hua_ke）已計算但未使用於合盤 | M | 可貢獻 friend track ×1.1 |
+| **L-10** | `compute_power_v2` 的 `zwds_rpv_modifier` 只加到 `frame_a`，若未來需獨立顯示雙方 frame 值，邏輯會有誤 | M | 建議改為 ±frame_a/frame_b 分開儲存 |
+| **L-11** | `compute_soul_score` 文件中 weight 合計 1.20，應補充說明動態正規化機制，避免開發者誤以為需要加總 = 1.00 | M | 文件修正 |
+| **L-12** | soul track 的 Chiron 同座比較 與 shadow_engine 的 Chiron 跨人度數觸發走兩條路徑但都加進 `tracks["soul"]`，造成 Chiron 因子被雙重計算 | M | 文件說明或從 track 中移除 |
+
+---
+
+### 其他固定注意事項
+
+- ZWDS 計算依賴 `lunardate` 套件，支援 1900–2100 年；範圍外回傳 `None`（非阻塞）。
+- `soul_adj` / `lust_adj` 同時套用至 Y 軸分數與對應 track，設計意圖是保持方向一致；
+  但因為 `compute_tracks` 和 `compute_shadow_and_wound` 計算的是不同行星組合，
+  兩者可能在高修正器下產生分歧。此為已知設計取捨，非 bug。
