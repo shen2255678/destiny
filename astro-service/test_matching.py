@@ -507,6 +507,49 @@ class TestComputeLustScore:
         same_score  = compute_lust_score(same_a,  same_b)
         assert cross_score > same_score, f"Cross {cross_score:.1f} should > same-planet {same_score:.1f}"
 
+    def test_asc_cross_aspect_boosts_lust_tier1(self):
+        """Mars exact conjunction with partner's ASC (tension) should boost lust score for Tier 1."""
+        base = {
+            "data_tier": 1,
+            "mars_sign": "aries",     "mars_degree":  0.0,
+            "venus_sign": "taurus",   "venus_degree": 30.0,
+            "ascendant_sign": "leo",  "ascendant_degree": 120.0,
+            "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+        }
+        # B's ASC at 1.0° — 1° from A's Mars at 0.0° → near-perfect conjunction
+        b_with_asc = {
+            "data_tier": 1,
+            "mars_sign": "aries",      "mars_degree":  10.0,
+            "venus_sign": "taurus",    "venus_degree": 30.0,
+            "ascendant_sign": "aries", "ascendant_degree": 1.0,
+            "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+        }
+        b_no_asc = {
+            "data_tier": 1,
+            "mars_sign": "aries",    "mars_degree":  10.0,
+            "venus_sign": "taurus",  "venus_degree": 30.0,
+            "ascendant_sign": None,  "ascendant_degree": None,
+            "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+        }
+        score_with = compute_lust_score(base, b_with_asc)
+        score_without = compute_lust_score(base, b_no_asc)
+        assert score_with > score_without, (
+            f"Lust score with ASC conjunction ({score_with:.1f}) should beat without ASC ({score_without:.1f})"
+        )
+
+    def test_asc_cross_aspect_absent_tier2(self):
+        """Tier 2 user has no ASC degree — ASC terms are skipped, score normalizes correctly."""
+        a = {
+            "data_tier": 2,
+            "mars_sign": "aries",   "mars_degree": 0.0,
+            "venus_sign": "taurus", "venus_degree": 30.0,
+            "ascendant_sign": None, "ascendant_degree": None,
+            "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+        }
+        b = dict(a)
+        score = compute_lust_score(a, b)
+        assert 0.0 <= score <= 100.0
+
 
 # ── compute_soul_score ────────────────────────────────────────
 

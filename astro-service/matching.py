@@ -53,6 +53,11 @@ WEIGHTS = {
     "lust_same_mars":          0.15,   # mars_a × mars_b   (same-planet, harmony)
     "lust_house8_ab":          0.10,   # h8_a × mars_b     (8th house taboo pull)
     "lust_house8_ba":          0.10,   # h8_b × mars_a
+    # ASC cross-aspects (first-impression physical pull, Tier 1 only — requires exact degree)
+    "lust_mars_asc_ab":        0.10,   # mars_a × asc_b  (tension — A's drive ignites B's persona)
+    "lust_mars_asc_ba":        0.10,   # mars_b × asc_a  (tension — B's drive ignites A's persona)
+    "lust_venus_asc_ab":       0.10,   # venus_a × asc_b (harmony — A's allure fits B's appearance)
+    "lust_venus_asc_ba":       0.10,   # venus_b × asc_a (harmony — B's allure fits A's appearance)
     "lust_karmic":             0.25,   # outer-vs-inner karmic triggers
     "lust_power":              0.30,   # RPV power dynamic
     "lust_bazi_restrict_mult": 1.25,   # upgraded from 1.20; applied in Task 3
@@ -627,6 +632,27 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
     if h8_b_deg is not None and mars_a_deg is not None:
         w = WEIGHTS["lust_house8_ba"]
         score += compute_exact_aspect(h8_b_deg, mars_a_deg, "tension") * w
+        total_weight += w
+
+    # 5b. Ascendant cross-aspects (first-impression physical pull, Tier 1 only)
+    # Only added when exact degrees available — avoids neutral-score contamination for Tier 2/3
+    asc_a_deg = user_a.get("ascendant_degree")
+    asc_b_deg = user_b.get("ascendant_degree")
+    if mars_a_deg is not None and asc_b_deg is not None:
+        w = WEIGHTS["lust_mars_asc_ab"]
+        score += compute_exact_aspect(mars_a_deg, asc_b_deg, "tension") * w
+        total_weight += w
+    if mars_b_deg is not None and asc_a_deg is not None:
+        w = WEIGHTS["lust_mars_asc_ba"]
+        score += compute_exact_aspect(mars_b_deg, asc_a_deg, "tension") * w
+        total_weight += w
+    if venus_a_deg is not None and asc_b_deg is not None:
+        w = WEIGHTS["lust_venus_asc_ab"]
+        score += compute_exact_aspect(venus_a_deg, asc_b_deg, "harmony") * w
+        total_weight += w
+    if venus_b_deg is not None and asc_a_deg is not None:
+        w = WEIGHTS["lust_venus_asc_ba"]
+        score += compute_exact_aspect(venus_b_deg, asc_a_deg, "harmony") * w
         total_weight += w
 
     # 6. Karmic triggers (outer vs inner planets)
