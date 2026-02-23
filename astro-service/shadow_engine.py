@@ -56,6 +56,7 @@ def compute_shadow_and_wound(chart_a, chart_b):
     result = {
         "soul_mod": 0.0,
         "lust_mod": 0.0,
+        "partner_mod": 0.0,
         "high_voltage": False,
         "shadow_tags": [],
     }
@@ -149,6 +150,71 @@ def compute_shadow_and_wound(chart_a, chart_b):
     if a_in_b12 and b_in_a12:
         result["soul_mod"] += 40.0
         result["shadow_tags"].append("Mutual_Shadow_Integration")
+
+    # ── Lunar Node triggers (南北交點) ──────────────────────────────────────
+    # South Node conjunction: karmic debt pull → soul_mod +20, high_voltage
+    # North Node conjunction: soul growth direction → soul_mod +20, no high_voltage
+    _NODE_ORB = 3.0
+    _NODE_PLANETS = [("Sun", "sun_degree"), ("Moon", "moon_degree"),
+                     ("Venus", "venus_degree"), ("Mars", "mars_degree")]
+
+    south_node_b = chart_b.get("south_node_degree")
+    north_node_b = chart_b.get("north_node_degree")
+    if south_node_b is not None:
+        for p_name, p_key in _NODE_PLANETS:
+            d = _dist(chart_a.get(p_key), south_node_b)
+            if d is not None and d <= _NODE_ORB:
+                result["soul_mod"] += 20.0
+                result["high_voltage"] = True
+                result["shadow_tags"].append(f"A_{p_name}_Conjunct_SouthNode")
+    if north_node_b is not None:
+        for p_name, p_key in _NODE_PLANETS:
+            d = _dist(chart_a.get(p_key), north_node_b)
+            if d is not None and d <= _NODE_ORB:
+                result["soul_mod"] += 20.0
+                result["shadow_tags"].append(f"A_{p_name}_Conjunct_NorthNode")
+
+    south_node_a = chart_a.get("south_node_degree")
+    north_node_a = chart_a.get("north_node_degree")
+    if south_node_a is not None:
+        for p_name, p_key in _NODE_PLANETS:
+            d = _dist(chart_b.get(p_key), south_node_a)
+            if d is not None and d <= _NODE_ORB:
+                result["soul_mod"] += 20.0
+                result["high_voltage"] = True
+                result["shadow_tags"].append(f"B_{p_name}_Conjunct_SouthNode")
+    if north_node_a is not None:
+        for p_name, p_key in _NODE_PLANETS:
+            d = _dist(chart_b.get(p_key), north_node_a)
+            if d is not None and d <= _NODE_ORB:
+                result["soul_mod"] += 20.0
+                result["shadow_tags"].append(f"B_{p_name}_Conjunct_NorthNode")
+
+    # ── 7th House Overlay (第七宮正緣指標) ─────────────────────────────────
+    # Descendant = Ascendant + 180°.  When A's Sun/Moon/Venus conjuncts
+    # B's Descendant (orb 5°), it signals a strong marriage/partnership bond.
+    _DSC_ORB = 5.0
+    _DSC_PLANETS = [("Sun", "sun_degree"), ("Moon", "moon_degree"),
+                    ("Venus", "venus_degree")]
+
+    if asc_b is not None:
+        dsc_b = (asc_b + 180.0) % 360.0
+        for p_name, p_key in _DSC_PLANETS:
+            d = _dist(chart_a.get(p_key), dsc_b)
+            if d is not None and d <= _DSC_ORB:
+                result["partner_mod"] += 20.0
+                result["soul_mod"] += 10.0
+                result["shadow_tags"].append(f"A_{p_name}_Conjunct_Descendant")
+
+    if asc_a is not None:
+        dsc_a = (asc_a + 180.0) % 360.0
+        for p_name, p_key in _DSC_PLANETS:
+            d = _dist(chart_b.get(p_key), dsc_a)
+            if d is not None and d <= _DSC_ORB:
+                result["partner_mod"] += 20.0
+                result["soul_mod"] += 10.0
+                result["shadow_tags"].append(f"B_{p_name}_Conjunct_Descendant")
+
     return result
 
 

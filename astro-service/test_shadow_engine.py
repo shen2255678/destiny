@@ -450,3 +450,81 @@ class TestVertexLilithTriggers:
         assert result["lust_mod"] == pytest.approx(25.0)
         assert result["high_voltage"] is True
         assert "B_Venus_Conjunct_Lilith" in result["shadow_tags"]
+
+
+# ── TestLunarNodeTriggers ─────────────────────────────────────────────────────
+
+class TestLunarNodeTriggers:
+    """Tests for Lunar Node (南北交點) synastry triggers."""
+
+    def test_south_node_trigger_high_voltage(self):
+        """A's Sun conjunct B's South Node (diff=2° ≤ 3°) → soul_mod +20, high_voltage."""
+        a = {"sun_degree": 100.0}
+        b = {"south_node_degree": 102.0}
+        result = compute_shadow_and_wound(a, b)
+        assert result["soul_mod"] >= 20.0
+        assert result["high_voltage"] is True
+        assert "A_Sun_Conjunct_SouthNode" in result["shadow_tags"]
+
+    def test_north_node_trigger_no_high_voltage(self):
+        """A's Moon conjunct B's North Node (diff=1° ≤ 3°) → soul_mod +20, no high_voltage."""
+        a = {"moon_degree": 200.0}
+        b = {"north_node_degree": 201.0}
+        result = compute_shadow_and_wound(a, b)
+        assert result["soul_mod"] >= 20.0
+        assert result["high_voltage"] is False
+        assert "A_Moon_Conjunct_NorthNode" in result["shadow_tags"]
+
+    def test_node_trigger_outside_orb_no_effect(self):
+        """A's Venus 5° from B's South Node → outside 3° orb → no trigger."""
+        a = {"venus_degree": 100.0}
+        b = {"south_node_degree": 105.0}   # diff=5° > 3°
+        result = compute_shadow_and_wound(a, b)
+        assert "A_Venus_Conjunct_SouthNode" not in result["shadow_tags"]
+        assert result["soul_mod"] == pytest.approx(0.0)
+        assert result["high_voltage"] is False
+
+    def test_missing_node_skipped_gracefully(self):
+        """Missing south_node_degree → no crash, no trigger."""
+        a = {"sun_degree": 50.0, "moon_degree": 50.0}
+        b = {}   # no node fields
+        result = compute_shadow_and_wound(a, b)
+        # No node tags should be present
+        node_tags = [t for t in result["shadow_tags"] if "Node" in t]
+        assert node_tags == []
+
+
+class TestDescendantOverlay:
+    """Tests for 7th House Overlay (Descendant) triggers."""
+
+    def test_sun_conjunct_descendant_triggers(self):
+        """A's Sun conjunct B's DSC (= B's ASC + 180°) within 5° → partner_mod + soul_mod."""
+        a = {"sun_degree": 190.0}  # close to DSC of B
+        b = {"ascendant_degree": 10.0}  # DSC = 190°
+        result = compute_shadow_and_wound(a, b)
+        assert result["partner_mod"] == 20.0
+        assert result["soul_mod"] >= 10.0
+        assert "A_Sun_Conjunct_Descendant" in result["shadow_tags"]
+
+    def test_descendant_outside_orb(self):
+        """A's Sun 8° from DSC → no trigger (orb = 5°)."""
+        a = {"sun_degree": 198.0}  # 8° from DSC=190
+        b = {"ascendant_degree": 10.0}
+        result = compute_shadow_and_wound(a, b)
+        assert result["partner_mod"] == 0.0
+        dsc_tags = [t for t in result["shadow_tags"] if "Descendant" in t]
+        assert dsc_tags == []
+
+    def test_missing_ascendant_graceful(self):
+        """Without ascendant_degree, Descendant overlay is skipped gracefully."""
+        a = {"sun_degree": 190.0, "moon_degree": 50.0}
+        b = {}  # no ascendant
+        result = compute_shadow_and_wound(a, b)
+        dsc_tags = [t for t in result["shadow_tags"] if "Descendant" in t]
+        assert dsc_tags == []
+
+    def test_partner_mod_always_in_result(self):
+        """partner_mod key must exist in result even with empty charts."""
+        result = compute_shadow_and_wound({}, {})
+        assert "partner_mod" in result
+        assert result["partner_mod"] == 0.0

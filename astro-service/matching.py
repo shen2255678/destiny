@@ -1130,6 +1130,7 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         _shadow = compute_shadow_and_wound(user_a, user_b)
         soul_adj    += _shadow["soul_mod"]
         lust_adj    += _shadow["lust_mod"]
+        partner_adj += _shadow.get("partner_mod", 0.0)
         high_voltage = high_voltage or _shadow["high_voltage"]
         psychological_tags.extend(_shadow["shadow_tags"])
     except Exception:

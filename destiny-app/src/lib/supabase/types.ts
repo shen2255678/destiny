@@ -101,6 +101,14 @@ export interface Database {
           sm_tags: Json
           karmic_tags: Json
           element_profile: Json | null
+          // Algorithm v1.8: Lunar Node fields
+          north_node_sign: string | null
+          north_node_degree: number | null
+          south_node_sign: string | null
+          south_node_degree: number | null
+          // Algorithm v1.9: House 7 (Descendant)
+          house7_sign: string | null
+          house7_degree: number | null
         }
         Insert: {
           id: string
@@ -181,6 +189,14 @@ export interface Database {
           sm_tags?: Json
           karmic_tags?: Json
           element_profile?: Json | null
+          // Algorithm v1.8: Lunar Node fields
+          north_node_sign?: string | null
+          north_node_degree?: number | null
+          south_node_sign?: string | null
+          south_node_degree?: number | null
+          // Algorithm v1.9: House 7 (Descendant)
+          house7_sign?: string | null
+          house7_degree?: number | null
         }
         Update: Partial<Database['public']['Tables']['users']['Insert']>
         Relationships: []

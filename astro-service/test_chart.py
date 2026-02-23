@@ -5,6 +5,7 @@ Uses known birth data to verify Swiss Ephemeris calculations.
 
 from chart import calculate_chart, longitude_to_sign, compute_emotional_capacity, _angular_distance
 from bazi import calculate_bazi, analyze_element_relation, HEAVENLY_STEMS, STEM_ELEMENTS, EARTHLY_BRANCHES
+import pytest
 
 
 # ── Unit: longitude_to_sign ──────────────────────────────────────
@@ -1103,3 +1104,84 @@ class TestAngularDistance:
     def test_wraparound_350_and_10(self):
         """350° and 10° should be 20° apart (not 340°)."""
         assert _angular_distance(350.0, 10.0) == 20.0
+
+
+# ── Lunar Nodes (南北交點) ──────────────────────────────────────────────────
+
+class TestLunarNodes:
+    """Tests for Lunar Node extraction in calculate_chart()."""
+
+    def test_north_node_returned_all_tiers(self):
+        """north_node_sign/degree should be present for Tier 1, 2, and 3."""
+        for tier, kwargs in [
+            (3, {}),
+            (2, {"birth_time": "morning", "lat": 25.033, "lng": 121.565}),
+            (1, {"birth_time": "precise", "birth_time_exact": "14:30",
+                 "lat": 25.033, "lng": 121.565}),
+        ]:
+            result = calculate_chart(birth_date="1995-06-15", data_tier=tier, **kwargs)
+            assert result["north_node_sign"] is not None, f"Tier {tier}: missing north_node_sign"
+            assert result["north_node_degree"] is not None, f"Tier {tier}: missing north_node_degree"
+            assert result["south_node_sign"] is not None, f"Tier {tier}: missing south_node_sign"
+            assert result["south_node_degree"] is not None, f"Tier {tier}: missing south_node_degree"
+
+    def test_south_node_is_opposite_north(self):
+        """South Node degree should equal (North Node + 180) % 360."""
+        result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+        nn = result["north_node_degree"]
+        sn = result["south_node_degree"]
+        expected_sn = round((nn + 180.0) % 360.0, 2)
+        assert sn == pytest.approx(expected_sn, abs=0.01)
+
+    def test_south_node_sign_correct(self):
+        """south_node_sign should match longitude_to_sign(south_node_degree)."""
+        result = calculate_chart(birth_date="2000-01-01", data_tier=3)
+        assert result["south_node_sign"] == longitude_to_sign(result["south_node_degree"])
+
+
+# ── House 7 (第七宮 / Descendant) ──────────────────────────────────────────
+
+class TestHouse7:
+    """Tests for House 7 extraction in calculate_chart()."""
+
+    def test_house7_present_tier1(self):
+        """house7_sign/degree should be present for Tier 1."""
+        result = calculate_chart(
+            birth_date="1995-06-15", data_tier=1,
+            birth_time="precise", birth_time_exact="14:30",
+            lat=25.033, lng=121.565,
+        )
+        assert result["house7_sign"] is not None
+        assert result["house7_degree"] is not None
+
+    def test_house7_null_tier2(self):
+        """house7 should be null for Tier 2 (no precise time)."""
+        result = calculate_chart(
+            birth_date="1995-06-15", data_tier=2,
+            birth_time="morning", lat=25.033, lng=121.565,
+        )
+        assert result["house7_sign"] is None
+        assert result["house7_degree"] is None
+
+    def test_house7_null_tier3(self):
+        """house7 should be null for Tier 3."""
+        result = calculate_chart(birth_date="1995-06-15", data_tier=3)
+        assert result["house7_sign"] is None
+        assert result["house7_degree"] is None
+
+    def test_descendant_roughly_opposite_ascendant(self):
+        """House 7 cusp should be roughly ASC + 180° (Placidus may deviate slightly)."""
+        result = calculate_chart(
+            birth_date="1995-06-15", data_tier=1,
+            birth_time="precise", birth_time_exact="14:30",
+            lat=25.033, lng=121.565,
+        )
+        asc = result["ascendant_degree"]
+        h7  = result["house7_degree"]
+        expected = (asc + 180.0) % 360.0
+        diff = abs(h7 - expected)
+        if diff > 180:
+            diff = 360 - diff
+        # Placidus H7 cusp is exactly ASC+180 for the ecliptic axis
+        assert diff < 1.0, f"H7={h7}, expected≈{expected}, diff={diff}"
+

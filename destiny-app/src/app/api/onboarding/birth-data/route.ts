@@ -64,10 +64,10 @@ function lookupCityCoords(city: string): { lat: number; lng: number } | null {
 type FuzzyPeriod = 'morning' | 'afternoon' | 'evening' | 'unknown'
 
 const FUZZY_WINDOWS: Record<FuzzyPeriod, { start: string; end: string; size: number; legacy: string }> = {
-  morning:   { start: '06:00', end: '12:00', size: 360,  legacy: 'morning' },
-  afternoon: { start: '12:00', end: '18:00', size: 360,  legacy: 'afternoon' },
-  evening:   { start: '18:00', end: '24:00', size: 360,  legacy: 'evening' },
-  unknown:   { start: '00:00', end: '24:00', size: 1440, legacy: 'unknown' },
+  morning: { start: '06:00', end: '12:00', size: 360, legacy: 'morning' },
+  afternoon: { start: '12:00', end: '18:00', size: 360, legacy: 'afternoon' },
+  evening: { start: '18:00', end: '24:00', size: 360, legacy: 'evening' },
+  unknown: { start: '00:00', end: '24:00', size: 1440, legacy: 'unknown' },
 }
 
 interface RectificationDefaults {
@@ -204,7 +204,7 @@ export async function POST(request: Request) {
         email: user.email!,
         gender: 'male',
         birth_date,
-        birth_time: rectData.birth_time,
+        birth_time: rectData.birth_time as 'precise' | 'morning' | 'afternoon' | 'evening' | 'unknown' | null,
         birth_time_exact: birth_time_exact || null,
         birth_city,
         birth_lat: lat,
@@ -239,8 +239,8 @@ export async function POST(request: Request) {
       window_size_minutes: rectData.window_size_minutes,
       initial_confidence: rectData.current_confidence,
     },
-  }).catch(() => {
-    console.warn('[birth-data] failed to log range_initialized event')
+  }).then(({ error: evtErr }) => {
+    if (evtErr) console.warn('[birth-data] failed to log range_initialized event')
   })
 
   // Call astro-service to calculate natal chart (non-blocking)
@@ -267,7 +267,8 @@ export async function POST(request: Request) {
       const degreeFields = [
         'sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn',
         'uranus', 'neptune', 'pluto', 'chiron', 'juno',
-        'ascendant', 'house4', 'house8', 'house12',
+        'ascendant', 'house4', 'house7', 'house8', 'house12',
+        'north_node', 'south_node',
       ]
       const planetDegrees: Record<string, number | null> = {}
       for (const p of degreeFields) {
@@ -289,26 +290,34 @@ export async function POST(request: Request) {
           bazi_element: chart.bazi?.day_master_element ?? null,
           bazi_four_pillars: chart.bazi ?? null,
           // Phase G new chart fields
-          mercury_sign:  chart.mercury_sign ?? null,
-          jupiter_sign:  chart.jupiter_sign ?? null,
-          pluto_sign:    chart.pluto_sign ?? null,
-          uranus_sign:   chart.uranus_sign ?? null,
-          neptune_sign:  chart.neptune_sign ?? null,
-          chiron_sign:   chart.chiron_sign ?? null,
-          juno_sign:     chart.juno_sign ?? null,
-          house4_sign:   chart.house4_sign ?? null,
-          house8_sign:   chart.house8_sign ?? null,
-          house12_sign:  chart.house12_sign ?? null,
+          mercury_sign: chart.mercury_sign ?? null,
+          jupiter_sign: chart.jupiter_sign ?? null,
+          pluto_sign: chart.pluto_sign ?? null,
+          uranus_sign: chart.uranus_sign ?? null,
+          neptune_sign: chart.neptune_sign ?? null,
+          chiron_sign: chart.chiron_sign ?? null,
+          juno_sign: chart.juno_sign ?? null,
+          house4_sign: chart.house4_sign ?? null,
+          house8_sign: chart.house8_sign ?? null,
+          house12_sign: chart.house12_sign ?? null,
           // Phase H v1.4/v1.5 fields
-          bazi_month_branch:  chart.bazi?.bazi_month_branch ?? null,
-          bazi_day_branch:    chart.bazi?.bazi_day_branch ?? null,
+          bazi_month_branch: chart.bazi?.bazi_month_branch ?? null,
+          bazi_day_branch: chart.bazi?.bazi_day_branch ?? null,
           emotional_capacity: chart.emotional_capacity ?? 50,
           // Phase I: exact planet degrees for orb-based aspect matching
           planet_degrees: Object.keys(planetDegrees).length > 0 ? planetDegrees : null,
           // Phase I: Psychology Layer tags
-          sm_tags:         chart.sm_tags         ?? [],
-          karmic_tags:     chart.karmic_tags      ?? [],
-          element_profile: chart.element_profile  ?? null,
+          sm_tags: chart.sm_tags ?? [],
+          karmic_tags: chart.karmic_tags ?? [],
+          element_profile: chart.element_profile ?? null,
+          // Algorithm v1.8: Lunar Nodes
+          north_node_sign: chart.north_node_sign ?? null,
+          north_node_degree: chart.north_node_degree ?? null,
+          south_node_sign: chart.south_node_sign ?? null,
+          south_node_degree: chart.south_node_degree ?? null,
+          // Algorithm v1.9: House 7 (Descendant)
+          house7_sign: chart.house7_sign ?? null,
+          house7_degree: chart.house7_degree ?? null,
         })
         .eq('id', user.id)
     }
@@ -337,12 +346,12 @@ export async function POST(request: Request) {
         const { chart } = await zwdsRes.json()
         if (chart) {
           await supabase.from('users').update({
-            zwds_life_palace_stars:   chart.palaces?.ming?.main_stars ?? [],
+            zwds_life_palace_stars: chart.palaces?.ming?.main_stars ?? [],
             zwds_spouse_palace_stars: chart.palaces?.spouse?.main_stars ?? [],
-            zwds_karma_palace_stars:  chart.palaces?.karma?.main_stars ?? [],
-            zwds_four_transforms:     chart.four_transforms ?? null,
-            zwds_five_element:        chart.five_element ?? null,
-            zwds_body_palace_name:    chart.body_palace_name ?? null,
+            zwds_karma_palace_stars: chart.palaces?.karma?.main_stars ?? [],
+            zwds_four_transforms: chart.four_transforms ?? null,
+            zwds_five_element: chart.five_element ?? null,
+            zwds_body_palace_name: chart.body_palace_name ?? null,
           }).eq('id', user.id)
         }
       }

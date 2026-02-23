@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 import swisseph as swe
-from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile, extract_retrograde_karma
+from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile, extract_retrograde_karma, extract_karmic_axis
 
 def _resolve_ephe_path() -> str:
     """Return an ASCII-safe path to the ephemeris directory.
@@ -374,6 +374,22 @@ def calculate_chart(
             result[f"{name}_sign"] = None  # ephe file missing — degrade gracefully
             result[f"{name}_degree"] = None
 
+    # ── Lunar Nodes (南北交點) — available at all tiers ─────────────────
+    # swe.TRUE_NODE does not require birth time; safe for Tier 2/3.
+    try:
+        nn_pos, _ = swe.calc_ut(jd, swe.TRUE_NODE)
+        nn_deg = round(nn_pos[0], 2)
+        result["north_node_sign"]   = longitude_to_sign(nn_deg)
+        result["north_node_degree"] = nn_deg
+        sn_deg = round((nn_deg + 180.0) % 360.0, 2)
+        result["south_node_sign"]   = longitude_to_sign(sn_deg)
+        result["south_node_degree"] = sn_deg
+    except Exception:
+        result["north_node_sign"]   = None
+        result["north_node_degree"] = None
+        result["south_node_sign"]   = None
+        result["south_node_degree"] = None
+
     # ── Tier-based restrictions ──────────────────────────────────
     if data_tier == 3:
         # Bronze: Moon is unreliable without time
@@ -386,6 +402,8 @@ def calculate_chart(
         result["ascendant_degree"] = None
         result["house4_sign"] = None
         result["house4_degree"] = None
+        result["house7_sign"] = None
+        result["house7_degree"] = None
         result["house8_sign"] = None
         result["house8_degree"] = None
         result["house12_sign"] = None
@@ -398,6 +416,8 @@ def calculate_chart(
         # pyswisseph swe.houses() returns a 12-element tuple, 0-indexed: cusps[0]=H1 … cusps[11]=H12
         result["house4_sign"] = longitude_to_sign(cusps[3])
         result["house4_degree"] = round(cusps[3], 2)
+        result["house7_sign"] = longitude_to_sign(cusps[6])
+        result["house7_degree"] = round(cusps[6], 2)
         result["house8_sign"] = longitude_to_sign(cusps[7])
         result["house8_degree"] = round(cusps[7], 2)
         result["house12_sign"] = longitude_to_sign(cusps[11])
@@ -443,6 +463,7 @@ def calculate_chart(
     result["sm_tags"]         = extract_sm_dynamics(result)
     result["karmic_tags"]     = extract_critical_degrees(result, is_exact_time=is_exact)
     result["karmic_tags"]     = result["karmic_tags"] + extract_retrograde_karma(result)
+    result["karmic_tags"]     = result["karmic_tags"] + extract_karmic_axis(result)
     result["element_profile"] = compute_element_profile(result, is_exact_time=is_exact)
 
     # ── Natal Aspects ────────────────────────────────────────────────

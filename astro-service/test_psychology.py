@@ -1,6 +1,6 @@
 """Tests for psychology.py — per-user tag extraction."""
 import pytest
-from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile, extract_retrograde_karma
+from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile, extract_retrograde_karma, extract_karmic_axis
 
 
 def _chart(**kwargs):
@@ -192,4 +192,38 @@ def test_retrograde_no_rx_no_tags():
 
 def test_retrograde_missing_keys_no_error():
     tags = extract_retrograde_karma({})
+    assert tags == []
+
+
+# -- extract_karmic_axis -------------------------------------------------------
+
+def test_karmic_axis_sign_tag():
+    """North Node Gemini → Axis_Sign_Gemini_Sag tag."""
+    chart = _chart(north_node_sign="Gemini")
+    tags = extract_karmic_axis(chart)
+    assert "Axis_Sign_Gemini_Sag" in tags
+
+def test_karmic_axis_north_node_sign_tag():
+    """Should produce North_Node_Sign_Gemini."""
+    chart = _chart(north_node_sign="Gemini")
+    tags = extract_karmic_axis(chart)
+    assert "North_Node_Sign_Gemini" in tags
+
+def test_karmic_axis_house_tier1():
+    """Tier 1 with ASC Aries + NN Cancer → house = (3-0)%12+1 = 4 → Axis_House_4_10."""
+    chart = _chart(north_node_sign="Cancer", ascendant_sign="Aries", data_tier=1)
+    tags = extract_karmic_axis(chart)
+    assert "Axis_House_4_10" in tags
+    assert "North_Node_House_4" in tags
+
+def test_karmic_axis_no_house_tier2():
+    """Tier 2 should NOT produce house axis tags even if ascendant_sign is present."""
+    chart = _chart(north_node_sign="Leo", ascendant_sign="Aries", data_tier=2)
+    tags = extract_karmic_axis(chart)
+    house_tags = [t for t in tags if "House" in t]
+    assert house_tags == []
+
+def test_karmic_axis_empty_chart():
+    """Empty chart returns no tags."""
+    tags = extract_karmic_axis({})
     assert tags == []

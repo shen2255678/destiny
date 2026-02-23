@@ -8,8 +8,17 @@ const CRON_SECRET = process.env.CRON_SECRET || ''
 const USER_MATCH_FIELDS = [
   'id', 'data_tier',
   'sun_sign', 'moon_sign', 'venus_sign', 'mars_sign', 'saturn_sign', 'ascendant_sign',
+  // Phase G/I extended signs
+  'mercury_sign', 'jupiter_sign', 'pluto_sign', 'uranus_sign', 'neptune_sign',
+  'chiron_sign', 'juno_sign', 'house4_sign', 'house8_sign', 'house12_sign',
   'bazi_element',
   'rpv_conflict', 'rpv_power', 'rpv_energy',
+  // Phase I: exact degrees JSONB
+  'planet_degrees',
+  // Algorithm v1.8: Lunar Nodes
+  'north_node_sign', 'north_node_degree', 'south_node_sign', 'south_node_degree',
+  // Algorithm v1.9: House 7
+  'house7_sign', 'house7_degree',
 ].join(', ')
 
 interface UserProfile {
@@ -21,10 +30,27 @@ interface UserProfile {
   mars_sign: string | null
   saturn_sign: string | null
   ascendant_sign: string | null
+  mercury_sign: string | null
+  jupiter_sign: string | null
+  pluto_sign: string | null
+  uranus_sign: string | null
+  neptune_sign: string | null
+  chiron_sign: string | null
+  juno_sign: string | null
+  house4_sign: string | null
+  house8_sign: string | null
+  house12_sign: string | null
   bazi_element: string | null
   rpv_conflict: string | null
   rpv_power: string | null
   rpv_energy: string | null
+  planet_degrees: Record<string, number | null> | null
+  north_node_sign: string | null
+  north_node_degree: number | null
+  south_node_sign: string | null
+  south_node_degree: number | null
+  house7_sign: string | null
+  house7_degree: number | null
 }
 
 interface MatchResult {
@@ -42,10 +68,15 @@ interface MatchResult {
 
 async function callComputeMatch(userA: UserProfile, userB: UserProfile): Promise<MatchResult | null> {
   try {
+    // Flatten planet_degrees JSONB into top-level keys for astro-service
+    const flattenDegrees = (u: UserProfile) => {
+      const { planet_degrees, ...rest } = u
+      return { ...rest, ...(planet_degrees ?? {}) }
+    }
     const res = await fetch(`${ASTRO_URL}/compute-match`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_a: userA, user_b: userB }),
+      body: JSON.stringify({ user_a: flattenDegrees(userA), user_b: flattenDegrees(userB) }),
     })
     if (!res.ok) return null
     return await res.json()
@@ -130,7 +161,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Not enough users for matching', matched: 0 })
   }
 
-  const profiles = users as UserProfile[]
+  const profiles = users as unknown as UserProfile[]
 
   // 2. For each user, compute scores against all other users
   let totalInserted = 0
@@ -177,8 +208,8 @@ export async function POST(request: Request) {
       radar_passion: result.radar_passion,
       radar_stability: result.radar_stability,
       radar_communication: result.radar_communication,
-      card_color: result.card_color,
-      user_action: 'pending',
+      card_color: result.card_color as 'coral' | 'blue' | 'purple',
+      user_action: 'pending' as const,
     }))
 
     const { error: insertError } = await admin
