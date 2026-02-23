@@ -69,7 +69,7 @@ WEIGHTS = {
     "soul_house4":            0.15,   # Tier 1 only
     "soul_juno":              0.20,   # when ephemeris available
     "soul_attachment":        0.20,   # when questionnaire filled
-    "soul_sun_moon":          0.20,   # Sun-Moon cross-aspect (A's Sun × B's Moon, bidirectional avg)
+    "soul_sun_moon":          0.25,   # Sun-Moon cross-aspect (A's Sun × B's Moon, bidirectional avg)
     "soul_generation_mult":   1.20,   # × multiplier when BaZi elements generate each other
 
     # ── compute_kernel_score ─── ✅ wired ────────────────────────────────────
