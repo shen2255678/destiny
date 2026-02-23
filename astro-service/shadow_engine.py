@@ -38,6 +38,11 @@ _CHIRON_ORB = 5.0
 # Orb for Vertex (命運之門) and Lilith (禁忌之戀) triggers (conjunction only)
 _VERTEX_LILITH_ORB = 3.0
 
+# Planets checked against partner's Vertex (fate/soul trigger — not volatile; no high_voltage)
+_VERTEX_PLANETS = [("Sun", "sun_degree"), ("Moon", "moon_degree"), ("Venus", "venus_degree")]
+# Planets checked against partner's Lilith (taboo lust trigger; sets high_voltage)
+_LILITH_PLANETS = [("Venus", "venus_degree"), ("Mars", "mars_degree")]
+
 
 def _in_house(planet_deg, cusp_deg, next_cusp_deg):
     if planet_deg is None or cusp_deg is None or next_cusp_deg is None:
@@ -102,7 +107,6 @@ def compute_shadow_and_wound(chart_a, chart_b):
                 result["shadow_tags"].append(f"B_{p_name}_Triggers_A_Chiron")
 
     # Vertex triggers (命運之門): Sun/Moon/Venus conjunction only, soul_mod +25 each
-    _VERTEX_PLANETS = [("Sun", "sun_degree"), ("Moon", "moon_degree"), ("Venus", "venus_degree")]
     if vertex_b is not None:
         for p_name, p_key in _VERTEX_PLANETS:
             d = _dist(chart_a.get(p_key), vertex_b)
@@ -117,7 +121,6 @@ def compute_shadow_and_wound(chart_a, chart_b):
                 result["shadow_tags"].append(f"B_{p_name}_Conjunct_Vertex")
 
     # Lilith triggers (禁忌之戀): Venus/Mars conjunction only, lust_mod +25 + high_voltage
-    _LILITH_PLANETS = [("Venus", "venus_degree"), ("Mars", "mars_degree")]
     if lilith_b is not None:
         for p_name, p_key in _LILITH_PLANETS:
             d = _dist(chart_a.get(p_key), lilith_b)
