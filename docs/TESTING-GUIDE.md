@@ -1,6 +1,6 @@
 # DESTINY — Testing Guide
 
-**Last Updated:** 2026-02-22 (Phase I ✅ — Psychology Layer — 91 JS + 189 Python tests)
+**Last Updated:** 2026-02-23 (Algorithm v1.8 ✅ — Lunar Nodes + Karmic Axis + House7 + Prompt Upgrade — 91 JS + 412 Python tests)
 
 ---
 
@@ -335,7 +335,7 @@ pip install -r requirements.txt    # 首次安裝（含 lunardate）
 uvicorn main:app --port 8001       # 啟動
 ```
 
-### Python Unit Tests (189 tests)
+### Python Unit Tests (412 tests)
 
 ```bash
 cd astro-service
@@ -343,17 +343,20 @@ cd astro-service
 # 紫微斗數排盤引擎 (31 tests)
 pytest test_zwds.py -v
 
-# 星盤 + 八字 + 五行關係 (30 tests)
+# 星盤 + 八字 + 五行關係 + 南北交點 + 業力軸線 (109 tests)
 pytest test_chart.py -v
 
-# 配對演算法 + ZWDS 整合 (73 tests)
+# 配對演算法 + ZWDS 整合 + ASC/Orb 升級 (178 tests)
 pytest test_matching.py -v
 
-# 心理層標籤（SM / 業力 / 加權元素 / 逆行業力）(28 tests)
+# 心理層標籤（SM / 業力 / 加權元素 / 逆行業力 / 業力軸線）(33 tests)
 pytest test_psychology.py -v
 
-# 陰影引擎 + 依戀動態 + 元素填充 (27 tests)
+# 陰影引擎 + 依戀動態 + 元素填充 + 南北交點觸發 (56 tests)
 pytest test_shadow_engine.py -v
+
+# Sandbox 端到端煙霧測試 (5 tests)
+pytest test_sandbox.py -v
 
 # 全部一起跑
 pytest -v
@@ -371,28 +374,37 @@ pytest -v
 | 主星人設 | get_star_archetype_mods | 2 |
 | 合盤引擎 | compute_zwds_synastry 端對端 | 8 |
 
-**test_chart.py 測試分類（30 tests）：**
+**test_chart.py 測試分類（109 tests）：**
 
 | 類別 | 測試項目 | 數量 |
 |------|---------|------|
-| 西洋占星 | Sun sign 12 星座、Tier 1/2/3 行為、邊界日期 | 12 |
-| 八字四柱 | 日主、四柱結構、年柱/日柱驗證、Tier 行為 | 11 |
+| 西洋占星 | Sun sign 12 星座、Tier 1/2/3 行為、邊界日期、Vertex/Lilith | ~20 |
+| 八字四柱 | 日主、四柱結構、年柱/日柱驗證、Tier 行為 | ~15 |
 | 五行關係 | 相生/相剋/比和 全循環 | 7 |
+| 南北交點 | TRUE_NODE 存在、南交=北交+180°、wrap 正確 | 3 |
+| 業力軸線 | extract_karmic_axis Sign/House axis、Tier 1/3 行為 | ~8 |
+| 情感容量 | compute_emotional_capacity ZWDS 加權 | ~10 |
+| 其他整合 | Chiron/Juno/House 宮位 Tier 保護 | ~46 |
 
-**test_matching.py 測試分類（73 tests）：**
+**test_matching.py 測試分類（178 tests）：**
 
 | 類別 | 測試項目 | 數量 |
 |------|---------|------|
-| 星座相位 (sign_aspect) | 合/刑/沖/拱/六合 + edge cases | 9 |
-| lust_score / soul_score | 各行星權重 + BaZi 修正 | 12 |
-| Power dynamic | Chiron 觸發、RPV 組合 | 8 |
-| compute_tracks | 四軌分數 + BaZi 軌道 | 10 |
-| classify_quadrant | 四象限分類 | 4 |
-| compute_match_v2 | 端對端整合（含 ZWDS + 心理層）| 14 |
-| ZWDS 整合 | Tier 1 ZWDS 輸出鍵 + Tier 3 跳過 + 異常安全 | 8 |
-| 舊版 compute_match_score | 向後相容 | 8 |
+| 星座相位 (sign_aspect) | 合/刑/沖/拱/六合 + edge cases | ~9 |
+| _resolve_aspect | 度數精算 fallback + cross-sign conjunction ≥0.85 | ~8 |
+| lust_score / soul_score | 各行星權重 + BaZi 修正 + ASC 跨相位 | ~20 |
+| ASC 跨相位 | Mars/Venus × partner ASC Tier 1 提升、Tier 2 無效 | 2 |
+| Power dynamic | Chiron 觸發、RPV 組合 | ~8 |
+| compute_kernel_score | 度數精算跨星座合相 ≥0.85 | ~10 |
+| compute_glitch_score | 度數精算 Mars cross-sign ≥0.60 | ~8 |
+| compute_tracks | 四軌分數 + BaZi 軌道 | ~10 |
+| classify_quadrant | 四象限分類 | ~4 |
+| compute_match_v2 | 端對端整合（含 ZWDS + 心理層 + modifier 傳播修復）| ~20 |
+| ZWDS 整合 | Tier 1 ZWDS 輸出鍵 + Tier 3 跳過 + 異常安全 | ~8 |
+| 舊版 compute_match_score | 向後相容 | ~8 |
+| 其他 | Juno/Jupiter cross-aspect fix | ~65 |
 
-**test_psychology.py 測試分類（28 tests）：**
+**test_psychology.py 測試分類（33 tests）：**
 
 | 類別 | 測試項目 | 數量 |
 |------|---------|------|
@@ -400,18 +412,81 @@ pytest -v
 | extract_critical_degrees | Karmic_Crisis / Blind_Impulse / 外行星排除 / Tier 保護（月亮/上升） | 5 |
 | compute_element_profile | 加權計分 / 月亮精確時才計 / Dominant ≥7.0 / Deficiency ≤1.0 | 6 |
 | extract_retrograde_karma | Venus_Rx / Mars_Rx / Mercury_Rx / 無逆行 / 空 chart | 5 |
+| extract_karmic_axis | Sign Axis 6 對 / North_Node_Sign / House Axis Tier 1 / Tier 3 無 House axis | 5 |
 | 整合 | chart → element_profile 完整流程 | 4 |
 
-**test_shadow_engine.py 測試分類（27 tests）：**
+**test_shadow_engine.py 測試分類（56 tests）：**
 
 | 類別 | 測試項目 | 數量 |
 |------|---------|------|
 | compute_shadow_and_wound | 7 個觸發條件各自隔離測試（Chiron/Moon、Chiron/Mars sq/opp、12th house、Mutual）| 9 |
+| Vertex/Lilith 觸發 | soul_mod +25、lust_mod +25、high_voltage | ~6 |
+| 南北交點觸發 | SouthNode high_voltage + soul_mod +20、NorthNode soul_mod +20（無 high_voltage）| ~8 |
 | compute_dynamic_attachment | Uranus 張力→焦慮 / Saturn→迴避 / Jupiter 和諧→安全 / 雙向 | 4 |
 | compute_attachment_dynamics | secure+secure / anxious+avoidant / anxious+anxious / avoidant+avoidant / secure+any / fearful+any | 6 |
 | compute_elemental_fulfillment | 填充 +15 / 雙向填充 / 上限 +30 / 無 deficiency | 4 |
-| compute_match_v2 整合 | psychological_tags 存在 / high_voltage 一票否決 | 2 |
+| compute_match_v2 整合 | psychological_tags 存在 / high_voltage 一票否決 / modifier 傳播至 lust/soul 軸 | 3 |
 | Edge cases | 缺欄位安全退化 | 2 |
+| 其他 | orb 邊界 / 標籤命名 / 雙向觸發 | ~14 |
+
+### LLM Prompt 驗證腳本（run_*.py）
+
+這些腳本直接 import 模組執行，不需啟動 FastAPI 服務，適合快速驗證排盤 + prompt 整合。
+
+#### `run_ideal_match_prompt.py` — 三位一體理想伴侶輪廓
+
+```bash
+# 預設：1997-07-21 09:00 女，只印摘要 + prompt 前 300 字
+python run_ideal_match_prompt.py
+
+# 顯示完整 prompt（貼到 Gemini / Claude）
+python run_ideal_match_prompt.py --show-prompt
+
+# 顯示完整命盤 JSON
+python run_ideal_match_prompt.py --show-chart
+
+# 自訂出生資料
+python run_ideal_match_prompt.py --date 1995-06-15 --time 14:30 --gender M
+
+# 有 API key 時直接打 Claude Haiku 並顯示結果
+ANTHROPIC_API_KEY=sk-ant-... python run_ideal_match_prompt.py
+```
+
+**輸出摘要包含：**
+- 西占速覽（太陽/月亮/上升/金星/火星/婚神/下降/南北交點）
+- 八字速覽（日主五行 + 四柱）
+- 紫微速覽（命宮/夫妻宮/福德宮主星 + 煞星）
+- 業力軸線標籤（南北交點 Sign Axis + House Axis）
+- 完整三位一體 Prompt
+
+#### `run_full_natal_report.py` — 完整命盤 JSON 輸出
+
+```bash
+# 輸出完整 full_report JSON（含西占 + 八字 + 紫微 + 心理層）
+python run_full_natal_report.py
+```
+
+**ground truth 案例（1997-07-21 09:00 女）：**
+
+| 欄位 | 預期值 |
+|------|--------|
+| `sun_sign` | `cancer` |
+| `moon_sign` | `aquarius` |
+| `ascendant_sign` | `virgo` |
+| `venus_sign` | `leo` |
+| `mars_sign` | `libra` |
+| `juno_sign` | `cancer` |
+| `house7_sign` (下降) | `pisces` |
+| `north_node_sign` | `virgo` |
+| `south_node_sign` | `pisces` |
+| `bazi.day_master` | `甲` |
+| `bazi.day_master_element` | `wood` |
+| `zwds.palaces.ming.main_stars` | `['天機化科', '太陰化祿']` |
+| `zwds.palaces.spouse.main_stars` | `['太陽']` |
+| `zwds.palaces.karma.main_stars` | `['巨門化忌']` |
+| `zwds.palaces.karma.malevolent_stars` | `['地劫']` |
+| `karmic_tags` | `Axis_Sign_Virgo_Pisces`, `North_Node_Sign_Virgo`, `Axis_House_1_7` |
+| `sm_tags` | `['Natural_Dom']` |
 
 ### API 測試（curl）
 
@@ -793,15 +868,18 @@ UPDATE users SET onboarding_step = 'birth_data' WHERE email = 'test1@example.com
 |-------------|---------|
 | 排盤正確性（西洋/八字/紫微）| Layer 0: `curl` + Sandbox Phase 0-A |
 | 配對演算法 MATCH/MISMATCH | Layer 0: Sandbox Tab A |
+| 單人命盤 + Prompt 快速驗證 | `python run_ideal_match_prompt.py --show-prompt` |
+| 完整命盤 JSON 輸出 | `python run_full_natal_report.py` |
 | API 邏輯是否正確（快速） | Layer 1: `npm test` (91 tests) |
 | 紫微斗數引擎正確性 | Astro Service: `pytest test_zwds.py` (31 tests) |
-| 星盤/八字計算正確性 | Astro Service: `pytest test_chart.py` (30 tests) |
-| 配對演算法正確性 | Astro Service: `pytest test_matching.py` (73 tests) |
-| 心理層標籤（SM/業力/元素/逆行）| Astro Service: `pytest test_psychology.py` (28 tests) |
-| 陰影/依戀/元素填充引擎 | Astro Service: `pytest test_shadow_engine.py` (27 tests) |
+| 星盤/八字/南北交點/業力軸線 | Astro Service: `pytest test_chart.py` (109 tests) |
+| 配對演算法（含 v1.8 升級）| Astro Service: `pytest test_matching.py` (178 tests) |
+| 心理層標籤（SM/業力/元素/逆行/業力軸線）| Astro Service: `pytest test_psychology.py` (33 tests) |
+| 陰影/依戀/元素填充/交點觸發 | Astro Service: `pytest test_shadow_engine.py` (56 tests) |
+| 全部 Python 測試 | `pytest -v` (412 tests) |
 | 完整用戶流程（註冊到聊天）| Layer 2: 瀏覽器 E2E |
 | 單一 API response 格式 | Layer 3: 瀏覽器 Console fetch |
-| DB 是否正確寫入（含 ZWDS + 心理層）| Supabase Dashboard |
+| DB 是否正確寫入（含 v1.8 lunar nodes）| Supabase Dashboard (migration 012/013) |
 | Error handling (401/400/403) | Layer 1 (mock) 或 Layer 3 (real) |
 | 出生時間校正流程 | Layer 3: rectification endpoints |
 | Realtime 即時訊息 | Layer 2: 兩個瀏覽器視窗互傳 |
