@@ -309,10 +309,14 @@ def compute_kernel_score(user_a: dict, user_b: dict) -> float:
     tier_b = user_b.get("data_tier", 3)
     effective_tier = max(tier_a, tier_b)  # degrade to worst
 
-    sun   = compute_sign_aspect(user_a.get("sun_sign"),        user_b.get("sun_sign"),        "harmony")
-    moon  = compute_sign_aspect(user_a.get("moon_sign"),       user_b.get("moon_sign"),       "harmony")
-    venus = compute_sign_aspect(user_a.get("venus_sign"),      user_b.get("venus_sign"),      "harmony")
-    asc   = compute_sign_aspect(user_a.get("ascendant_sign"),  user_b.get("ascendant_sign"),  "harmony")
+    sun   = _resolve_aspect(user_a.get("sun_degree"),        user_a.get("sun_sign"),
+                            user_b.get("sun_degree"),        user_b.get("sun_sign"),        "harmony")
+    moon  = _resolve_aspect(user_a.get("moon_degree"),       user_a.get("moon_sign"),
+                            user_b.get("moon_degree"),       user_b.get("moon_sign"),       "harmony")
+    venus = _resolve_aspect(user_a.get("venus_degree"),      user_a.get("venus_sign"),
+                            user_b.get("venus_degree"),      user_b.get("venus_sign"),      "harmony")
+    asc   = _resolve_aspect(user_a.get("ascendant_degree"),  user_a.get("ascendant_sign"),
+                            user_b.get("ascendant_degree"),  user_b.get("ascendant_sign"),  "harmony")
 
     # BaZi harmony
     bazi = 0.65  # neutral default

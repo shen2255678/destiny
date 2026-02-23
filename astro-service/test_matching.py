@@ -141,6 +141,37 @@ class TestComputeKernelScore:
         score = compute_kernel_score(a, b)
         assert 0.0 <= score <= 1.0
 
+    def test_cross_sign_conjunction_scores_high(self):
+        """Aries 29° (lon=29.0) and Taurus 1° (lon=31.0) → 2° apart → should score as conjunction.
+        With sign-level only: Aries vs Taurus = semi-sextile (0.10). Bad!
+        With _resolve_aspect + exact degrees: conjunction 2° → ~0.80. Correct!
+        Sign-level kernel = 0.7025 (sun misscored as 0.10, other planets compensate).
+        Exact-degree kernel = ~0.91 (sun correctly scores ~0.80 conjunction).
+        Threshold 0.85 requires exact-degree accuracy — fails with sign-level sun.
+        """
+        a = {
+            "data_tier": 1,
+            "sun_degree": 29.0, "sun_sign": "aries",
+            "moon_degree": 45.0, "moon_sign": "taurus",
+            "venus_degree": 90.0, "venus_sign": "cancer",
+            "ascendant_degree": 0.0, "ascendant_sign": "aries",
+            "bazi_element": None,
+        }
+        b = {
+            "data_tier": 1,
+            "sun_degree": 31.0, "sun_sign": "taurus",   # only 2° from A's sun
+            "moon_degree": 45.0, "moon_sign": "taurus",
+            "venus_degree": 90.0, "venus_sign": "cancer",
+            "ascendant_degree": 0.0, "ascendant_sign": "aries",
+            "bazi_element": None,
+        }
+        score = compute_kernel_score(a, b)
+        assert score >= 0.85, (
+            f"Cross-sign conjunction kernel score {score:.3f} should be >= 0.85 "
+            f"(sign-level gives ~0.70 due to aries/taurus semi-sextile; "
+            f"exact-degree gives ~0.91 as 2° conjunction)"
+        )
+
 
 # ── compute_power_score ──────────────────────────────────────
 
