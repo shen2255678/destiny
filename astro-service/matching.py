@@ -1130,9 +1130,11 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
 
     # Apply modifiers — clamp each track to [0, 100]
     if soul_adj != 0.0:
-        tracks["soul"]    = _clamp(tracks["soul"]    + soul_adj)
+        tracks["soul"] = _clamp(tracks["soul"] + soul_adj)
+        soul           = _clamp(soul + soul_adj)   # propagate to Y-axis score
     if lust_adj != 0.0:
         tracks["passion"] = _clamp(tracks["passion"] + lust_adj)
+        lust              = _clamp(lust + lust_adj)   # propagate to X-axis score
     if partner_adj != 0.0:
         tracks["partner"] = _clamp(tracks["partner"] + partner_adj)
 

@@ -780,6 +780,71 @@ class TestComputeMatchV2Integration:
         soul_ss = compute_match_v2(a_ss, b_ss)["tracks"]["soul"]
         assert soul_sw > soul_ss
 
+    def test_lust_soul_modifier_propagates_to_axes(self):
+        """soul_adj and lust_adj must update lust/soul axes, not just tracks.
+        Shadow engine soul_mod should raise soul_score, not just tracks["soul"].
+
+        Uses a deliberately low-soul baseline (disparate signs, no Vertex) vs
+        a Vertex-triggered pair.  The Vertex trigger adds soul_mod += 25 per
+        planet conjunction; soul_score must reflect that boost.
+        """
+        # Common profile: signs chosen to yield a moderate base soul_score
+        # (all taurus-taurus = high harmony for moon/saturn, giving ~82 base)
+        # We compare WITH vs WITHOUT vertex to detect the propagation bug.
+        a = {
+            "data_tier": 1,
+            "sun_sign": "taurus", "sun_degree": 45.0,
+            "moon_sign": "taurus", "moon_degree": 45.0,
+            "venus_sign": "taurus", "venus_degree": 45.0,
+            "mars_sign": "taurus", "mars_degree": 45.0,
+            "saturn_sign": "taurus", "saturn_degree": 45.0,
+            "ascendant_sign": "taurus", "ascendant_degree": 45.0,
+            "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+        }
+        # B WITH Vertex at 45.5° → A_Venus_Conjunct_Vertex + A_Moon_Conjunct_Vertex
+        # + A_Sun_Conjunct_Vertex → soul_mod += 75 total
+        b_with_vertex = {
+            "data_tier": 1,
+            "sun_sign": "taurus", "sun_degree": 45.0,
+            "moon_sign": "taurus", "moon_degree": 45.0,
+            "venus_sign": "taurus", "venus_degree": 45.0,
+            "mars_sign": "taurus", "mars_degree": 45.0,
+            "saturn_sign": "taurus", "saturn_degree": 45.0,
+            "ascendant_sign": "taurus", "ascendant_degree": 45.0,
+            "vertex_degree": 45.5,  # triggers A_Sun + A_Moon + A_Venus Conjunct Vertex
+            "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+        }
+        # B WITHOUT Vertex → identical otherwise, no shadow soul_mod
+        b_without_vertex = {
+            "data_tier": 1,
+            "sun_sign": "taurus", "sun_degree": 45.0,
+            "moon_sign": "taurus", "moon_degree": 45.0,
+            "venus_sign": "taurus", "venus_degree": 45.0,
+            "mars_sign": "taurus", "mars_degree": 45.0,
+            "saturn_sign": "taurus", "saturn_degree": 45.0,
+            "ascendant_sign": "taurus", "ascendant_degree": 45.0,
+            "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
+        }
+        result_with    = compute_match_v2(a, b_with_vertex)
+        result_without = compute_match_v2(a, b_without_vertex)
+
+        # tracks["soul"] must be boosted — this should always hold (even before the fix)
+        assert result_with["tracks"]["soul"] > result_without["tracks"]["soul"], (
+            "tracks['soul'] should be boosted by Vertex trigger"
+        )
+
+        # soul_score (the Y-axis) must ALSO be boosted — this is the propagation fix.
+        # Before the fix, soul_score is identical in both cases (bug).
+        assert result_with["soul_score"] > result_without["soul_score"], (
+            f"soul_score should be boosted by shadow engine Vertex trigger: "
+            f"with={result_with['soul_score']} vs without={result_without['soul_score']}"
+        )
+
+        # psychological_tags should contain at least one Vertex trigger tag
+        assert any("Vertex" in t for t in result_with.get("psychological_tags", [])), (
+            "Vertex trigger tag should appear in psychological_tags"
+        )
+
 
 # ── bazi.py: seasonal complement functions ────────────────────
 
