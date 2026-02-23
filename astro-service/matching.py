@@ -382,10 +382,14 @@ def compute_glitch_score(user_a: dict, user_b: dict) -> float:
       - mars_a vs saturn_b and vice versa: friction triggers
     Higher score = higher tolerance (less destructive friction).
     """
-    mars       = compute_sign_aspect(user_a.get("mars_sign"),   user_b.get("mars_sign"),    "tension")
-    saturn     = compute_sign_aspect(user_a.get("saturn_sign"), user_b.get("saturn_sign"), "harmony")
-    mars_sat_ab = compute_sign_aspect(user_a.get("mars_sign"),  user_b.get("saturn_sign"), "tension")
-    mars_sat_ba = compute_sign_aspect(user_b.get("mars_sign"),  user_a.get("saturn_sign"), "tension")
+    mars        = _resolve_aspect(user_a.get("mars_degree"),   user_a.get("mars_sign"),
+                                  user_b.get("mars_degree"),   user_b.get("mars_sign"),    "tension")
+    saturn      = _resolve_aspect(user_a.get("saturn_degree"), user_a.get("saturn_sign"),
+                                  user_b.get("saturn_degree"), user_b.get("saturn_sign"),  "harmony")
+    mars_sat_ab = _resolve_aspect(user_a.get("mars_degree"),   user_a.get("mars_sign"),
+                                  user_b.get("saturn_degree"), user_b.get("saturn_sign"),  "tension")
+    mars_sat_ba = _resolve_aspect(user_b.get("mars_degree"),   user_b.get("mars_sign"),
+                                  user_a.get("saturn_degree"), user_a.get("saturn_sign"),  "tension")
 
     return (mars        * WEIGHTS["glitch_mars"] +
             saturn      * WEIGHTS["glitch_saturn"] +

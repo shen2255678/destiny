@@ -240,6 +240,25 @@ class TestComputeGlitchScore:
         score = compute_glitch_score(a, b)
         assert 0.0 <= score <= 1.0
 
+    def test_cross_sign_mars_scores_correctly(self):
+        """Mars Aries 29° vs Mars Taurus 1° → 2° apart → should score as conjunction (tension).
+        With no saturn data (neutral 0.65 each component):
+          - sign-only: mars=0.10 (aries/taurus semi-sextile) → total ~0.51
+          - degree-based: mars=0.80 (2° conjunction) → total ~0.69
+        Score must be >= 0.60 to confirm _resolve_aspect (orb-based) path is used.
+        """
+        a = {
+            "mars_degree": 29.0, "mars_sign": "aries",
+        }
+        b = {
+            "mars_degree": 31.0, "mars_sign": "taurus",
+        }
+        score = compute_glitch_score(a, b)
+        assert score >= 0.60, (
+            f"Cross-sign Mars conjunction glitch score {score:.3f} should reflect true "
+            f"2° conjunction (~0.69), not sign-level semi-sextile (~0.51)"
+        )
+
 
 # ── classify_match_type ──────────────────────────────────────
 
