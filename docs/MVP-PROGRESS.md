@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-23 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅ Algorithm v1.8 ✅ Algorithm v1.9 ✅)
+**Last Updated:** 2026-02-24 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅ Algorithm v1.8 ✅ Algorithm v1.9 ✅ Algorithm v2.0 Code Review ✅)
 
 ---
 
@@ -148,13 +148,13 @@
 | `astro-service/test_chart.py` | 109 | 西洋占星 + 八字四柱 + 五行關係 + Tier 分層 + Lilith/Vertex 提取 + Lunar Nodes + House 7 |
 | `src/__tests__/api/rectification-next-question.test.ts` | 6 | Rectification next-question API (401, 204 locked, 204 PRECISE, shape, options, boundary priority) |
 | `src/__tests__/api/rectification-answer.test.ts` | 9 | Rectification answer API (401, 400 missing/invalid, 200 state, confidence increase, event log, update users, tier_upgraded) |
-| `astro-service/test_matching.py` | 173 | 配對演算法 v1/v2：sign_aspect + kernel + power + glitch + classify + tags；Phase G v2：lust + soul + power_v2 + chiron + quadrant + attachment；Phase H：zwds_bridge + spiciness + defense + layered；**Algorithm Enhancement：** Jupiter cross-aspect(4) + Juno cross-aspect(6) |
+| `astro-service/test_matching.py` | 187 | 配對演算法 v1/v2：sign_aspect + kernel + power + glitch + classify + tags；Phase G v2：lust + soul + power_v2 + chiron + quadrant + attachment；Phase H：zwds_bridge + spiciness + defense + layered；**Algorithm Enhancement：** Jupiter cross-aspect(4) + Juno cross-aspect(6)；**v2.0：** L-4 Sun-Moon cross(4) + L-5 Saturn cross(4) |
 | `astro-service/test_zwds.py` | 31 | **(Phase H)** ZWDS bridge：compute_zwds_chart(8) + zwds_synastry(10) + flying_star_hits(7) + spouse_palace(6) |
-| `astro-service/test_shadow_engine.py` | 56 | Shadow engine：Chiron wound triggers + Vertex/Lilith synastry triggers + 12th-house overlay + attachment trap matrix + Lunar Node triggers + 7th House Overlay |
+| `astro-service/test_shadow_engine.py` | 65 | Shadow engine：Chiron wound triggers + Vertex/Lilith synastry triggers + 12th-house overlay + attachment trap matrix + Lunar Node triggers + 7th House Overlay；**v2.0：** L-6 Moon-Pluto cross(9) |
 | `astro-service/test_psychology.py` | 33 | Psychology layer：weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms + Karmic Axis |
 | `astro-service/test_sandbox.py` | 5 | Sandbox 端點（健康檢查、手動測試工具）|
 | `src/__tests__/api/onboarding/attachment.test.ts` | 7 | **(Phase G)** Attachment API (400 missing, 400 invalid style, 200 valid, 200 all styles, 401 unauth, role included, 400 invalid role) |
-| **Total** | **498** | All passing (91 JS + 407 Python) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement, +7 Algorithm v1.8, +13 Algorithm v1.9 |
+| **Total** | **519** | All passing (91 JS + 428 Python) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement, +7 Algorithm v1.8, +13 Algorithm v1.9, +21 Algorithm v2.0 (L-4/L-5/L-6) |
 
 ---
 
@@ -171,7 +171,7 @@
 | Storage Bucket | **Done** | `photos` bucket + upload/view/delete policies |
 | `.env.local` | **Done** | SUPABASE_URL + ANON_KEY |
 | Vitest | **Done** | vitest + @testing-library/react + user-event |
-| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + matching algo + ZWDS bridge + pytest (162 tests) |
+| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + matching algo + ZWDS bridge + pytest (428 tests) |
 
 ---
 
@@ -217,6 +217,39 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 
 ---
 
+## Algorithm Known Gaps (Code Review 2026-02-24)
+
+> 完整分析見 `docs/ALGORITHM.md` Known Gaps 章節。
+> 嚴重度：P1=立即修，P2=下個衝刺，P3=有時間再做
+
+| ID | 嚴重度 | 模組 | 問題描述 | 狀態 |
+|----|--------|------|----------|------|
+| L-1 | P1 Critical | `matching.py` | `compute_lust_score` 使用 sign-level (`compute_sign_aspect`)；ASC/Mars/Venus cross-aspect 有 degree key 但查的是 sign key | 觀察中 |
+| L-2 | P1 Critical | `matching.py` | `compute_soul_score` 中 Moon/Mercury/Saturn 用 sign-level 相位；應改用 `_resolve_aspect` degree-based | P2 |
+| L-3 | P1 Critical | `matching.py` | `compute_tracks` partner/soul track 全用 sign-level；high-voltage shadow triggers 為 degree-level，形成不一致 | P2 |
+| **L-4** | **P2 Important** | `matching.py` | `compute_soul_score` 缺少 Sun-Moon cross-aspect（synastry 最重要指標之一）| **✅ Done (2026-02-24)** |
+| **L-5** | **P2 Important** | `matching.py` | `compute_tracks` partner track 缺少 Saturn cross-aspect（長期穩定/承諾指標） | **✅ Done (2026-02-24)** |
+| **L-6** | **P2 Important** | `shadow_engine.py` | 缺少 Moon-Pluto 觸發器（執念/靈魂侵蝕）；Pluto-Moon 是 D/s + 業力最強的相位之一 | **✅ Done (2026-02-24)** |
+| L-7 | P2 Important | `matching.py` | `compute_lust_score` 中 Jupiter Friend Track 只出現在 soul/friend 應出現的地方；lust 分組裡同時有 friendship 貢獻 | 待確認 |
+| L-8 | P2 Important | `matching.py` | `compute_tracks` soul track 使用 `compute_karmic_triggers`（sign-level）；應統一為 degree-level | P2 |
+| L-9 | P3 Minor | `shadow_engine.py` | `compute_shadow_and_wound` 缺少 Saturn-Moon cross（壓抑型依賴）；與 L-5 Saturn 主題一致 | P3 |
+| L-10 | P3 Minor | `matching.py` | `compute_lust_score` 中 `lust_power` 固定 0.30 比重，應考慮 power imbalance (RPV diff) 對 lust 是否有 diminishing returns | P3 |
+| L-11 | P3 Minor | `matching.py` | Attachment style 只影響 soul_score，未影響 lust/partner track；anxious×avoidant 的 lust spike 未建模 | P3 |
+| L-12 | P3 Minor | `shadow_engine.py` | `compute_attachment_dynamics` 中 Anxious×Avoidant lust_mod +15 沒有 high_voltage=True，與 obsession 主題不符 | P3 |
+
+### 修復計畫
+
+**立即完成 (Algorithm v2.0, 2026-02-24):**
+- ✅ L-4: Sun-Moon cross-aspect 加入 `compute_soul_score`（weight 0.20）
+- ✅ L-5: Saturn cross-aspect 加入 `compute_tracks` partner track（bonus weight 0.10）
+- ✅ L-6: Moon-Pluto shadow trigger 加入 `shadow_engine.py`（5° orb，soul +15, lust +10）
+
+**下個衝刺 (P2):**
+- L-2/L-3: 將 soul_score/tracks 的 sign-level 改為 degree-level `_resolve_aspect`
+- L-8: soul track karmic triggers 改用 degree-level
+
+---
+
 ## Next Steps (已完成 → 下一步)
 
 1. ~~**建立 Supabase 專案**~~ — ✅ Done
@@ -233,7 +266,8 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 12. ~~**Algorithm Enhancement (2026-02-22)**~~ ← ✅ Done (Tasks 79-83: `_CHIRON_ORB` constant refactor + dead tag cleanup; Jupiter Friend Track cross-aspect fix (jup_a×sun_b); Juno Partner Track cross-aspect fix (juno_a×moon_b) in soul_score+tracks; Lilith/Vertex extraction in chart.py Tier 1; Vertex/Lilith synastry triggers in shadow_engine.py; 18 new zh tag translations in prompt_manager.py; +25 tests → 387 Python total)
 13. ~~**Algorithm v1.8 (2026-02-23)**~~ ← ✅ Done (Lunar Node extraction in chart.py all tiers; shadow_engine.py South/North Node karmic triggers 3° orb; prompt_manager.py 16 node zh translations; Migration 012 lunar_node columns; birth-data API write-back nodes; run/route.ts planet_degrees flattening + expanded UserProfile; +7 tests → 394 Python total)
 14. ~~**Algorithm v1.9 (2026-02-23)**~~ ← ✅ Done (House 7 Descendant extraction in chart.py; shadow_engine 7th House Overlay partner_mod +20, soul_mod +10; psychology.py extract_karmic_axis Sign+House axis; prompt_manager 30 new zh translations; Migration 013 house7 columns; matching.py partner_mod wiring; +13 tests → 407 Python total)
-15. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
+15. ~~**Algorithm v2.0 Code Review (2026-02-24)**~~ ← ✅ Done (Comprehensive audit of matching mechanism: 3 Critical + 5 Important + 4 Minor gaps (L-1 to L-12); updated HOW-IT-WORKS.md + ALGORITHM.md; implementing L-4/L-5/L-6 fixes)
+16. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
 16. **Phase F: AI/LLM Integration**
 
 ---

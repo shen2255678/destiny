@@ -106,6 +106,9 @@ _PSYCH_TAG_ZH: dict[str, str] = {
     "B_Moon_Conjunct_NorthNode":    "對方的情感共鳴你未來的成長軌跡，命中注定的靈魂旅伴",
     "B_Venus_Conjunct_NorthNode":   "對方的愛意引領你走向靈魂想去的地方，既溫柔又深遠的業力緣",
     "B_Mars_Conjunct_NorthNode":    "對方的行動力推動你走上命定的軌道，是激勵你前進的一把火",
+    # Pluto-Moon triggers (靈魂深淵 — 執念與靈魂侵蝕)
+    "A_Pluto_Wounds_B_Moon":        "你的靈魂深處帶著某種壓倒性的力量，讓對方在你面前情感徹底失控，上癮但窒息",
+    "B_Pluto_Wounds_A_Moon":        "對方靈魂裡有一種讓你無法抗拒的黑洞引力，你的情感被他深深改寫，離不開也傷不起",
     # Descendant triggers (第七宮正緣 — 婚姻伴侶指標)
     "A_Sun_Conjunct_Descendant":    "你的核心自我精準落入對方的婚姻宮，你就是他命中注定的另一半",
     "A_Moon_Conjunct_Descendant":   "你的情感本能落入對方的婚姻宮，跟你在一起有回家般的安定感",

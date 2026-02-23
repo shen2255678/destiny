@@ -241,6 +241,86 @@ def test_no_chiron_a_no_trigger_for_b_planets():
     assert result["shadow_tags"] == []
 
 
+# ── Moon-Pluto cross-aspect trigger (L-6) ──────────────────────────────────────
+
+def test_pluto_conjunct_moon_triggers_ab():
+    """A's Pluto conjunct B's Moon (diff=3° ≤ 5°) → A_Pluto_Wounds_B_Moon + soul +15, lust +10, high_voltage."""
+    a = {"pluto_degree": 100.0}
+    b = {"moon_degree": 103.0}   # diff=3° → conjunction
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Pluto_Wounds_B_Moon" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["lust_mod"] == pytest.approx(10.0)
+    assert result["high_voltage"] is True
+
+
+def test_pluto_conjunct_moon_triggers_ba():
+    """B's Pluto conjunct A's Moon (diff=0°) → B_Pluto_Wounds_A_Moon + soul +15, lust +10."""
+    a = {"moon_degree": 200.0}
+    b = {"pluto_degree": 200.0}   # diff=0° exact conjunction
+    result = compute_shadow_and_wound(a, b)
+    assert "B_Pluto_Wounds_A_Moon" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["lust_mod"] == pytest.approx(10.0)
+    assert result["high_voltage"] is True
+
+
+def test_pluto_square_moon_triggers():
+    """A's Pluto square B's Moon (diff=90°, ≤ 5° orb) → A_Pluto_Wounds_B_Moon."""
+    a = {"pluto_degree": 0.0}
+    b = {"moon_degree": 90.0}   # exact square
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Pluto_Wounds_B_Moon" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["high_voltage"] is True
+
+
+def test_pluto_oppose_moon_triggers():
+    """A's Pluto oppose B's Moon (diff=180°) → A_Pluto_Wounds_B_Moon."""
+    a = {"pluto_degree": 0.0}
+    b = {"moon_degree": 180.0}   # exact opposition
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Pluto_Wounds_B_Moon" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(15.0)
+    assert result["high_voltage"] is True
+
+
+def test_pluto_moon_orb_outside_no_trigger():
+    """A's Pluto at 6° from B's Moon (tighter than square/oppose) → no trigger."""
+    a = {"pluto_degree": 0.0}
+    b = {"moon_degree": 6.0}   # diff=6° > 5° → no conjunction trigger
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Pluto_Wounds_B_Moon" not in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(0.0)
+
+
+def test_pluto_moon_bidirectional_both_trigger():
+    """Both A's Pluto conjunct B's Moon and B's Pluto conjunct A's Moon → both tags, soul_mod=30."""
+    a = {"pluto_degree": 100.0, "moon_degree": 200.0}
+    b = {"pluto_degree": 203.0, "moon_degree": 102.0}
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Pluto_Wounds_B_Moon" in result["shadow_tags"]
+    assert "B_Pluto_Wounds_A_Moon" in result["shadow_tags"]
+    assert result["soul_mod"] == pytest.approx(30.0)
+    assert result["lust_mod"] == pytest.approx(20.0)
+
+
+def test_pluto_moon_missing_pluto_no_trigger():
+    """No pluto_degree in chart_a → A_Pluto_Wounds_B_Moon should not trigger."""
+    a = {}   # no pluto_degree
+    b = {"moon_degree": 100.0}
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Pluto_Wounds_B_Moon" not in result["shadow_tags"]
+
+
+def test_pluto_moon_missing_moon_no_trigger():
+    """No moon_degree in chart_b → A_Pluto_Wounds_B_Moon should not trigger."""
+    a = {"pluto_degree": 100.0}
+    b = {}   # no moon_degree
+    result = compute_shadow_and_wound(a, b)
+    assert "A_Pluto_Wounds_B_Moon" not in result["shadow_tags"]
+
+
 # ── compute_dynamic_attachment ────────────────────────────────────────────────
 
 def test_dynamic_attachment_uranus_makes_anxious():

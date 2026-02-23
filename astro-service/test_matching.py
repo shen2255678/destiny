@@ -1292,10 +1292,11 @@ class TestTracksNullHandling:
 
     def test_partner_track_no_juno(self):
         """When both users lack juno_sign, partner track redistributes weight:
-        moon gets 0.55 and bazi_generation gets 0.45.
+        moon gets 0.55 and bazi_generation gets 0.45, plus Saturn cross-aspect bonus.
 
-        With no bazi_generation and moon conjunction (0.90):
-        partner = 0.90 * 0.55 + 0.0 * 0.45 = 0.495 → 49.5
+        With no bazi_generation and moon conjunction (0.90), saturn_a=capricorn × moon_b=cancer:
+        capricorn-cancer = 6 signs (opposition) → harmony=0.60; cross=(0.60+0.60)/2=0.60
+        partner = 0.90*0.55 + 0.0*0.45 + 0.60*0.10 = 0.495 + 0.06 = 0.555 → 55.5
         """
         a = self._base_user(moon_sign="cancer")
         b = self._base_user(moon_sign="cancer")
@@ -1303,12 +1304,15 @@ class TestTracksNullHandling:
 
         tracks = compute_tracks(a, b, power, useful_god_complement=0.0)
         moon_v = compute_sign_aspect("cancer", "cancer", "harmony")  # 0.90
-        expected_partner = (moon_v * 0.55 + 0.0 * 0.45) * 100  # = 49.5
+        # Saturn cross: capricorn × cancer (opposition) + capricorn × cancer = 0.60 each
+        sat_cross = (compute_sign_aspect("capricorn", "cancer", "harmony") +
+                     compute_sign_aspect("capricorn", "cancer", "harmony")) / 2.0  # 0.60
+        expected_partner = (moon_v * 0.55 + 0.0 * 0.45 + sat_cross * 0.10) * 100
         assert tracks["partner"] == pytest.approx(expected_partner, abs=0.5)
 
     def test_partner_track_with_juno_uses_original_weights(self):
         """When juno_sign is present, partner uses original weights:
-        moon*0.35 + juno*0.35 + bazi_generation*0.30.
+        moon*0.35 + juno*0.35 + bazi_generation*0.30, plus Saturn cross-aspect bonus.
 
         Juno now uses cross-aspect (juno_a × moon_b + juno_b × moon_a) / 2.0.
         With juno="libra" and moon="cancer": both users share the same signs, so
@@ -1324,7 +1328,10 @@ class TestTracksNullHandling:
         # Cross-aspect: juno_a × moon_b + juno_b × moon_a
         juno_v = (compute_sign_aspect("libra", "cancer", "harmony") +
                   compute_sign_aspect("libra", "cancer", "harmony")) / 2.0  # square = 0.40
-        expected_partner = (moon_v * 0.35 + juno_v * 0.35 + 0.0 * 0.30) * 100
+        # Saturn cross: capricorn × cancer (opposition) = 0.60 each
+        sat_cross = (compute_sign_aspect("capricorn", "cancer", "harmony") +
+                     compute_sign_aspect("capricorn", "cancer", "harmony")) / 2.0  # 0.60
+        expected_partner = (moon_v * 0.35 + juno_v * 0.35 + 0.0 * 0.30 + sat_cross * 0.10) * 100
         assert tracks["partner"] == pytest.approx(expected_partner, abs=0.5)
 
     def test_soul_track_no_chiron(self):
@@ -1367,8 +1374,12 @@ class TestEmotionalCapacityPartnerTrack:
         return {"rpv": 0, "frame_break": False, "viewer_role": "Equal", "target_role": "Equal"}
 
     def test_partner_track_penalty_both_low_capacity(self):
-        """Both users < 40 capacity → partner track × 0.7."""
-        # Build users with known partner track inputs for predictable result
+        """Both users < 40 capacity → partner track × 0.7.
+
+        saturn_sign="aries" × moon_sign="aries" (conjunction) = 0.90; cross=0.90; bonus=0.09
+        base = moon*0.55 + 0*0.45 + saturn_cross*0.10 = 0.90*0.55 + 0.90*0.10 = 0.495 + 0.09 = 0.585
+        × 0.7 penalty → 0.585*0.7*100 = 40.95
+        """
         user = {"moon_sign": "aries", "bazi_element": "fire", "juno_sign": None,
                 "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
                 "chiron_sign": None, "mars_sign": "aries", "venus_sign": "aries",
@@ -1376,9 +1387,8 @@ class TestEmotionalCapacityPartnerTrack:
                 "saturn_sign": "aries", "emotional_capacity": 30}
         user_b = dict(user)
         result = compute_tracks(user, user_b, self._power_no_frame_break())
-        # partner track for same-sign moon + no juno: moon*0.55 + bazi_gen*0.45 = 0.90*0.55 + 0 = 0.495
-        # × 0.7 penalty = 0.3465 → scaled to 100 → 34.65
-        assert result["partner"] == pytest.approx(0.495 * 0.7 * 100, abs=1.0)
+        # base = moon*0.55 + saturn_cross*0.10 = 0.90*0.55 + 0.90*0.10 = 0.585
+        assert result["partner"] == pytest.approx(0.585 * 0.7 * 100, abs=1.0)
 
     def test_partner_track_penalty_one_very_low(self):
         """One user < 30 capacity → partner track × 0.85."""
@@ -1390,7 +1400,8 @@ class TestEmotionalCapacityPartnerTrack:
         user_b = dict(user_a)
         user_b["emotional_capacity"] = 60  # healthy
         result = compute_tracks(user_a, user_b, self._power_no_frame_break())
-        assert result["partner"] == pytest.approx(0.495 * 0.85 * 100, abs=1.0)
+        # base = 0.90*0.55 + 0.90*0.10 = 0.585
+        assert result["partner"] == pytest.approx(0.585 * 0.85 * 100, abs=1.0)
 
     def test_partner_track_no_penalty_healthy_capacity(self):
         """Both users >= 40 capacity → no partner track penalty."""
@@ -1400,7 +1411,8 @@ class TestEmotionalCapacityPartnerTrack:
                 "mercury_sign": "aries", "jupiter_sign": "aries", "pluto_sign": "aries",
                 "saturn_sign": "aries", "emotional_capacity": 60}
         result = compute_tracks(user, user, self._power_no_frame_break())
-        assert result["partner"] == pytest.approx(0.495 * 100, abs=1.0)
+        # base = 0.90*0.55 + 0.90*0.10 = 0.585
+        assert result["partner"] == pytest.approx(0.585 * 100, abs=1.0)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -2207,3 +2219,141 @@ class TestJunoPartnerTrackCrossAspect:
             "Age-peers with incompatible Juno × Moon (square) should score "
             f"lower ({soul:.1f}) than pairs where Juno trines Moon ({soul_trine:.1f})."
         )
+
+
+# ── L-4: Sun-Moon cross-aspect in compute_soul_score ──────────────────────────
+
+class TestSoulScoreSunMoonCrossAspect:
+    """Verify Sun-Moon cross-aspect (A's Sun × B's Moon + B's Sun × A's Moon)
+    is included in compute_soul_score (L-4 fix).
+    """
+
+    def _user(self, sun_sign, moon_sign, **kwargs):
+        defaults = {
+            "sun_sign": sun_sign,
+            "moon_sign": moon_sign,
+            "mercury_sign": "gemini",
+            "saturn_sign": "capricorn",
+            "house4_sign": None,
+            "juno_sign": None,
+            "attachment_style": None,
+            "bazi_element": None,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_sun_moon_trine_elevates_soul_vs_square(self):
+        """A's Sun trine B's Moon (Leo-Sag=4 signs) should yield higher soul than square (Leo-Sco=3)."""
+        a_trine = self._user("leo", "aries")        # sun=leo
+        b_trine = self._user("gemini", "sagittarius")  # moon=sag; leo-sag = 4 signs apart (trine)
+        a_square = self._user("leo", "aries")
+        b_square = self._user("gemini", "scorpio")     # moon=sco; leo-sco = 3 signs apart (square)
+        soul_trine  = compute_soul_score(a_trine,  b_trine)
+        soul_square = compute_soul_score(a_square, b_square)
+        assert soul_trine > soul_square, (
+            f"Sun-Moon trine ({soul_trine:.1f}) should score higher than square ({soul_square:.1f})"
+        )
+
+    def test_sun_moon_cross_aspect_is_symmetric(self):
+        """compute_soul_score(a, b) == compute_soul_score(b, a) for Sun-Moon cross."""
+        a = self._user("cancer", "aquarius")
+        b = self._user("pisces", "gemini")
+        assert compute_soul_score(a, b) == pytest.approx(compute_soul_score(b, a), abs=0.1)
+
+    def test_soul_score_harmonious_sun_moon_beats_discordant(self):
+        """Harmonious Sun-Moon cross (trine) should give higher soul than discordant (quincunx).
+
+        Keep all other fields identical; only vary which sun sign crosses which moon.
+        trine: Sun=Leo × Moon=Sagittarius (4 signs) = 0.85
+        quincunx: Sun=Leo × Moon=Capricorn (5 signs) = 0.10
+        """
+        # trine pair: Leo sun hits Sag moon (trine); Gemini sun hits Aries moon (sextile)
+        a_good = self._user("leo",   "aries")
+        b_good = self._user("gemini", "sagittarius")
+        # quincunx pair: Leo sun hits Cap moon; Gemini sun hits Sco moon
+        a_bad  = self._user("leo",   "aries")
+        b_bad  = self._user("gemini", "capricorn")
+        soul_good = compute_soul_score(a_good, b_good)
+        soul_bad  = compute_soul_score(a_bad,  b_bad)
+        assert soul_good > soul_bad, (
+            f"Harmonious Sun-Moon cross ({soul_good:.1f}) should beat discordant ({soul_bad:.1f})"
+        )
+
+    def test_soul_score_in_range_with_sun_moon(self):
+        """compute_soul_score result stays in [0, 100] with Sun-Moon cross included."""
+        a = self._user("aries", "aries")
+        b = self._user("aries", "aries")   # best possible cross
+        assert 0 <= compute_soul_score(a, b) <= 100
+
+
+# ── L-5: Saturn cross-aspect in compute_tracks partner track ──────────────────
+
+class TestPartnerTrackSaturnCrossAspect:
+    """Verify Saturn cross-aspect (A's Saturn × B's Moon + B's Saturn × A's Moon)
+    is included as a bonus in compute_tracks partner track (L-5 fix).
+    """
+
+    def _power(self):
+        return {"rpv": 0.0, "frame_break": False, "viewer_role": "Equal", "target_role": "Equal"}
+
+    def _user(self, moon_sign, saturn_sign, **kwargs):
+        defaults = {
+            "moon_sign": moon_sign,
+            "saturn_sign": saturn_sign,
+            "sun_sign": "aries",
+            "mercury_sign": "gemini",
+            "jupiter_sign": None,
+            "mars_sign": None,
+            "venus_sign": None,
+            "juno_sign": None,
+            "chiron_sign": None,
+            "house8_sign": None,
+            "bazi_element": None,
+            "rpv_power": None,
+            "rpv_conflict": None,
+            "rpv_energy": None,
+            "emotional_capacity": 60,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_saturn_cross_trine_elevates_partner_vs_square(self):
+        """A's Saturn trine B's Moon should give higher partner track than A's Saturn square B's Moon."""
+        # Saturn=Leo, Moon=Sag: Leo-Sag = 4 signs (trine)
+        a_trine = self._user("aries", "leo")
+        b_trine = self._user("sagittarius", "capricorn")
+        # Saturn=Leo, Moon=Sco: Leo-Sco = 3 signs (square)
+        a_square = self._user("aries", "leo")
+        b_square = self._user("scorpio", "capricorn")
+        t_trine  = compute_tracks(a_trine,  b_trine,  self._power(), 0.0)
+        t_square = compute_tracks(a_square, b_square, self._power(), 0.0)
+        assert t_trine["partner"] > t_square["partner"], (
+            f"Saturn-Moon trine partner ({t_trine['partner']:.1f}) should exceed "
+            f"square ({t_square['partner']:.1f})"
+        )
+
+    def test_saturn_cross_is_symmetric(self):
+        """compute_tracks(a, b)['partner'] == compute_tracks(b, a)['partner'] for Saturn cross."""
+        a = self._user("cancer", "capricorn")
+        b = self._user("aquarius", "virgo")
+        tab = compute_tracks(a, b, self._power(), 0.0)
+        tba = compute_tracks(b, a, self._power(), 0.0)
+        assert tab["partner"] == pytest.approx(tba["partner"], abs=0.1)
+
+    def test_saturn_cross_bonus_absent_when_saturn_missing(self):
+        """No saturn_sign → cross-aspect bonus not applied; partner score equals baseline."""
+        a_with = self._user("cancer", "capricorn")    # saturn present
+        b_with = self._user("aquarius", "virgo")       # saturn trines cancer
+        a_none = self._user("cancer", None)            # no saturn
+        b_none = self._user("aquarius", None)
+        t_with = compute_tracks(a_with, b_with, self._power(), 0.0)
+        t_none = compute_tracks(a_none, b_none, self._power(), 0.0)
+        # With Saturn cross-aspect bonus (trine) should be ≥ without
+        assert t_with["partner"] >= t_none["partner"]
+
+    def test_partner_track_stays_in_range(self):
+        """Partner track should remain in [0, 100] even with Saturn bonus."""
+        a = self._user("aries", "aries")   # max conjunction
+        b = self._user("aries", "aries")
+        t = compute_tracks(a, b, self._power(), 0.0)
+        assert 0 <= t["partner"] <= 100

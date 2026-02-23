@@ -107,6 +107,28 @@ def compute_shadow_and_wound(chart_a, chart_b):
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"B_{p_name}_Triggers_A_Chiron")
 
+    # Moon-Pluto cross-aspect (靈魂深淵 / 執念侵蝕): Pluto conjunct/square/oppose Moon
+    # A's Pluto forming a hard aspect to B's Moon → obsession + soul erosion + HIGH_VOLTAGE
+    _PLUTO_MOON_ORB = 5.0
+    pluto_a = chart_a.get("pluto_degree")
+    pluto_b = chart_b.get("pluto_degree")
+    moon_deg_a = chart_a.get("moon_degree")
+    moon_deg_b = chart_b.get("moon_degree")
+    if pluto_a is not None and moon_deg_b is not None:
+        d = _dist(pluto_a, moon_deg_b)
+        if d is not None and (d <= _PLUTO_MOON_ORB or abs(d - 90.0) <= _PLUTO_MOON_ORB or abs(d - 180.0) <= _PLUTO_MOON_ORB):
+            result["soul_mod"] += 15.0
+            result["lust_mod"] += 10.0
+            result["high_voltage"] = True
+            result["shadow_tags"].append("A_Pluto_Wounds_B_Moon")
+    if pluto_b is not None and moon_deg_a is not None:
+        d = _dist(pluto_b, moon_deg_a)
+        if d is not None and (d <= _PLUTO_MOON_ORB or abs(d - 90.0) <= _PLUTO_MOON_ORB or abs(d - 180.0) <= _PLUTO_MOON_ORB):
+            result["soul_mod"] += 15.0
+            result["lust_mod"] += 10.0
+            result["high_voltage"] = True
+            result["shadow_tags"].append("B_Pluto_Wounds_A_Moon")
+
     # Vertex triggers (命運之門): Sun/Moon/Venus conjunction only, soul_mod +25 each
     if vertex_b is not None:
         for p_name, p_key in _VERTEX_PLANETS:

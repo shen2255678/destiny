@@ -69,6 +69,7 @@ WEIGHTS = {
     "soul_house4":            0.15,   # Tier 1 only
     "soul_juno":              0.20,   # when ephemeris available
     "soul_attachment":        0.20,   # when questionnaire filled
+    "soul_sun_moon":          0.20,   # Sun-Moon cross-aspect (A's Sun × B's Moon, bidirectional avg)
     "soul_generation_mult":   1.20,   # × multiplier when BaZi elements generate each other
 
     # ── compute_kernel_score ─── ✅ wired ────────────────────────────────────
@@ -98,6 +99,7 @@ WEIGHTS = {
     "track_partner_bazi":            0.30,
     "track_partner_nojuno_moon":     0.55,
     "track_partner_nojuno_bazi":     0.45,
+    "track_partner_saturn_cross":    0.10,   # A's Saturn × B's Moon cross-aspect bonus (bidirectional avg)
     "track_soul_chiron":             0.40,
     "track_soul_karmic":             0.40,
     "track_soul_useful_god":         0.20,
@@ -683,9 +685,10 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
 def compute_soul_score(user_a: dict, user_b: dict) -> float:
     """Soul Score (Y axis): depth / long-term commitment (0-100).
 
-    Uses dynamic weighting: optional fields (House 4, Juno, attachment_style)
-    only contribute their weight when present. Missing fields are removed from
-    the denominator so Tier 2/3 scores remain proportionally accurate.
+    Uses dynamic weighting: optional fields (House 4, Juno, attachment_style,
+    Sun-Moon cross) only contribute their weight when present. Missing fields
+    are removed from the denominator so Tier 2/3 scores remain proportionally
+    accurate.
 
     Weights (when all present):
       moon       × 0.25  — always present
@@ -694,6 +697,7 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
       house4     × 0.15  — Tier 1 only
       juno       × 0.20  — when ephemeris available
       attachment × 0.20  — when questionnaire filled
+      sun_moon   × 0.20  — Sun-Moon cross-aspect (always present)
 
     Multiplier: × 1.2 if bazi elements are in a generation relationship.
     """
@@ -746,6 +750,20 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
         attachment = ATTACHMENT_FIT[style_a][style_b]
         score += attachment * WEIGHTS["soul_attachment"]
         total_weight += WEIGHTS["soul_attachment"]
+
+    # 7. Sun-Moon cross-aspect — A's Sun × B's Moon + B's Sun × A's Moon (averaged).
+    # Sun (core identity) × Moon (emotional core) is the primary synastry indicator of
+    # long-term soul resonance and emotional-identity compatibility.
+    # Cross-aspect avoids same-generation inflation (Sun moves ~1°/day, so same-year
+    # pairs rarely share Sun signs, but same-month pairs might; cross-aspect is safer).
+    sun_a = user_a.get("sun_sign")
+    sun_b = user_b.get("sun_sign")
+    if sun_a and sun_b and moon_a and moon_b:
+        sun_a_moon_b = compute_sign_aspect(sun_a, moon_b, "harmony")
+        sun_b_moon_a = compute_sign_aspect(sun_b, moon_a, "harmony")
+        sun_moon_cross = (sun_a_moon_b + sun_b_moon_a) / 2.0
+        score += sun_moon_cross * WEIGHTS["soul_sun_moon"]
+        total_weight += WEIGHTS["soul_sun_moon"]
 
     base_score = score / total_weight if total_weight > 0 else NEUTRAL_SIGNAL
 
@@ -854,10 +872,11 @@ def compute_tracks(
     friend:  mercury × 0.40 + jupiter × 0.40 + bazi_same × 0.20
     passion: mars × 0.30 + venus × 0.30 + passion_extremity × 0.10 + bazi_clash × 0.30
     partner: moon × 0.35 + juno × 0.35 + bazi_generation × 0.30
-    soul:    chiron × 0.40 + pluto × 0.40 + useful_god_complement × 0.20
+             (+ saturn_cross × 0.10 additive bonus when saturn signs present)
+    soul:    chiron × 0.40 + karmic_triggers × 0.40 + useful_god_complement × 0.20
              (+0.10 bonus if frame_break)
     When juno absent:  moon×0.55 + bazi_generation×0.45
-    When chiron absent: pluto×0.60 + useful_god×0.40
+    When chiron absent: karmic×0.60 + useful_god×0.40
 
     Emotional capacity penalty (applied to partner track before zwds_mods):
       Both users < 40: partner × 0.7  (mutual emotional drain)
@@ -937,6 +956,18 @@ def compute_tracks(
         # Redistribute juno's 0.35 weight: moon gets 0.55, bazi gets 0.45
         partner = (moon * WEIGHTS["track_partner_nojuno_moon"] +
                    (1.0 if bazi_generation else 0.0) * WEIGHTS["track_partner_nojuno_bazi"])
+
+    # Saturn cross-aspect bonus (長期穩定 / commitment indicator): A's Saturn × B's Moon
+    # + B's Saturn × A's Moon (averaged).  Saturn bounds the partner track because
+    # Saturn's discipline and structure against partner's Moon (emotional security)
+    # predicts long-term cohabitation compatibility beyond initial attraction.
+    saturn_a = user_a.get("saturn_sign")
+    saturn_b = user_b.get("saturn_sign")
+    if saturn_a and saturn_b and moon_a and moon_b:
+        sat_a_moon_b = compute_sign_aspect(saturn_a, moon_b, "harmony")
+        sat_b_moon_a = compute_sign_aspect(saturn_b, moon_a, "harmony")
+        saturn_cross = (sat_a_moon_b + sat_b_moon_a) / 2.0
+        partner += saturn_cross * WEIGHTS["track_partner_saturn_cross"]
 
     if chiron_present:
         soul_track = (chiron               * WEIGHTS["track_soul_chiron"] +
