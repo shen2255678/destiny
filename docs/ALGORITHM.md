@@ -16,6 +16,8 @@
 4. **依戀心理學**（Attachment Theory）— 依戀風格相容矩陣
 5. **紫微斗數**（ZiWei DouShu, ZWDS）— 命宮主星 × 飛星四化 × 夫妻宮
    煞星（Tier 1 only）
+6. **暗黑合盤修正器**（Shadow & Synastry Modifiers）— Chiron / Vertex / Lilith /
+   Lunar Nodes / 第七宮 Descendant 疊圖（v1.9）
 
 > **Note:** ZWDS 為疊加修正器（multiplier），不覆蓋既有分數。若
 > 任一方為 Tier 2/3，ZWDS 區塊回傳 `null`，配對繼續以前四個維度
@@ -89,6 +91,12 @@ saturn_sign         str?
 pluto_sign          str?
 chiron_sign         str?    小行星，數月～數年換一次星座
 juno_sign           str?    小行星，數月換一次星座 → Tier 3 可用
+north_node_sign     str?    北交點星座（全 Tier 可用）
+north_node_degree   float?  北交點黃道度數（全 Tier 可用）
+south_node_sign     str?    南交點星座（全 Tier 可用）
+south_node_degree   float?  南交點黃道度數（全 Tier 可用）
+house7_sign         str?    第 7 宮宮首星座，僅 Tier 1（Descendant）
+house7_degree       float?  第 7 宮宮首黃道度數，僅 Tier 1
 ascendant_sign      str?    上升星座，~2 小時換一次 → 僅 Tier 1
 house4_sign         str?    第 4 宮宮首，僅 Tier 1
 house8_sign         str?    第 8 宮宮首，僅 Tier 1
@@ -109,9 +117,9 @@ attachment_style    str?    secure | anxious | avoidant
 
 | Tier | 可用欄位 | ZWDS |
 |---|---|---|
-| 1（精確時間） | 全部欄位，含 ASC、House 4/8、Lilith、Vertex | ✅ 完整計算 |
-| 2（模糊時段） | 無 ASC / House 宮位 / Lilith / Vertex | ❌ 跳過 |
-| 3（僅日期）   | 太陽 + 慢速行星（Juno、Chiron 仍可用） | ❌ 跳過 |
+| 1（精確時間） | 全部欄位，含 ASC、House 4/7/8/12、Lilith、Vertex、Lunar Nodes | ✅ 完整計算 |
+| 2（模糊時段） | 無 ASC / House 宮位 / Lilith / Vertex；有 Lunar Nodes | ❌ 跳過 |
+| 3（僅日期）   | 太陽 + 慢速行星（Juno、Chiron、Lunar Nodes 仍可用） | ❌ 跳過 |
 
 **ZWDS 資格判斷：**
 
@@ -381,10 +389,11 @@ ZWDS 貢獻上限 70%，確保西洋 + 八字始終保有 30% 基礎權重。
 
 ## Step 8：雙人合盤暗黑修正器（Shadow & Synastry Modifiers）
 
-`compute_shadow_and_wound(chart_a, chart_b)` → `{soul_mod, lust_mod, high_voltage, shadow_tags}`
+`compute_shadow_and_wound(chart_a, chart_b)` → `{soul_mod, lust_mod, partner_mod, high_voltage, shadow_tags}`
 
 所有觸發器均以**黃道度數精確相位**計算（非星座等分）。修正值為疊加型（additive modifier），
 不直接修改 lust_score / soul_score，而是透過 `compute_match_v2` 最後加乘。
+`partner_mod` 會加至 `tracks["partner"]`（v1.9 新增）。
 
 ### 合盤容許度
 
@@ -433,10 +442,61 @@ A 的慾望行星（金/火）精準合相 B 的暗月莉莉絲 → 禁忌吸引
 A 的太陽或火星落入 B 的第 12 宮 → soul_mod +20，high_voltage，Tag `A_Illuminates_B_Shadow`
 雙向疊加時額外 +40，Tag `Mutual_Shadow_Integration`
 
+### 南北交點觸發（_NODE_ORB = 3.0°，Algorithm v1.8）
+
+A 的個人行星（日/月/金/火）合相 B 的南交點 / 北交點：
+
+| 觸發 | soul_mod | high_voltage | Tag |
+|---|---|---|---|
+| 合相南交點 | +20 | ✅ | `A_{P}_Conjunct_SouthNode` |
+| 合相北交點 | +20 | ❌ | `A_{P}_Conjunct_NorthNode` |
+
+### 第七宮 Descendant 疊圖（_DSC_ORB = 5.0°，Algorithm v1.9，Tier 1 only）
+
+下降點 DSC = ASC + 180°。A 的個人行星（日/月/金）精準合相 B 的 DSC：
+
+| 觸發行星 | partner_mod | soul_mod | high_voltage | Tag |
+|---|---|---|---|---|
+| 太陽 | +20 | +10 | ❌ | `A_Sun_Conjunct_Descendant` |
+| 月亮 | +20 | +10 | ❌ | `A_Moon_Conjunct_Descendant` |
+| 金星 | +20 | +10 | ❌ | `A_Venus_Conjunct_Descendant` |
+
+（DSC 是婚姻宮的宮首，代表靈魂渴求的「正緣形象」；partner_mod 流入 partner 軌道）
+
 ### Shadow Tags 完整清單（中文對照）
 
 所有 Shadow Tag 在 `prompt_manager.py` 的 `_PSYCH_TAG_ZH` 中有對應中文翻譯，
 供 LLM 生成「宿命感解析」文案時使用。
+
+---
+
+## 個人業力軸線（Karmic Axis，Algorithm v1.9）
+
+`extract_karmic_axis(chart)` → `List[str]`，結果合併進 `karmic_tags`。
+
+### Sign Axis（星座軸線，全 Tier）
+
+北交點星座決定靈魂的「前世借力 vs 今生進化」方向：
+
+| 北交點星座 | Axis Tag | 意涵 |
+|---|---|---|
+| Aries / Libra | `Axis_Sign_Aries_Libra` | 自我主張 ↔ 合作共贏 |
+| Taurus / Scorpio | `Axis_Sign_Taurus_Scorpio` | 物質安穩 ↔ 深層轉化 |
+| Gemini / Sagittarius | `Axis_Sign_Gemini_Sag` | 落地溝通 ↔ 高遠理想 |
+| Cancer / Capricorn | `Axis_Sign_Cancer_Cap` | 情感柔軟 ↔ 事業使命 |
+| Leo / Aquarius | `Axis_Sign_Leo_Aquarius` | 個人光芒 ↔ 群體服務 |
+| Virgo / Pisces | `Axis_Sign_Virgo_Pisces` | 現實秩序 ↔ 靈性混沌 |
+
+同時產生 `North_Node_Sign_{星座}` 精確描述標籤（12 種）。
+
+### House Axis（宮位軸線，Tier 1 only）
+
+使用 **Whole Sign House** 計算（ASC 星座 = 第 1 宮）：
+```
+house_num = (nn_sign_index - asc_sign_index) % 12 + 1
+```
+
+產生 `Axis_House_{n}_{n+6}` 與 `North_Node_House_{n}` 標籤（共 6 對軸線）。
 
 ---
 
@@ -534,3 +594,4 @@ Response: 見「系統概覽」的輸出結構。
 - `natal_aspects` 使用 orb-based 精確相位（`chart.py` 的 `compute_natal_aspects()`），線性強度衰退公式：`strength = 0.2 + 0.8 × (1 - orb/max_orb)`，合相 orb 8°（floor 0.2 at boundary, 1.0 at exact）
 - 暗月莉莉絲（`lilith_sign/degree`）與宿命點（`vertex_sign/degree`）僅 Tier 1 有值。在 Tier 2/3 時為缺失欄位（not present in dict），shadow_engine 做 None 防護（觸發器直接跳過）。
 - Jupiter cross-aspect 與 Juno cross-aspect 修正方向：使用「非對稱跨人相位」而非「同行星比較」，消除同齡人（Jupiter 同座）與婚觀相似（Juno 同座）帶來的假性高分。
+- **v1.9（2026-02-23）：** 第七宮 Descendant 疊圖（`partner_mod`）、南北交點業力觸發（v1.8）、個人業力軸線 `extract_karmic_axis`（Sign Axis 全 Tier + House Axis Tier 1 Whole Sign），所有結果合併進 `karmic_tags` 並有完整中文翻譯。

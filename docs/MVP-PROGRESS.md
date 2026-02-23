@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-23 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅)
+**Last Updated:** 2026-02-23 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅ Algorithm v1.8 ✅ Algorithm v1.9 ✅)
 
 ---
 
@@ -145,16 +145,16 @@
 | `src/__tests__/api/matches-action.test.ts` | 7 | Action API (accept, pass, mutual accept → connection, 401, 400, 404, no duplicate) |
 | `src/__tests__/api/connections.test.ts` | 5 | Connections list API (200 with list, 401 unauth, empty state, other_user, tags) |
 | `src/__tests__/api/connections-messages.test.ts` | 8 | Messages API: GET (401, 403, detail+msgs, is_self) + POST (401, 400, 403, insert) |
-| `astro-service/test_chart.py` | 102 | 西洋占星 + 八字四柱 + 五行關係 + Tier 分層 + Lilith/Vertex 提取 |
+| `astro-service/test_chart.py` | 109 | 西洋占星 + 八字四柱 + 五行關係 + Tier 分層 + Lilith/Vertex 提取 + Lunar Nodes + House 7 |
 | `src/__tests__/api/rectification-next-question.test.ts` | 6 | Rectification next-question API (401, 204 locked, 204 PRECISE, shape, options, boundary priority) |
 | `src/__tests__/api/rectification-answer.test.ts` | 9 | Rectification answer API (401, 400 missing/invalid, 200 state, confidence increase, event log, update users, tier_upgraded) |
 | `astro-service/test_matching.py` | 173 | 配對演算法 v1/v2：sign_aspect + kernel + power + glitch + classify + tags；Phase G v2：lust + soul + power_v2 + chiron + quadrant + attachment；Phase H：zwds_bridge + spiciness + defense + layered；**Algorithm Enhancement：** Jupiter cross-aspect(4) + Juno cross-aspect(6) |
 | `astro-service/test_zwds.py` | 31 | **(Phase H)** ZWDS bridge：compute_zwds_chart(8) + zwds_synastry(10) + flying_star_hits(7) + spouse_palace(6) |
-| `astro-service/test_shadow_engine.py` | 48 | Shadow engine：Chiron wound triggers + Vertex/Lilith synastry triggers + 12th-house overlay + attachment trap matrix |
-| `astro-service/test_psychology.py` | 28 | Psychology layer：weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms |
+| `astro-service/test_shadow_engine.py` | 56 | Shadow engine：Chiron wound triggers + Vertex/Lilith synastry triggers + 12th-house overlay + attachment trap matrix + Lunar Node triggers + 7th House Overlay |
+| `astro-service/test_psychology.py` | 33 | Psychology layer：weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms + Karmic Axis |
 | `astro-service/test_sandbox.py` | 5 | Sandbox 端點（健康檢查、手動測試工具）|
 | `src/__tests__/api/onboarding/attachment.test.ts` | 7 | **(Phase G)** Attachment API (400 missing, 400 invalid style, 200 valid, 200 all styles, 401 unauth, role included, 400 invalid role) |
-| **Total** | **478** | All passing (91 JS + 387 Python) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement |
+| **Total** | **498** | All passing (91 JS + 407 Python) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement, +7 Algorithm v1.8, +13 Algorithm v1.9 |
 
 ---
 
@@ -231,8 +231,10 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 10. ~~**Phase H: ZWDS Synastry Engine**~~ ← ✅ Done (ziwei-service Node.js microservice + Python bridge + 飛星四化 + 空宮借星 + /compute-zwds-chart + /zwds-synastry + Migration 008；253 tests)
 11. ~~**Phase I: Psychology Layer**~~ ← ✅ Done (psychology.py weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms; shadow_engine.py Chiron healing + 12th-house overlay + attachment trap matrix; Migration 011; 253+ tests)
 12. ~~**Algorithm Enhancement (2026-02-22)**~~ ← ✅ Done (Tasks 79-83: `_CHIRON_ORB` constant refactor + dead tag cleanup; Jupiter Friend Track cross-aspect fix (jup_a×sun_b); Juno Partner Track cross-aspect fix (juno_a×moon_b) in soul_score+tracks; Lilith/Vertex extraction in chart.py Tier 1; Vertex/Lilith synastry triggers in shadow_engine.py; 18 new zh tag translations in prompt_manager.py; +25 tests → 387 Python total)
-13. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
-14. **Phase F: AI/LLM Integration**
+13. ~~**Algorithm v1.8 (2026-02-23)**~~ ← ✅ Done (Lunar Node extraction in chart.py all tiers; shadow_engine.py South/North Node karmic triggers 3° orb; prompt_manager.py 16 node zh translations; Migration 012 lunar_node columns; birth-data API write-back nodes; run/route.ts planet_degrees flattening + expanded UserProfile; +7 tests → 394 Python total)
+14. ~~**Algorithm v1.9 (2026-02-23)**~~ ← ✅ Done (House 7 Descendant extraction in chart.py; shadow_engine 7th House Overlay partner_mod +20, soul_mod +10; psychology.py extract_karmic_axis Sign+House axis; prompt_manager 30 new zh translations; Migration 013 house7 columns; matching.py partner_mod wiring; +13 tests → 407 Python total)
+15. **Phase E: Progressive Unlock + Auto-Disconnect** ← **CURRENT**
+16. **Phase F: AI/LLM Integration**
 
 ---
 
@@ -451,4 +453,5 @@ uvicorn main:app --port 8001
 | **Phase H: ZWDS Synastry Engine** | `ziwei-service/` Node.js microservice (port 8002) + Python bridge + 飛星四化 + 空宮借星 + 主星人設矩陣；Tier 1 VIP bonus layer；設計文件：`docs/plans/2026-02-21-phase-h-zwds-integration.md`；新端點：`POST /compute-zwds-chart`, `POST /zwds-synastry`；`/compute-match` 現回傳 `zwds + spiciness_level + defense_mechanisms + layered_analysis` | **Done ✅** |
 | **Psychology Layer (Phase I)** | **Done ✅** | `psychology.py`: weighted element scoring (Sun/Moon/ASC=3, Mercury/Venus/Mars=2, Jup/Sat=1), retrograde karma tags (Venus/Mars/Mercury Rx), SM dynamics (7 tags), critical degree alarms (0°/29°). `shadow_engine.py`: Chiron/Moon healing, Chiron/Mars wound triggers, 12th-house shadow overlay, dynamic attachment synastry, attachment trap matrix, elemental fulfillment. Modifier block in `compute_match_v2`. Migration 011. Design: `docs/plans/2026-02-22-psychology-layer-design.md`. |
 | **Algorithm Enhancement (2026-02-22)** | **Done ✅** | Jupiter/Juno cross-aspect bug fix（消除同齡同星座虛假通膨）+ Chiron orb module constant + Lilith/Vertex Tier 1 extraction + shadow_engine Vertex/Lilith synastry triggers (3° orb) + prompt_manager 18 new zh tag translations；+25 tests → 387 Python total |
+| **Algorithm v1.8 (2026-02-23)** | **Done ✅** | Lunar Node (南北交點) extraction in chart.py (all tiers via `swe.TRUE_NODE`); shadow_engine South Node triggers (soul_mod +20, high_voltage) + North Node triggers (soul_mod +20, growth direction); prompt_manager 16 node zh translations; Migration 012 lunar_node DB columns; birth-data API write-back; run/route.ts planet_degrees JSONB flattening + expanded UserProfile; +7 tests → 394 Python total |
 | **Mode Filter Phase I.5 (Future)** | **Planned** | Hunt / Nest / Abyss mode via `?mode=` query param on `/api/matches/daily`. Re-weights four-track output. No DB column needed. |

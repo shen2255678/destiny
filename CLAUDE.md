@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Status:** Active development — Phase A ✅, Phase B ✅, Phase C ✅, Phase D ✅, Phase B.5 ✅, Phase E (AI Archetypes) **NEXT**.
 
-**Algorithm:** v1.7 — Centralized `WEIGHTS` dict, linear orb decay, cross-person Mars×Venus synastry aspects; Jupiter/Juno cross-aspect fixes; Lilith + Vertex Tier 1 bodies; shadow_engine Vertex/Lilith synastry triggers.
+**Algorithm:** v1.9 — orb-based kernel/glitch scoring; ASC cross-aspects in lust; Lunar Node karmic triggers (3° orb, soul_mod ±20); 7th House Descendant overlay (partner_mod +20, soul_mod +10); personal Karmic Axis in psychology.py; planet_degrees wired end-to-end.
 
 ## Repository Structure
 
@@ -39,15 +39,15 @@ destiny/
 │   ├── main.py                   # FastAPI server (port 8001)
 │   ├── chart.py                  # Western astrology: planetary positions → zodiac signs (Tier 1: +Vertex/Lilith)
 │   ├── bazi.py                   # BaZi (八字四柱): Four Pillars + Five Elements + true solar time
-│   ├── matching.py               # Compatibility scoring v1.7: lust/soul 雙軸 + 四軌 + shadow modifiers
-│   ├── shadow_engine.py          # Chiron wound triggers + Vertex/Lilith synastry + 12th-house + attachment trap
-│   ├── psychology.py             # Weighted element profile + retrograde karma tags + SM dynamics
+│   ├── matching.py               # Compatibility scoring v1.9: lust/soul 雙軸 + 四軌 + shadow modifiers + Lunar Nodes + Descendant partner_mod
+│   ├── shadow_engine.py          # Chiron wound triggers + Vertex/Lilith synastry + 12th-house + attachment trap + 7th House Overlay
+│   ├── psychology.py             # Weighted element profile + retrograde karma tags + SM dynamics + Karmic Axis
 │   ├── prompt_manager.py         # Chinese tag translations for shadow/psych/synastry tags
 │   ├── zwds.py                   # ZWDS bridge (ziwei-service HTTP client, Tier 1 only)
-│   ├── test_chart.py             # pytest (102 tests)
+│   ├── test_chart.py             # pytest (109 tests)
 │   ├── test_matching.py          # pytest (173 tests)
-│   ├── test_shadow_engine.py     # pytest (48 tests)
-│   ├── test_psychology.py        # pytest (28 tests)
+│   ├── test_shadow_engine.py     # pytest (56 tests)
+│   ├── test_psychology.py        # pytest (33 tests)
 │   ├── test_zwds.py              # pytest (31 tests)
 │   ├── test_sandbox.py           # pytest (5 tests)
 │   └── requirements.txt
@@ -120,7 +120,7 @@ pytest -v                         # Run all Python tests (387 tests, 6 files)
 2. **Match Engine ("Black Box")** — Pushes 3 daily candidates; blind matching with labels, not photos
 3. **Interaction Layer** — Progressive unlock: Lv.1 (text) → Lv.2 (50% photo) → Lv.3 (full HD); 24hr auto-disconnect
 
-### Core Matching Algorithm (v1.7)
+### Core Matching Algorithm (v1.9)
 
 All weights are centralized in the `WEIGHTS` dict at the top of `matching.py`. See `docs/WEIGHTS-TUNING-GUIDE.md` for the full reference.
 
@@ -229,7 +229,7 @@ Via Negativa quiz system — users eliminate what they are NOT to narrow birth t
 
 - **Project ref:** `masninqgihbazjirweiy`
 - **Tables:** users, photos, daily_matches, connections, messages, rectification_events
-- **Migrations:** 001–011 (all pushed to remote)
+- **Migrations:** 001–012 (all pushed to remote)
 - **RLS:** Enabled on all tables
 - **Storage:** `photos` bucket (original + blurred versions)
 - **Auth:** Email/Password

@@ -92,6 +92,7 @@ curl -X POST http://localhost:8001/calculate-chart \
   "juno_sign": null,          "juno_degree": null,
   "ascendant_sign": "libra",  "ascendant_degree": 195.30,
   "house4_sign": "capricorn", "house4_degree": 275.10,
+  "house7_sign": "aries",     "house7_degree": 15.30,
   "house8_sign": "taurus",    "house8_degree": 55.30,
   "house12_sign": "virgo",    "house12_degree": 155.70,
   "vertex_sign": "aries",     "vertex_degree": 15.44,
@@ -100,7 +101,10 @@ curl -X POST http://localhost:8001/calculate-chart \
   "bazi": { "year_pillar": "乙亥", "month_pillar": "壬午", "day_pillar": "庚申", "hour_pillar": "甲未", "day_master": "庚", "day_master_element": "metal" },
   "emotional_capacity": 65,
   "sm_tags": ["Dom_Dom", "Power_Dom"],
-  "karmic_tags": [],
+  "karmic_tags": ["Axis_Sign_Gemini_Sag", "North_Node_Sign_Gemini", "Axis_House_1_7", "North_Node_House_1"],
+  "element_profile": { "dominant_element": "air", "missing_element": "water" },
+  "north_node_sign": "gemini",  "north_node_degree": 71.44,
+  "south_node_sign": "sagittarius", "south_node_degree": 251.44,
   "element_profile": { "dominant_element": "air", "missing_element": "water" },
   "natal_aspects": [
     { "a": "sun", "b": "moon", "aspect": "square", "orb": 3.21, "strength": 0.598 }
@@ -263,9 +267,9 @@ curl -X POST http://localhost:8001/generate-ideal-match \
 
 | Tier | 使用者提供 | 計算結果 |
 |------|-----------|---------|
-| **1 (Gold)** | 精確時間 + 座標 | 全行星 + Ascendant + House 4/8/12 + Vertex + Lilith + natal_aspects + emotional_capacity |
-| **2 (Silver)** | 模糊時段（morning/afternoon/evening） | Sun, Moon（近似）, Venus, Mars, Saturn。**Ascendant = null** |
-| **3 (Bronze)** | 僅出生日期 | Sun, Venus, Mars, Saturn。**Moon = null, Ascendant = null** |
+| **1 (Gold)** | 精確時間 + 座標 | 全行星 + Ascendant + House 4/7/8/12 + Vertex + Lilith + Lunar Nodes + natal_aspects + emotional_capacity |
+| **2 (Silver)** | 模糊時段（morning/afternoon/evening） | Sun, Moon（近似）, Venus, Mars, Saturn + Lunar Nodes。**Ascendant = null, House = null** |
+| **3 (Bronze)** | 僅出生日期 | Sun, Venus, Mars, Saturn + Lunar Nodes。**Moon = null, Ascendant = null** |
 
 ### 模糊時段對應
 
@@ -326,15 +330,15 @@ astro-service/
 ├── chart.py           # Western astrology: planetary positions + natal aspects + Lilith/Vertex
 ├── bazi.py            # BaZi 八字四柱: Four Pillars + Five Elements + true solar time
 ├── matching.py        # Compatibility scoring: lust/soul/tracks/power/quadrant (v2)
-├── shadow_engine.py   # Synastry modifiers: Chiron/Vertex/Lilith triggers + 12th house overlay
-├── psychology.py      # Psychology layer: SM dynamics + retrograde karma + element profile
+├── shadow_engine.py   # Synastry modifiers: Chiron/Vertex/Lilith triggers + 12th house overlay + Lunar Nodes + DSC Overlay (v1.9)
+├── psychology.py      # Psychology layer: SM dynamics + retrograde karma + element profile + Karmic Axis (v1.9)
 ├── zwds.py            # ZiWei DouShu bridge
 ├── prompt_manager.py  # LLM prompt templates (profile/match/archetype/ideal-match)
-├── test_chart.py      # pytest (102 tests)
+├── test_chart.py      # pytest (109 tests)
 ├── test_matching.py   # pytest (173 tests)
-├── test_shadow_engine.py # pytest (48 tests)
+├── test_shadow_engine.py # pytest (56 tests)
 ├── test_zwds.py       # pytest (31 tests)
-├── test_psychology.py # pytest (28 tests)
+├── test_psychology.py # pytest (33 tests)
 ├── test_sandbox.py    # pytest (5 tests)
 ├── sandbox.html       # Algorithm validation sandbox (browser-based dev tool)
 └── ephe/              # Swiss Ephemeris data files
@@ -346,23 +350,23 @@ astro-service/
 
 ```bash
 cd astro-service
-pytest -v                       # 全部 387 個測試
-pytest test_chart.py -v         # 102 tests — 西洋占星 + 本命相位 + Lilith/Vertex
+pytest -v                       # 全部 407 個測試（Python）
+pytest test_chart.py -v         # 109 tests — 西洋占星 + 本命相位 + Lilith/Vertex + Lunar Nodes + House 7
 pytest test_matching.py -v      # 173 tests — 配對演算法
-pytest test_shadow_engine.py -v # 48 tests — 暗黑修正器
+pytest test_shadow_engine.py -v # 56 tests — 暗黑修正器 + Descendant Overlay
 pytest test_zwds.py -v          # 31 tests — 紫微斗數
-pytest test_psychology.py -v    # 28 tests — 心理標籤
+pytest test_psychology.py -v    # 33 tests — 心理標籤 + Karmic Axis
 pytest test_sandbox.py -v       # 5 tests — Sandbox endpoints
 ```
 
 測試涵蓋：
 - `longitude_to_sign` 單元測試（含邊界值）
 - Tier 3：Sun sign 正確性（Gemini, Capricorn, Aries）
-- Tier 1：所有行星 sign + ascendant + House 4/8/12 + Vertex + Lilith + natal_aspects 皆有值
-- Tier 2：Moon 有值但 Ascendant 為 null
+- Tier 1：所有行星 sign + ascendant + House 4/7/8/12 + Vertex + Lilith + Lunar Nodes + natal_aspects 皆有值
+- Tier 2：Moon 有值但 Ascendant 為 null；Lunar Nodes 有值
 - 星座交界日期（Pisces/Aries, Leo/Virgo）
 - 全 12 星座可達性驗證
 - 配對演算法：lust/soul/tracks/power/quadrant 完整覆蓋
-- 暗黑修正器：Chiron/Vertex/Lilith synastry triggers
+- 暗黑修正器：Chiron/Vertex/Lilith/Lunar Nodes/Descendant synastry triggers
 - 紫微斗數：12 宮命盤計算
-- 心理標籤：SM dynamics + retrograde karma + element profile
+- 心理標籤：SM dynamics + retrograde karma + element profile + Karmic Axis（Sign+House）
