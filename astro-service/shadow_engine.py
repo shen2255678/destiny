@@ -35,6 +35,9 @@ def _harmony(a, b, orb=5.0):
 # Orb for Chiron wound triggers (conjunction or opposition only)
 _CHIRON_ORB = 5.0
 
+# Orb for Vertex (命運之門) and Lilith (禁忌之戀) triggers (conjunction only)
+_VERTEX_LILITH_ORB = 3.0
+
 
 def _in_house(planet_deg, cusp_deg, next_cusp_deg):
     if planet_deg is None or cusp_deg is None or next_cusp_deg is None:
@@ -53,6 +56,10 @@ def compute_shadow_and_wound(chart_a, chart_b):
     }
     chiron_a = chart_a.get("chiron_degree")
     chiron_b = chart_b.get("chiron_degree")
+    lilith_a = chart_a.get("lilith_degree")
+    lilith_b = chart_b.get("lilith_degree")
+    vertex_a = chart_a.get("vertex_degree")
+    vertex_b = chart_b.get("vertex_degree")
     h12_a    = chart_a.get("house12_degree")
     asc_a    = chart_a.get("ascendant_degree")
     h12_b    = chart_b.get("house12_degree")
@@ -93,6 +100,38 @@ def compute_shadow_and_wound(chart_a, chart_b):
                     result["lust_mod"] += 10.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"B_{p_name}_Triggers_A_Chiron")
+
+    # Vertex triggers (命運之門): Sun/Moon/Venus conjunction only, soul_mod +25 each
+    _VERTEX_PLANETS = [("Sun", "sun_degree"), ("Moon", "moon_degree"), ("Venus", "venus_degree")]
+    if vertex_b is not None:
+        for p_name, p_key in _VERTEX_PLANETS:
+            d = _dist(chart_a.get(p_key), vertex_b)
+            if d is not None and d <= _VERTEX_LILITH_ORB:
+                result["soul_mod"] += 25.0
+                result["shadow_tags"].append(f"A_{p_name}_Conjunct_Vertex")
+    if vertex_a is not None:
+        for p_name, p_key in _VERTEX_PLANETS:
+            d = _dist(chart_b.get(p_key), vertex_a)
+            if d is not None and d <= _VERTEX_LILITH_ORB:
+                result["soul_mod"] += 25.0
+                result["shadow_tags"].append(f"B_{p_name}_Conjunct_Vertex")
+
+    # Lilith triggers (禁忌之戀): Venus/Mars conjunction only, lust_mod +25 + high_voltage
+    _LILITH_PLANETS = [("Venus", "venus_degree"), ("Mars", "mars_degree")]
+    if lilith_b is not None:
+        for p_name, p_key in _LILITH_PLANETS:
+            d = _dist(chart_a.get(p_key), lilith_b)
+            if d is not None and d <= _VERTEX_LILITH_ORB:
+                result["lust_mod"] += 25.0
+                result["high_voltage"] = True
+                result["shadow_tags"].append(f"A_{p_name}_Conjunct_Lilith")
+    if lilith_a is not None:
+        for p_name, p_key in _LILITH_PLANETS:
+            d = _dist(chart_b.get(p_key), lilith_a)
+            if d is not None and d <= _VERTEX_LILITH_ORB:
+                result["lust_mod"] += 25.0
+                result["high_voltage"] = True
+                result["shadow_tags"].append(f"B_{p_name}_Conjunct_Lilith")
 
     a_in_b12 = _in_house(chart_a.get("sun_degree"), h12_b, asc_b) or _in_house(chart_a.get("mars_degree"), h12_b, asc_b)
     if a_in_b12:

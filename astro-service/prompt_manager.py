@@ -76,6 +76,18 @@ _PSYCH_TAG_ZH: dict[str, str] = {
     "Karmic_Love_Venus_Rx":         "總覺得自己不配被愛，吸引帶著宿命感的業力關係",
     "Suppressed_Anger_Mars_Rx":     "憤怒長期壓抑，平時溫和，壓到極限才會爆發",
     "Internal_Dialogue_Mercury_Rx": "思考極度深邃，但很難用世俗語言表達內心世界",
+    # Vertex triggers (命運之門)
+    "A_Sun_Conjunct_Vertex":        "你的核心自我精準落在對方的命運之門，這次相遇不是偶然",
+    "A_Moon_Conjunct_Vertex":       "你的情感本能觸碰了對方的宿命點，彷彿前世就認識的熟悉感",
+    "A_Venus_Conjunct_Vertex":      "你的愛意精準打開對方的命運之門，是注定要相愛的業力之緣",
+    "B_Sun_Conjunct_Vertex":        "對方的核心自我精準落在你的命運之門，你們的相遇早已寫好",
+    "B_Moon_Conjunct_Vertex":       "對方的情感本能觸碰了你的宿命點，逃也逃不掉的前世牽絆",
+    "B_Venus_Conjunct_Vertex":      "對方的愛意精準打開你的命運之門，宿命感強烈到令人窒息",
+    # Lilith triggers (禁忌之戀)
+    "A_Venus_Conjunct_Lilith":      "你的吸引力直接喚醒對方最深層的禁忌渴望，致命且危險",
+    "A_Mars_Conjunct_Lilith":       "你的慾望與征服本能，精準點燃對方心底最見不得光的那把火",
+    "B_Venus_Conjunct_Lilith":      "對方的吸引力直接喚醒你最深層的禁忌渴望，明知有毒還是要",
+    "B_Mars_Conjunct_Lilith":       "對方的慾望精準點燃你心底最見不得光的那把火，危險又上癮",
 }
 
 _ELEMENT_ZH = {

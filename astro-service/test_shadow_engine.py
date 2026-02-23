@@ -371,3 +371,82 @@ def test_elemental_fulfillment_capped_at_30():
     profile_b = {"deficiency": [], "dominant": ["Earth", "Water", "Air"]}
     bonus = compute_elemental_fulfillment(profile_a, profile_b)
     assert bonus <= 30.0
+
+
+# ── TestVertexLilithTriggers ──────────────────────────────────────────────────
+
+class TestVertexLilithTriggers:
+    """Tests for Vertex (命運之門) and Lilith (禁忌之戀) synastry triggers."""
+
+    def test_a_sun_conjunct_vertex_b_triggers_soul_mod(self):
+        """A's Sun within 3° of B's Vertex → soul_mod += 25, tag present, no high_voltage."""
+        a = {"sun_degree": 100.0}
+        b = {"vertex_degree": 102.0}   # diff=2° ≤ 3°
+        result = compute_shadow_and_wound(a, b)
+        assert result["soul_mod"] == pytest.approx(25.0)
+        assert "A_Sun_Conjunct_Vertex" in result["shadow_tags"]
+        assert result["high_voltage"] is False
+        assert result["lust_mod"] == pytest.approx(0.0)
+
+    def test_a_venus_conjunct_lilith_b_triggers_lust_mod(self):
+        """A's Venus within 3° of B's Lilith → lust_mod += 25, high_voltage=True, tag present."""
+        a = {"venus_degree": 200.0}
+        b = {"lilith_degree": 201.5}   # diff=1.5° ≤ 3°
+        result = compute_shadow_and_wound(a, b)
+        assert result["lust_mod"] == pytest.approx(25.0)
+        assert result["high_voltage"] is True
+        assert "A_Venus_Conjunct_Lilith" in result["shadow_tags"]
+        assert result["soul_mod"] == pytest.approx(0.0)
+
+    def test_a_mars_conjunct_lilith_b_triggers_lust_mod(self):
+        """A's Mars within 3° of B's Lilith → lust_mod += 25, high_voltage=True."""
+        a = {"mars_degree": 50.0}
+        b = {"lilith_degree": 50.0}   # diff=0° exact conjunction
+        result = compute_shadow_and_wound(a, b)
+        assert result["lust_mod"] == pytest.approx(25.0)
+        assert result["high_voltage"] is True
+        assert "A_Mars_Conjunct_Lilith" in result["shadow_tags"]
+
+    def test_vertex_orb_4deg_no_trigger(self):
+        """A's Sun 4° from B's Vertex → outside the 3° orb → no Vertex tag triggered."""
+        a = {"sun_degree": 100.0}
+        b = {"vertex_degree": 104.0}   # diff=4° > 3°
+        result = compute_shadow_and_wound(a, b)
+        assert "A_Sun_Conjunct_Vertex" not in result["shadow_tags"]
+        assert result["soul_mod"] == pytest.approx(0.0)
+
+    def test_lilith_orb_4deg_no_trigger(self):
+        """A's Venus 4° from B's Lilith → outside the 3° orb → no Lilith tag triggered."""
+        a = {"venus_degree": 100.0}
+        b = {"lilith_degree": 104.0}   # diff=4° > 3°
+        result = compute_shadow_and_wound(a, b)
+        assert "A_Venus_Conjunct_Lilith" not in result["shadow_tags"]
+        assert result["lust_mod"] == pytest.approx(0.0)
+        assert result["high_voltage"] is False
+
+    def test_mars_does_not_trigger_vertex(self):
+        """A's Mars near B's Vertex → Mars is NOT in Vertex planet list → no Vertex tag."""
+        a = {"mars_degree": 100.0}
+        b = {"vertex_degree": 101.0}   # diff=1° ≤ 3°, but Mars excluded from Vertex
+        result = compute_shadow_and_wound(a, b)
+        assert "A_Mars_Conjunct_Vertex" not in result["shadow_tags"]
+        # No Vertex soul_mod from Mars
+        assert result["soul_mod"] == pytest.approx(0.0)
+
+    def test_sun_does_not_trigger_lilith(self):
+        """A's Sun near B's Lilith → Sun is NOT in Lilith planet list → no Lilith tag."""
+        a = {"sun_degree": 300.0}
+        b = {"lilith_degree": 300.5}   # diff=0.5° ≤ 3°, but Sun excluded from Lilith
+        result = compute_shadow_and_wound(a, b)
+        assert "A_Sun_Conjunct_Lilith" not in result["shadow_tags"]
+        assert result["lust_mod"] == pytest.approx(0.0)
+        assert result["high_voltage"] is False
+
+    def test_vertex_lilith_bidirectional(self):
+        """B's Venus within 3° of A's Lilith → B_Venus_Conjunct_Lilith tag, lust_mod += 25."""
+        a = {"lilith_degree": 150.0}
+        b = {"venus_degree": 152.0}   # diff=2° ≤ 3°
+        result = compute_shadow_and_wound(a, b)
+        assert result["lust_mod"] == pytest.approx(25.0)
+        assert result["high_voltage"] is True
+        assert "B_Venus_Conjunct_Lilith" in result["shadow_tags"]
