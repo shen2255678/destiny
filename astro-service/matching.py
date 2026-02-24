@@ -63,7 +63,7 @@ WEIGHTS = {
     "lust_power_plateau":      0.75,   # L-10: power_val above this gets diminishing returns
     "lust_power_diminish_factor": 0.60, # L-10: slope beyond plateau (0.90 → effective 0.84)
     "lust_attachment_aa_mult": 1.15,   # L-11: anxious×avoidant lust spike multiplier
-    "lust_bazi_restrict_mult": 1.25,   # upgraded from 1.20; applied in Task 3
+    "lust_bazi_restrict_mult": 1.25,   # DEPRECATED: replaced by diminishing-returns additive formula in Sprint 2
 
     # ── compute_soul_score ────────── ✅ wired ────────────────────────────────
     "soul_moon":              0.25,   # always present
@@ -73,7 +73,7 @@ WEIGHTS = {
     "soul_juno":              0.20,   # when ephemeris available
     "soul_attachment":        0.20,   # when questionnaire filled
     "soul_sun_moon":          0.25,   # Sun-Moon cross-aspect (A's Sun × B's Moon, bidirectional avg)
-    "soul_generation_mult":   1.20,   # × multiplier when BaZi elements generate each other
+    "soul_generation_mult":   1.20,   # DEPRECATED: replaced by diminishing-returns additive formula in Sprint 2
 
     # ── compute_kernel_score ─── ✅ wired ────────────────────────────────────
     "kernel_t1_sun":           0.20,
@@ -688,7 +688,8 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
     if elem_a and elem_b:
         rel = analyze_element_relation(elem_a, elem_b)
         if rel["relation"] in ("a_restricts_b", "b_restricts_a"):
-            base_score *= WEIGHTS["lust_bazi_restrict_mult"]
+            # 邊際遞減：給予剩餘空間的 25% 加成
+            base_score += (1.0 - base_score) * 0.25
 
     # L-11: Anxious × Avoidant attachment lust spike.
     # The anxious×avoidant dynamic generates intense physical desire: the anxious
@@ -801,7 +802,11 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     if elem_a and elem_b:
         rel = analyze_element_relation(elem_a, elem_b)
         if rel["relation"] in ("a_generates_b", "b_generates_a"):
-            base_score *= WEIGHTS["soul_generation_mult"]
+            # 邊際遞減：給予剩餘空間的 30% 加成
+            base_score += (1.0 - base_score) * 0.30
+        elif rel["relation"] == "same":
+            # 比和：給予剩餘空間的 15% 加成
+            base_score += (1.0 - base_score) * 0.15
 
     return _clamp(base_score * 100)
 

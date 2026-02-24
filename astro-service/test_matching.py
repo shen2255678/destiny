@@ -2785,3 +2785,100 @@ class TestAnxiousAvoidantLustSpike:
         lust_none = compute_lust_score(a_none, b_none)
 
         assert lust_aa == pytest.approx(lust_none, abs=0.5)
+
+
+# ── TestBaziDiminishingReturns (Sprint 2) ─────────────────────
+
+class TestBaziDiminishingReturns:
+    """Sprint 2: BaZi multipliers replaced with diminishing-returns additive formula.
+
+    Ensures that:
+    1. compute_soul_score with generation relationship returns ≤ 100 even when
+       old ×1.20 formula would push base_score past 1.0.
+    2. compute_lust_score with restriction relationship returns ≤ 100 even when
+       old ×1.25 formula would push base_score past 1.0.
+    3. Both results are HIGHER than a neutral/same-element baseline (bonus still works).
+    """
+
+    def _soul_user(self, bazi_elem=None, sign="cancer"):
+        """Soul user: all three always-present planets in the same sign (sign-only).
+
+        No degree fields — forces sign-distance computation so the aspect score
+        reflects the actual sign separation rather than degree proximity.
+        """
+        return {
+            "moon_sign":    sign,
+            "mercury_sign": sign,
+            "saturn_sign":  sign,
+            "sun_sign":     sign,
+            "bazi_element": bazi_elem,
+        }
+
+    def _lust_user(self, bazi_elem=None, sign="aries", rpv_power=None):
+        """Lust user: mars and venus in the same sign for high baseline."""
+        return {
+            "mars_sign":   sign, "mars_degree":   0.0,
+            "venus_sign":  sign, "venus_degree":  0.0,
+            "bazi_element": bazi_elem,
+            "rpv_power": rpv_power,
+        }
+
+    def test_soul_generation_bonus_does_not_exceed_100(self):
+        """High base soul score + BaZi generation → result stays ≤ 100.
+
+        Wood generates Fire (木生火) → a_generates_b.
+        All planets in same sign → near-perfect base soul.
+        Old ×1.20 would push a 0.90 base to 1.08 (> 1.0 before ×100).
+        New additive formula: 0.90 + 0.10×0.30 = 0.93 ≤ 1.0.
+        """
+        a = self._soul_user(bazi_elem="wood")
+        b = self._soul_user(bazi_elem="fire")
+        score = compute_soul_score(a, b)
+        assert score <= 100.0, (
+            f"soul_score {score:.2f} exceeds 100 — diminishing-returns formula violated"
+        )
+
+    def test_soul_generation_bonus_still_higher_than_neutral(self):
+        """Generation bonus must still raise soul score above same-element (比和) baseline.
+
+        Uses square-sign planets (aries vs cancer) to keep base_score well below 100,
+        so both generation and same-element bonuses are observable.
+        Wood generates Fire (a_generates_b, +30% remaining space) should score
+        higher than Fire+Fire (same, +15% remaining space).
+        """
+        a_gen  = self._soul_user(bazi_elem="wood",  sign="aries")
+        b_gen  = self._soul_user(bazi_elem="fire",  sign="cancer")
+        a_same = self._soul_user(bazi_elem="fire",  sign="aries")
+        b_same = self._soul_user(bazi_elem="fire",  sign="cancer")
+        score_gen  = compute_soul_score(a_gen, b_gen)
+        score_same = compute_soul_score(a_same, b_same)
+        assert score_gen > score_same, (
+            f"generation bonus ({score_gen:.2f}) should exceed same-element bonus ({score_same:.2f})"
+        )
+
+    def test_lust_restriction_bonus_does_not_exceed_100(self):
+        """High base lust score + BaZi restriction → result stays ≤ 100.
+
+        Wood restricts Earth (木剋土) → a_restricts_b.
+        Mars and Venus in same sign → near-perfect base lust.
+        Old ×1.25 would push a 0.90 base to 1.125 (> 1.0 before ×100).
+        New additive formula: 0.90 + 0.10×0.25 = 0.925 ≤ 1.0.
+        """
+        a = self._lust_user(bazi_elem="wood", rpv_power="control")
+        b = self._lust_user(bazi_elem="earth", rpv_power="follow")
+        score = compute_lust_score(a, b)
+        assert score <= 100.0, (
+            f"lust_score {score:.2f} exceeds 100 — diminishing-returns formula violated"
+        )
+
+    def test_lust_restriction_bonus_still_higher_than_neutral(self):
+        """Restriction bonus must still raise lust score above no-bazi baseline."""
+        a_res  = self._lust_user(bazi_elem="wood",  rpv_power="control")
+        b_res  = self._lust_user(bazi_elem="earth", rpv_power="follow")
+        a_none = self._lust_user(bazi_elem=None, rpv_power="control")
+        b_none = self._lust_user(bazi_elem=None, rpv_power="follow")
+        score_res  = compute_lust_score(a_res, b_res)
+        score_none = compute_lust_score(a_none, b_none)
+        assert score_res > score_none, (
+            "restriction bonus should raise lust score above no-bazi baseline"
+        )
