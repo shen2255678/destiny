@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-25 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅ Algorithm v1.8 ✅ Algorithm v1.9 ✅ Algorithm v2.0 Code Review ✅ Ten Gods Engine ✅)
+**Last Updated:** 2026-02-25 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅ Algorithm v1.8 ✅ Algorithm v1.9 ✅ Algorithm v2.0 Code Review ✅ Ten Gods Engine ✅ Algorithm V3 Classical Astrology 📐 Planned)
 
 ---
 
@@ -158,7 +158,7 @@
 | `astro-service/test_ideal_avatar.py` | 33 | **(Sprint 4/6/8)** 理想伴侶輪廓：西占/八字/ZWDS 規則(20) + Ten Gods 心理(5) + Psychology merge(8) |
 | `astro-service/test_prompt_manager.py` | 15 | **(Sprint 8)** prompt_manager avatar_summary 注入：向後相容(2) + 欄位檢查(8) + 衝突格局(2) + 空值(2) + 基礎數據(1) |
 | `src/__tests__/api/onboarding/attachment.test.ts` | 7 | **(Phase G)** Attachment API (400 missing, 400 invalid style, 200 valid, 200 all styles, 401 unauth, role included, 400 invalid role) |
-| **Total** | **~613** | JS 91 + Python ~522 — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement, +7 Algorithm v1.8, +13 Algorithm v1.9, +21 Algorithm v2.0, +11 L-2/L-3, +1 L-8, +7 L-9, +9 L-10/L-11, **+22 Sprint 5 (bazi), +13 Sprint 6/8 (ideal_avatar), +7 Sprint 7 (matching resonance), +15 Sprint 8 (prompt_manager)** |
+| **Total** | **~649** | JS 91 + Python 558 (verified 2026-02-25) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement, +7 Algorithm v1.8, +13 Algorithm v1.9, +21 Algorithm v2.0, +11 L-2/L-3, +1 L-8, +7 L-9, +9 L-10/L-11, **+22 Sprint 5 (bazi), +13 Sprint 6/8 (ideal_avatar), +7 Sprint 7 (matching resonance), +15 Sprint 8 (prompt_manager)** — V3 Classical Astrology: +23 planned |
 
 ---
 
@@ -218,19 +218,7 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 6. **Archetype AI** — 目前為 deterministic 映射 (8 組)，待串接 Claude API 動態生成
 7. ~~**Python 星盤** — birth-data API 目前僅存資料，尚未觸發星盤計算~~ → ✅ Done（西洋占星 + 八字四柱 + 真太陽時，已串接 birth-data API 自動回寫 DB）
 8. **時區技術債** — `astro-service/chart.py` `_resolve_hour()` 目前寫死 UTC+8（台灣）。未來擴展海外市場時，應引入 `timezonefinder` 套件，透過 `lat`/`lng` 反查時區並做正確 UTC 轉換，否則海外用戶排出的星盤和八字可能整個差幾個小時甚至跨日。
-9. **⚠️ WSL 環境限制 — 測試暫未通過自動化驗證 (2026-02-25)**
-   - **原因：** 專案路徑 `E:\下班自學用\destiny` 包含中文字元，WSL 的 `wsl.exe -c` 無法正確解析此路徑（會產生亂碼並報錯 `wsl.exe --help`），導致所有 `python -m pytest` 指令無法在自動化環境中執行。
-   - **影響範圍：** 以下新增測試檔案已撰寫完成、已通過手動 code review 確認邏輯正確，但尚未通過 `pytest` 自動化執行：
-     - `test_bazi.py` — 22 tests (Sprint 5: Ten Gods Engine)
-     - `test_ideal_avatar.py` — 13 new tests (Sprint 6/8: Ten Gods psychology + psychology merge)
-     - `test_matching.py` — 7 new tests (Sprint 7: favorable element resonance)
-     - `test_prompt_manager.py` — 15 tests (Sprint 8: avatar_summary injection)
-   - **解法 (擇一)：**
-     1. **Symlink 解法** — `mklink /D C:\destiny E:\下班自學用\destiny`，改用純 ASCII 路徑
-     2. **原生 Windows Python** — 安裝 Windows 版 Python，直接在 PowerShell 執行 `python -m pytest`
-     3. **Docker 容器** — 在 Docker 中掛載 volume 並執行測試
-     4. **WSL 內部 clone** — `git clone` 到 WSL 的 `~/destiny`，在 WSL 內執行
-   - **優先度：** P2 — 功能代碼已完成，僅差自動化驗證。下次開發時建議先解決此環境問題。
+9. ~~**⚠️ WSL 環境限制 — 測試暫未通過自動化驗證**~~ → ✅ **已解決 (2026-02-25)** — 使用原生 Windows Python 直接執行 `python -m pytest`；558 tests passing，全部 Sprints 5–8 測試確認通過。
 
 
 ---
@@ -513,4 +501,5 @@ uvicorn main:app --port 8001
 | **Algorithm Enhancement (2026-02-22)** | **Done ✅** | Jupiter/Juno cross-aspect bug fix（消除同齡同星座虛假通膨）+ Chiron orb module constant + Lilith/Vertex Tier 1 extraction + shadow_engine Vertex/Lilith synastry triggers (3° orb) + prompt_manager 18 new zh tag translations；+25 tests → 387 Python total |
 | **Algorithm v1.8 (2026-02-23)** | **Done ✅** | Lunar Node (南北交點) extraction in chart.py (all tiers via `swe.TRUE_NODE`); shadow_engine South Node triggers (soul_mod +20, high_voltage) + North Node triggers (soul_mod +20, growth direction); prompt_manager 16 node zh translations; Migration 012 lunar_node DB columns; birth-data API write-back; run/route.ts planet_degrees JSONB flattening + expanded UserProfile; +7 tests → 394 Python total |
 | **Mode Filter Phase I.5 (Future)** | **Planned** | Hunt / Nest / Abyss mode via `?mode=` query param on `/api/matches/daily`. Re-weights four-track output. No DB column needed. |
+| **Algorithm V3 — 古典占星層 (2026-02-25)** | **📐 Planned** | **Task 1:** `psychology.py` — `ESSENTIAL_DIGNITIES` + `evaluate_planet_dignity()` (日月金火廟旺落陷)。**Task 2:** `psychology.py` — `MODERN_RULERSHIPS` + `find_dispositor_chain()` (定位星鏈追溯：Final Dispositor / Mutual Reception / mixed_loop 防呆)。**Task 3:** `ideal_avatar.py` — `_extract_classical_astrology_layer()` 獨立 Rule 1.5（廟旺落陷心理映射 + 潛意識大 Boss 統計 + 單人盤互溶標籤，Tier 3 完整降級防呆）。**Task 4:** `matching.py` — `check_synastry_mutual_reception()` 跨盤日月/金火/金月互溶偵測 + soul_score 邊際遞減加成 (每個 badge +22% 剩餘空間) + 稀有徽章。設計文件：`docs/plans/2026-02-25-classical-astrology-design.md`。No DB migration needed。目標 +23 tests → 581 total。 |
 | **Ten Gods Engine (Sprints 5–8)** | **Done ✅** | **Sprint 5:** `bazi.py` — `HIDDEN_STEMS`, `get_ten_god`, `compute_ten_gods`, `evaluate_day_master_strength`（身強/身弱判定 + 喜用神/忌神推導 + Tier 3 降級）。**Sprint 6:** `ideal_avatar.py` — `_TEN_GOD_PSYCHOLOGY` 10 神心理映射, `_HV_GODS` 高壓神煞, `_CONFLICT_PAIRS` 傷官見官/梟神奪食衝突偵測。**Sprint 7:** `matching.py` — `compute_favorable_element_resonance` 喜用神互補（雙向/單向共振 + 遞減邊際公式），整合至 `compute_match_v2`，加算 soul_mod 和 resonance_badges。**Sprint 8:** `ideal_avatar.py` — `attachment_style` 依附風格注入 + `venus_mars_tags` + `favorable_elements`；`main.py` — `/extract-ideal-profile` 接受 `psychology_data`；`prompt_manager.py` — `get_ideal_match_prompt` 接受 `avatar_summary` 注入【後端預算命理摘要】prompt block + 衝突格局提示。新增 4 個測試檔 (~57 tests)。 |
