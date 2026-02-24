@@ -338,3 +338,23 @@ def generate_ideal_match(req: IdealMatchRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Sprint 4: Ideal Partner Profile Extraction ───────────────────────────────
+
+@app.post("/extract-ideal-profile")
+async def extract_ideal_profile(req: dict):
+    """Extract ideal partner trait tags from a single person's natal chart.
+
+    Expects JSON body with keys: western_chart, bazi_chart, zwds_chart.
+    All three may be empty dicts for Tier 3 degradation.
+
+    Returns: {target_western_signs, target_bazi_elements, relationship_dynamic,
+              psychological_needs, zwds_partner_tags, karmic_match_required}
+    """
+    from ideal_avatar import extract_ideal_partner_profile
+    return extract_ideal_partner_profile(
+        req.get("western_chart", {}),
+        req.get("bazi_chart", {}),
+        req.get("zwds_chart", {}),
+    )
