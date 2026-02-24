@@ -230,7 +230,7 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 | **L-4** | **P2 Important** | `matching.py` | `compute_soul_score` 缺少 Sun-Moon cross-aspect（synastry 最重要指標之一）| **✅ Done (2026-02-24)** |
 | **L-5** | **P2 Important** | `matching.py` | `compute_tracks` partner track 缺少 Saturn cross-aspect（長期穩定/承諾指標） | **✅ Done (2026-02-24)** |
 | **L-6** | **P2 Important** | `shadow_engine.py` | 缺少 Moon-Pluto 觸發器（執念/靈魂侵蝕）；Pluto-Moon 是 D/s + 業力最強的相位之一 | **✅ Done (2026-02-24)** |
-| L-7 | P2 Important | `matching.py` | `compute_lust_score` 中 Jupiter Friend Track 只出現在 soul/friend 應出現的地方；lust 分組裡同時有 friendship 貢獻 | 待確認 |
+| **L-7** | **P2 Important** | `matching.py` | `compute_lust_score` 中 Jupiter Friend Track 只出現在 soul/friend 應出現的地方；lust 分組裡同時有 friendship 貢獻 | **✅ Already Done (pre-v2.0)** — 逐行驗證 `compute_lust_score`：Jupiter 僅在 `compute_tracks → friend` track；lust score 無任何 friendship 貢獻；L-7 無需修正 |
 | **L-8** | **P2 Important** | `matching.py` | `compute_tracks` soul track 使用 `compute_karmic_triggers`（sign-level）；應統一為 degree-level | **✅ Already Done (pre-v2.0)** — 函式內部已有 degree-level 分支；新增假相位測試確認 |
 | **L-9** | **P3 Minor** | `shadow_engine.py` | `compute_shadow_and_wound` 缺少 Saturn-Moon cross（壓抑型依賴）；與 L-5 Saturn 主題一致 | **✅ Done (2026-02-24)** — soul +10, partner -15, orb 5°, bidirectional, +7 tests |
 | **L-10** | **P3 Minor** | `matching.py` | `compute_lust_score` 中 `lust_power` 固定 0.30 比重，應考慮 power imbalance (RPV diff) 對 lust 是否有 diminishing returns | **✅ Done (2026-02-24)** — soft cap: plateau 0.75, dfactor 0.60; at val=0.90 effective=0.84 |
