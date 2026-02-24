@@ -109,6 +109,9 @@ _PSYCH_TAG_ZH: dict[str, str] = {
     # Pluto-Moon triggers (靈魂深淵 — 執念與靈魂侵蝕)
     "A_Pluto_Wounds_B_Moon":        "你的靈魂深處帶著某種壓倒性的力量，讓對方在你面前情感徹底失控，上癮但窒息",
     "B_Pluto_Wounds_A_Moon":        "對方靈魂裡有一種讓你無法抗拒的黑洞引力，你的情感被他深深改寫，離不開也傷不起",
+    # Saturn-Moon triggers (壓抑型依賴 — 情感框架與控制)
+    "A_Saturn_Suppresses_B_Moon":   "你給了對方結構與安全感，但也在無意間成為壓著他情感的石頭——他依賴你，卻也窒息在你的秩序裡",
+    "B_Saturn_Suppresses_A_Moon":   "對方的存在讓你感到穩定，但那份穩定背後是一種難以言說的壓抑——你的情感在他面前總是說不出口",
     # Descendant triggers (第七宮正緣 — 婚姻伴侶指標)
     "A_Sun_Conjunct_Descendant":    "你的核心自我精準落入對方的婚姻宮，你就是他命中注定的另一半",
     "A_Moon_Conjunct_Descendant":   "你的情感本能落入對方的婚姻宮，跟你在一起有回家般的安定感",

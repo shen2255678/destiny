@@ -60,6 +60,9 @@ WEIGHTS = {
     "lust_venus_asc_ba":       0.10,   # venus_b × asc_a (harmony — B's allure fits A's appearance)
     "lust_karmic":             0.25,   # outer-vs-inner karmic triggers
     "lust_power":              0.30,   # RPV power dynamic
+    "lust_power_plateau":      0.75,   # L-10: power_val above this gets diminishing returns
+    "lust_power_diminish_factor": 0.60, # L-10: slope beyond plateau (0.90 → effective 0.84)
+    "lust_attachment_aa_mult": 1.15,   # L-11: anxious×avoidant lust spike multiplier
     "lust_bazi_restrict_mult": 1.25,   # upgraded from 1.20; applied in Task 3
 
     # ── compute_soul_score ────────── ✅ wired ────────────────────────────────
@@ -585,12 +588,14 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
       h8_b × mars_a  tension × WEIGHTS["lust_house8_ba"]  (0.10)
 
     Karmic: outer-vs-inner triggers × WEIGHTS["lust_karmic"]  (0.25)
-    Power:  RPV dynamic              × WEIGHTS["lust_power"]   (0.30)
+    Power:  RPV dynamic (soft-capped) × WEIGHTS["lust_power"]  (0.30)
+            Diminishing returns above lust_power_plateau (0.75): slope = 0.60.
 
-    Multiplier: × WEIGHTS["lust_bazi_restrict_mult"] when BaZi elements clash.
+    Multipliers (applied after base_score):
+      × WEIGHTS["lust_bazi_restrict_mult"] (1.25) when BaZi elements clash.
+      × WEIGHTS["lust_attachment_aa_mult"] (1.15) when anxious × avoidant pair (L-11).
     Terms 1-4 fall back to sign-level aspect when exact degrees unavailable.
     House 8 signals (terms 5-6) require exact degrees and are omitted when absent.
-    BaZi multiplier requires both users to have bazi_element; silently skipped otherwise.
     """
     score = 0.0
     total_weight = 0.0
@@ -663,10 +668,16 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
     score += karmic * w
     total_weight += w
 
-    # 7. RPV power dynamic
+    # 7. RPV power dynamic (with L-10 diminishing returns above plateau)
+    # Extreme complementary power (D/s ideal) gives a strong pull, but beyond a
+    # threshold the additional gain flattens — preventing RPV from dominating lust.
     power_val = compute_power_score(user_a, user_b)
+    plateau = WEIGHTS["lust_power_plateau"]
+    dfactor = WEIGHTS["lust_power_diminish_factor"]
+    effective_power = (power_val if power_val <= plateau
+                       else plateau + (power_val - plateau) * dfactor)
     w = WEIGHTS["lust_power"]
-    score += power_val * w
+    score += effective_power * w
     total_weight += w
 
     base_score = score / total_weight if total_weight > 0 else NEUTRAL_SIGNAL
@@ -678,6 +689,17 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
         rel = analyze_element_relation(elem_a, elem_b)
         if rel["relation"] in ("a_restricts_b", "b_restricts_a"):
             base_score *= WEIGHTS["lust_bazi_restrict_mult"]
+
+    # L-11: Anxious × Avoidant attachment lust spike.
+    # The anxious×avoidant dynamic generates intense physical desire: the anxious
+    # person chases the elusive avoidant; the avoidant feels safe with someone who
+    # keeps trying. Classic "addictive chemistry" — lust spikes, partner suffers.
+    att_a = user_a.get("attachment_style")
+    att_b = user_b.get("attachment_style")
+    if att_a and att_b:
+        styles = {att_a.lower(), att_b.lower()}
+        if "anxious" in styles and "avoidant" in styles:
+            base_score *= WEIGHTS["lust_attachment_aa_mult"]
 
     return _clamp(base_score * 100)
 

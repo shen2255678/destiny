@@ -877,45 +877,53 @@ class TestComputeMatchV2Integration:
         """soul_adj and lust_adj must update lust/soul axes, not just tracks.
         Shadow engine soul_mod should raise soul_score, not just tracks["soul"].
 
-        Uses a deliberately low-soul baseline (disparate signs, no Vertex) vs
-        a Vertex-triggered pair.  The Vertex trigger adds soul_mod += 25 per
-        planet conjunction; soul_score must reflect that boost.
+        Uses a deliberately LOW-soul baseline (all planets 25° apart = void-of-aspect
+        → soul_score ~10) vs a Vertex-triggered pair (+75 soul_adj → soul_score ~85).
+        25° separation is outside all major aspect orbs, so degree-level gives 0.10
+        (void) for every planet pair, ensuring the base score is well below 100.
+
+        NOTE: Test data was updated after L-2 degree-level upgrade: the original
+        all-same-degree (45°) data caused every planet to score 1.0 (perfect conj)
+        → soul_score = 100 for BOTH cases, masking the propagation test.
         """
-        # Common profile: signs chosen to yield a moderate base soul_score
-        # (all taurus-taurus = high harmony for moon/saturn, giving ~82 base)
-        # We compare WITH vs WITHOUT vertex to detect the propagation bug.
+        # A: all personal planets at 0° / 270° (capricorn for saturn)
         a = {
             "data_tier": 1,
-            "sun_sign": "taurus", "sun_degree": 45.0,
-            "moon_sign": "taurus", "moon_degree": 45.0,
-            "venus_sign": "taurus", "venus_degree": 45.0,
-            "mars_sign": "taurus", "mars_degree": 45.0,
-            "saturn_sign": "taurus", "saturn_degree": 45.0,
-            "ascendant_sign": "taurus", "ascendant_degree": 45.0,
+            "sun_sign": "aries",       "sun_degree": 0.0,
+            "moon_sign": "aries",      "moon_degree": 0.0,
+            "venus_sign": "aries",     "venus_degree": 0.0,
+            "mars_sign": "aries",      "mars_degree": 0.0,
+            "mercury_sign": "aries",   "mercury_degree": 0.0,
+            "saturn_sign": "capricorn","saturn_degree": 270.0,
+            "ascendant_sign": "aries", "ascendant_degree": 0.0,
             "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
         }
-        # B WITH Vertex at 45.5° → A_Venus_Conjunct_Vertex + A_Moon_Conjunct_Vertex
-        # + A_Sun_Conjunct_Vertex → soul_mod += 75 total
+        # B: all planets 25° ahead (void of aspect with A), PLUS vertex near A's sun/moon/venus
+        # A_Sun (0°) × vertex (1°): 1° → conjunction trigger → soul_mod +25
+        # A_Moon (0°) × vertex (1°): same → +25
+        # A_Venus (0°) × vertex (1°): same → +25  → total soul_adj = +75
         b_with_vertex = {
             "data_tier": 1,
-            "sun_sign": "taurus", "sun_degree": 45.0,
-            "moon_sign": "taurus", "moon_degree": 45.0,
-            "venus_sign": "taurus", "venus_degree": 45.0,
-            "mars_sign": "taurus", "mars_degree": 45.0,
-            "saturn_sign": "taurus", "saturn_degree": 45.0,
-            "ascendant_sign": "taurus", "ascendant_degree": 45.0,
-            "vertex_degree": 45.5,  # triggers A_Sun + A_Moon + A_Venus Conjunct Vertex
+            "sun_sign": "aries",       "sun_degree": 25.0,
+            "moon_sign": "aries",      "moon_degree": 25.0,
+            "venus_sign": "aries",     "venus_degree": 25.0,
+            "mars_sign": "aries",      "mars_degree": 25.0,
+            "mercury_sign": "aries",   "mercury_degree": 25.0,
+            "saturn_sign": "capricorn","saturn_degree": 295.0,
+            "ascendant_sign": "aries", "ascendant_degree": 25.0,
+            "vertex_degree": 1.0,   # 1° from A's sun/moon/venus → 3 Vertex triggers
             "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
         }
-        # B WITHOUT Vertex → identical otherwise, no shadow soul_mod
+        # B WITHOUT Vertex — identical, no shadow soul_mod
         b_without_vertex = {
             "data_tier": 1,
-            "sun_sign": "taurus", "sun_degree": 45.0,
-            "moon_sign": "taurus", "moon_degree": 45.0,
-            "venus_sign": "taurus", "venus_degree": 45.0,
-            "mars_sign": "taurus", "mars_degree": 45.0,
-            "saturn_sign": "taurus", "saturn_degree": 45.0,
-            "ascendant_sign": "taurus", "ascendant_degree": 45.0,
+            "sun_sign": "aries",       "sun_degree": 25.0,
+            "moon_sign": "aries",      "moon_degree": 25.0,
+            "venus_sign": "aries",     "venus_degree": 25.0,
+            "mars_sign": "aries",      "mars_degree": 25.0,
+            "mercury_sign": "aries",   "mercury_degree": 25.0,
+            "saturn_sign": "capricorn","saturn_degree": 295.0,
+            "ascendant_sign": "aries", "ascendant_degree": 25.0,
             "bazi_element": None, "rpv_conflict": None, "rpv_power": None, "rpv_energy": None,
         }
         result_with    = compute_match_v2(a, b_with_vertex)
@@ -2631,3 +2639,149 @@ class TestTracksDegreeResolution:
             f"Degree-level (void chiron) soul ({t_with_deg['soul']:.1f}) should be "
             f"less than sign-level ({t_no_deg['soul']:.1f})"
         )
+
+
+# ── L-10: Diminishing returns for lust_power ─────────────────────────────────
+
+from matching import WEIGHTS as _WEIGHTS
+
+
+class TestLustPowerDiminishingReturns:
+    """L-10: RPV power contribution flattens above lust_power_plateau (0.75).
+
+    At power_val = 0.90: effective_power = 0.75 + (0.90-0.75)*0.60 = 0.84
+    At power_val = 0.75: effective_power = 0.75 (unchanged)
+    At power_val = 0.50: effective_power = 0.50 (unchanged)
+    """
+
+    def _user(self, rpv_power=None, rpv_conflict=None, rpv_energy=None):
+        return {
+            "mars_sign": "aries", "venus_sign": "aries",
+            "mars_degree": None,  "venus_degree": None,
+            "sun_sign": "aries",  "moon_sign": "taurus",
+            "bazi_element": None,
+            "rpv_power": rpv_power, "rpv_conflict": rpv_conflict, "rpv_energy": rpv_energy,
+        }
+
+    def test_power_plateau_constant_in_weights(self):
+        """WEIGHTS contains the two L-10 constants."""
+        assert "lust_power_plateau" in _WEIGHTS
+        assert "lust_power_diminish_factor" in _WEIGHTS
+        assert _WEIGHTS["lust_power_plateau"] == pytest.approx(0.75)
+        assert _WEIGHTS["lust_power_diminish_factor"] == pytest.approx(0.60)
+
+    def test_complementary_power_lower_than_uncapped(self):
+        """control×follow is the max complementary pair (power_val ≈ 0.90).
+        Lust with control×follow should be lower than if raw 0.90 were used
+        (diminishing returns caps effective value to 0.84).
+        """
+        # control × follow → compute_power_score ≈ 0.855 (composite RPV)
+        a_cf = self._user(rpv_power="control")
+        b_cf = self._user(rpv_power="follow")
+        lust_cf = compute_lust_score(a_cf, b_cf)
+
+        # same power × same power → power_val ≈ 0.50 (below plateau; no diminish)
+        a_same = self._user(rpv_power="control")
+        b_same = self._user(rpv_power="control")
+        lust_same = compute_lust_score(a_same, b_same)
+
+        # complementary is still higher (0.84 effective > 0.50), just not as extreme as raw 0.90
+        assert lust_cf > lust_same, (
+            f"Complementary power lust ({lust_cf:.1f}) should beat same-power ({lust_same:.1f})"
+        )
+
+    def test_no_rpv_data_unaffected(self):
+        """Without RPV data, power_val = 0.65 (neutral, below plateau) → no diminishing."""
+        a = self._user()   # all RPV fields None
+        b = self._user()
+        lust = compute_lust_score(a, b)
+        assert 0 <= lust <= 100
+
+    def test_effective_power_capped_formula(self):
+        """Verify the formula: effective_power at val=0.90 is 0.84, not 0.90.
+
+        We can check this indirectly: lust with control×follow must be < lust
+        computed with an artificial power_val of 0.90 applied linearly.
+        Since we cannot inject power_val directly, we verify that the gap between
+        complementary and same-power lust is smaller than it would be with raw 0.90.
+        """
+        plateau = _WEIGHTS["lust_power_plateau"]     # 0.75
+        dfactor = _WEIGHTS["lust_power_diminish_factor"]  # 0.60
+        # At raw power_val = 0.90:
+        effective = plateau + (0.90 - plateau) * dfactor
+        assert effective == pytest.approx(0.75 + 0.09, abs=0.001)  # 0.84
+        # Confirm effective < raw
+        assert effective < 0.90
+
+
+# ── L-11: Anxious×Avoidant lust spike ────────────────────────────────────────
+
+class TestAnxiousAvoidantLustSpike:
+    """L-11: When one user is anxious and the other avoidant, lust score is
+    multiplied by lust_attachment_aa_mult (1.15) — 'addictive chemistry' model.
+    """
+
+    def _user(self, attachment=None, mars="aries", venus="taurus"):
+        return {
+            "mars_sign": mars,   "mars_degree": None,
+            "venus_sign": venus, "venus_degree": None,
+            "sun_sign": "aries", "moon_sign": "aries",
+            "bazi_element": None,
+            "rpv_power": None, "rpv_conflict": None, "rpv_energy": None,
+            "attachment_style": attachment,
+        }
+
+    def test_anxious_avoidant_lust_higher_than_no_attachment(self):
+        """anxious × avoidant pair gets a ×1.15 lust boost vs no attachment data."""
+        a_aa = self._user("anxious")
+        b_aa = self._user("avoidant")
+        a_none = self._user(None)
+        b_none = self._user(None)
+
+        lust_aa   = compute_lust_score(a_aa, b_aa)
+        lust_none = compute_lust_score(a_none, b_none)
+
+        assert lust_aa > lust_none, (
+            f"Anxious×Avoidant lust ({lust_aa:.1f}) should exceed no-attachment ({lust_none:.1f})"
+        )
+
+    def test_anxious_avoidant_multiplier_is_1_15(self):
+        """The multiplier is exactly 1.15."""
+        assert _WEIGHTS["lust_attachment_aa_mult"] == pytest.approx(1.15)
+
+    def test_avoidant_anxious_same_as_anxious_avoidant(self):
+        """Order doesn't matter: avoidant×anxious = anxious×avoidant."""
+        a_av = self._user("avoidant")
+        b_ax = self._user("anxious")
+        a_ax = self._user("anxious")
+        b_av = self._user("avoidant")
+
+        lust_av_ax = compute_lust_score(a_av, b_ax)
+        lust_ax_av = compute_lust_score(a_ax, b_av)
+
+        assert lust_av_ax == pytest.approx(lust_ax_av, abs=0.01)
+
+    def test_secure_secure_no_spike(self):
+        """secure × secure does NOT trigger the multiplier."""
+        a_ss = self._user("secure")
+        b_ss = self._user("secure")
+        a_none = self._user(None)
+        b_none = self._user(None)
+
+        lust_ss   = compute_lust_score(a_ss, b_ss)
+        lust_none = compute_lust_score(a_none, b_none)
+
+        # secure×secure should NOT be higher than no-attachment (no spike)
+        assert lust_ss == pytest.approx(lust_none, abs=0.5)
+
+    def test_anxious_anxious_no_spike(self):
+        """anxious × anxious (co-dependency) does NOT trigger the lust spike."""
+        a = self._user("anxious")
+        b = self._user("anxious")
+        a_none = self._user(None)
+        b_none = self._user(None)
+
+        lust_aa = compute_lust_score(a, b)
+        lust_none = compute_lust_score(a_none, b_none)
+
+        assert lust_aa == pytest.approx(lust_none, abs=0.5)

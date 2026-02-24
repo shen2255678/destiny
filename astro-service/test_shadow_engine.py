@@ -608,3 +608,75 @@ class TestDescendantOverlay:
         result = compute_shadow_and_wound({}, {})
         assert "partner_mod" in result
         assert result["partner_mod"] == 0.0
+
+
+# ── L-9: Saturn-Moon cross-aspect trigger (壓抑型依賴) ───────────────────────
+
+class TestSaturnMoonTrigger:
+    """Saturn hard-aspects Moon: conjunction / square / opposition within 5° orb.
+    soul_mod +10, partner_mod -15 per trigger. No high_voltage (cold suppression).
+    """
+
+    def test_conjunction_a_saturn_b_moon(self):
+        """A's Saturn 2° from B's Moon → conjunction trigger: soul +10, partner -15."""
+        a = {"saturn_degree": 50.0}
+        b = {"moon_degree": 52.0}
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"] == pytest.approx(10.0)
+        assert r["partner_mod"] == pytest.approx(-15.0)
+        assert r["high_voltage"] is False
+        assert "A_Saturn_Suppresses_B_Moon" in r["shadow_tags"]
+
+    def test_square_a_saturn_b_moon(self):
+        """A's Saturn 90° from B's Moon (diff 3° from square) → triggers."""
+        a = {"saturn_degree": 0.0}
+        b = {"moon_degree": 93.0}   # 93° from 0° → 3° from square
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"] == pytest.approx(10.0)
+        assert r["partner_mod"] == pytest.approx(-15.0)
+        assert "A_Saturn_Suppresses_B_Moon" in r["shadow_tags"]
+
+    def test_opposition_a_saturn_b_moon(self):
+        """A's Saturn 180° from B's Moon (exact opposition) → triggers."""
+        a = {"saturn_degree": 10.0}
+        b = {"moon_degree": 190.0}
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"] == pytest.approx(10.0)
+        assert r["partner_mod"] == pytest.approx(-15.0)
+        assert "A_Saturn_Suppresses_B_Moon" in r["shadow_tags"]
+
+    def test_bidirectional_b_saturn_a_moon(self):
+        """B's Saturn 3° from A's Moon → B_Saturn_Suppresses_A_Moon fires."""
+        a = {"moon_degree": 100.0}
+        b = {"saturn_degree": 103.0}
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"] == pytest.approx(10.0)
+        assert r["partner_mod"] == pytest.approx(-15.0)
+        assert "B_Saturn_Suppresses_A_Moon" in r["shadow_tags"]
+
+    def test_outside_orb_not_triggered(self):
+        """A's Saturn 8° from B's Moon (> 5° orb) → no trigger."""
+        a = {"saturn_degree": 0.0}
+        b = {"moon_degree": 8.0}
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"] == pytest.approx(0.0)
+        assert r["partner_mod"] == pytest.approx(0.0)
+        assert "A_Saturn_Suppresses_B_Moon" not in r["shadow_tags"]
+
+    def test_missing_saturn_no_trigger(self):
+        """Without saturn_degree, trigger is skipped gracefully."""
+        a = {}
+        b = {"moon_degree": 50.0}
+        r = compute_shadow_and_wound(a, b)
+        assert r["partner_mod"] == pytest.approx(0.0)
+        saturn_tags = [t for t in r["shadow_tags"] if "Saturn" in t]
+        assert saturn_tags == []
+
+    def test_missing_moon_no_trigger(self):
+        """Without moon_degree, trigger is skipped gracefully."""
+        a = {"saturn_degree": 50.0}
+        b = {}
+        r = compute_shadow_and_wound(a, b)
+        assert r["partner_mod"] == pytest.approx(0.0)
+        saturn_tags = [t for t in r["shadow_tags"] if "Saturn" in t]
+        assert saturn_tags == []

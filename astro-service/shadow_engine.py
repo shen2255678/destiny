@@ -129,6 +129,28 @@ def compute_shadow_and_wound(chart_a, chart_b):
             result["high_voltage"] = True
             result["shadow_tags"].append("B_Pluto_Wounds_A_Moon")
 
+    # Saturn-Moon cross-aspect (壓抑型依賴): Saturn conjunct/square/oppose Moon
+    # A's Saturn forming a hard aspect to B's Moon → karmic emotional suppression.
+    # Saturn restricts and structures B's emotional expression; creates dependency
+    # through control but undermines long-term partner satisfaction.
+    # soul_mod +10 (karmic bond), partner_mod -15 (emotional suppression penalty).
+    # Not high_voltage — this is cold structural pressure, not explosive.
+    _SATURN_MOON_ORB = 5.0
+    saturn_a = chart_a.get("saturn_degree")
+    saturn_b = chart_b.get("saturn_degree")
+    if saturn_a is not None and moon_deg_b is not None:
+        d = _dist(saturn_a, moon_deg_b)
+        if d is not None and (d <= _SATURN_MOON_ORB or abs(d - 90.0) <= _SATURN_MOON_ORB or abs(d - 180.0) <= _SATURN_MOON_ORB):
+            result["soul_mod"]    += 10.0
+            result["partner_mod"] -= 15.0
+            result["shadow_tags"].append("A_Saturn_Suppresses_B_Moon")
+    if saturn_b is not None and moon_deg_a is not None:
+        d = _dist(saturn_b, moon_deg_a)
+        if d is not None and (d <= _SATURN_MOON_ORB or abs(d - 90.0) <= _SATURN_MOON_ORB or abs(d - 180.0) <= _SATURN_MOON_ORB):
+            result["soul_mod"]    += 10.0
+            result["partner_mod"] -= 15.0
+            result["shadow_tags"].append("B_Saturn_Suppresses_A_Moon")
+
     # Vertex triggers (命運之門): Sun/Moon/Venus conjunction only, soul_mod +25 each
     if vertex_b is not None:
         for p_name, p_key in _VERTEX_PLANETS:
