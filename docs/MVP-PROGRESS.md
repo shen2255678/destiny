@@ -252,6 +252,7 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 - ✅ L-9: Saturn-Moon cross trigger 加入 `shadow_engine.py`（5° orb，soul +10, partner -15）
 - ✅ L-10: lust_power soft cap (plateau=0.75, dfactor=0.60) 加入 `compute_lust_score`
 - ✅ L-11: anxious×avoidant lust spike (×1.15) 加入 `compute_lust_score`
+- ✅ ALGORITHM.md L-7: Saturn-Venus cross trigger 加入 `shadow_engine.py`（5° orb，soul +8, partner -10, lust -5，+7 tests）
 
 ---
 

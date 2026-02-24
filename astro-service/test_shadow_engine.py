@@ -680,3 +680,68 @@ class TestSaturnMoonTrigger:
         assert r["partner_mod"] == pytest.approx(0.0)
         saturn_tags = [t for t in r["shadow_tags"] if "Saturn" in t]
         assert saturn_tags == []
+
+
+class TestSaturnVenusTrigger:
+    """ALGORITHM.md L-7: Saturn-Venus cross-aspect — karmic obligation binding."""
+
+    def test_conjunction_a_saturn_b_venus(self):
+        """A's Saturn conjunct B's Venus → soul +8, partner -10, lust -5, tag."""
+        a = {"saturn_degree": 50.0}
+        b = {"venus_degree": 52.0}   # 2° apart → within 5° orb
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"]    == pytest.approx(8.0)
+        assert r["partner_mod"] == pytest.approx(-10.0)
+        assert r["lust_mod"]    == pytest.approx(-5.0)
+        assert "A_Saturn_Binds_B_Venus" in r["shadow_tags"]
+
+    def test_square_a_saturn_b_venus(self):
+        """A's Saturn square B's Venus (90° ± 5°) → triggers."""
+        a = {"saturn_degree": 0.0}
+        b = {"venus_degree": 93.0}   # 3° off square
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"]    == pytest.approx(8.0)
+        assert "A_Saturn_Binds_B_Venus" in r["shadow_tags"]
+
+    def test_opposition_a_saturn_b_venus(self):
+        """A's Saturn oppose B's Venus (180° ± 5°) → triggers."""
+        a = {"saturn_degree": 10.0}
+        b = {"venus_degree": 188.0}   # 178° apart — diff from 180° = 2°
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"]    == pytest.approx(8.0)
+        assert "A_Saturn_Binds_B_Venus" in r["shadow_tags"]
+
+    def test_bidirectional_b_saturn_a_venus(self):
+        """B's Saturn binds A's Venus → symmetric bidirectional trigger."""
+        a = {"venus_degree": 50.0}
+        b = {"saturn_degree": 52.0}
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"]    == pytest.approx(8.0)
+        assert r["partner_mod"] == pytest.approx(-10.0)
+        assert r["lust_mod"]    == pytest.approx(-5.0)
+        assert "B_Saturn_Binds_A_Venus" in r["shadow_tags"]
+
+    def test_outside_orb_not_triggered(self):
+        """6° off conjunction — outside 5° orb — no trigger."""
+        a = {"saturn_degree": 0.0}
+        b = {"venus_degree": 6.1}
+        r = compute_shadow_and_wound(a, b)
+        assert r["soul_mod"]    == pytest.approx(0.0)
+        assert r["lust_mod"]    == pytest.approx(0.0)
+        assert "A_Saturn_Binds_B_Venus" not in r["shadow_tags"]
+
+    def test_missing_venus_no_trigger(self):
+        """Without venus_degree, trigger is skipped gracefully."""
+        a = {"saturn_degree": 50.0}
+        b = {}
+        r = compute_shadow_and_wound(a, b)
+        venus_tags = [t for t in r["shadow_tags"] if "Venus" in t and "Saturn" in t]
+        assert venus_tags == []
+
+    def test_missing_saturn_no_trigger(self):
+        """Without saturn_degree, trigger is skipped gracefully."""
+        a = {}
+        b = {"venus_degree": 50.0}
+        r = compute_shadow_and_wound(a, b)
+        venus_tags = [t for t in r["shadow_tags"] if "Venus" in t and "Saturn" in t]
+        assert venus_tags == []

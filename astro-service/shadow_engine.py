@@ -151,6 +151,30 @@ def compute_shadow_and_wound(chart_a, chart_b):
             result["partner_mod"] -= 15.0
             result["shadow_tags"].append("B_Saturn_Suppresses_A_Moon")
 
+    # Saturn-Venus cross-aspect (業力義務): Saturn conjunct/square/oppose Venus
+    # A's Saturn forming a hard aspect to B's Venus → karmic obligation / delayed desire.
+    # B feels duty-bound rather than freely loving; the relationship becomes structured
+    # around responsibility, not passion. Provides stability but dampens spontaneous desire.
+    # soul_mod +8 (karmic fate bond), partner_mod -10 (obligation-based, not freely chosen),
+    # lust_mod -5 (Saturn cools Venus desire). Not high_voltage — cold structural binding.
+    _SATURN_VENUS_ORB = 5.0
+    venus_a = chart_a.get("venus_degree")
+    venus_b = chart_b.get("venus_degree")
+    if saturn_a is not None and venus_b is not None:
+        d = _dist(saturn_a, venus_b)
+        if d is not None and (d <= _SATURN_VENUS_ORB or abs(d - 90.0) <= _SATURN_VENUS_ORB or abs(d - 180.0) <= _SATURN_VENUS_ORB):
+            result["soul_mod"]    += 8.0
+            result["partner_mod"] -= 10.0
+            result["lust_mod"]    -= 5.0
+            result["shadow_tags"].append("A_Saturn_Binds_B_Venus")
+    if saturn_b is not None and venus_a is not None:
+        d = _dist(saturn_b, venus_a)
+        if d is not None and (d <= _SATURN_VENUS_ORB or abs(d - 90.0) <= _SATURN_VENUS_ORB or abs(d - 180.0) <= _SATURN_VENUS_ORB):
+            result["soul_mod"]    += 8.0
+            result["partner_mod"] -= 10.0
+            result["lust_mod"]    -= 5.0
+            result["shadow_tags"].append("B_Saturn_Binds_A_Venus")
+
     # Vertex triggers (命運之門): Sun/Moon/Venus conjunction only, soul_mod +25 each
     if vertex_b is not None:
         for p_name, p_key in _VERTEX_PLANETS:
