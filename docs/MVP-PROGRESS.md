@@ -148,13 +148,13 @@
 | `astro-service/test_chart.py` | 109 | 西洋占星 + 八字四柱 + 五行關係 + Tier 分層 + Lilith/Vertex 提取 + Lunar Nodes + House 7 |
 | `src/__tests__/api/rectification-next-question.test.ts` | 6 | Rectification next-question API (401, 204 locked, 204 PRECISE, shape, options, boundary priority) |
 | `src/__tests__/api/rectification-answer.test.ts` | 9 | Rectification answer API (401, 400 missing/invalid, 200 state, confidence increase, event log, update users, tier_upgraded) |
-| `astro-service/test_matching.py` | 198 | 配對演算法 v1/v2：sign_aspect + kernel + power + glitch + classify + tags；Phase G v2：lust + soul + power_v2 + chiron + quadrant + attachment；Phase H：zwds_bridge + spiciness + defense + layered；**Algorithm Enhancement：** Jupiter cross-aspect(4) + Juno cross-aspect(6)；**v2.0：** L-4 Sun-Moon cross(4) + L-5 Saturn cross(4)；**L-2/L-3 degree resolution：** soul 假相位(5) + tracks 假相位(6) |
+| `astro-service/test_matching.py` | 199 | 配對演算法 v1/v2：sign_aspect + kernel + power + glitch + classify + tags；Phase G v2：lust + soul + power_v2 + chiron + quadrant + attachment；Phase H：zwds_bridge + spiciness + defense + layered；**Algorithm Enhancement：** Jupiter cross-aspect(4) + Juno cross-aspect(6)；**v2.0：** L-4 Sun-Moon cross(4) + L-5 Saturn cross(4)；**L-2/L-3 degree resolution：** soul 假相位(5) + tracks 假相位(6)；**L-8：** karmic 假相位(1) |
 | `astro-service/test_zwds.py` | 31 | **(Phase H)** ZWDS bridge：compute_zwds_chart(8) + zwds_synastry(10) + flying_star_hits(7) + spouse_palace(6) |
 | `astro-service/test_shadow_engine.py` | 65 | Shadow engine：Chiron wound triggers + Vertex/Lilith synastry triggers + 12th-house overlay + attachment trap matrix + Lunar Node triggers + 7th House Overlay；**v2.0：** L-6 Moon-Pluto cross(9) |
 | `astro-service/test_psychology.py` | 33 | Psychology layer：weighted element scoring + retrograde karma tags + SM dynamics + critical degree alarms + Karmic Axis |
 | `astro-service/test_sandbox.py` | 5 | Sandbox 端點（健康檢查、手動測試工具）|
 | `src/__tests__/api/onboarding/attachment.test.ts` | 7 | **(Phase G)** Attachment API (400 missing, 400 invalid style, 200 valid, 200 all styles, 401 unauth, role included, 400 invalid role) |
-| **Total** | **530** | All passing (91 JS + 439 Python) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement, +7 Algorithm v1.8, +13 Algorithm v1.9, +21 Algorithm v2.0 (L-4/L-5/L-6), +11 L-2/L-3 degree resolution |
+| **Total** | **531** | All passing (91 JS + 440 Python) — +52 Phase G, +54 Phase H, +25 Algorithm Enhancement, +7 Algorithm v1.8, +13 Algorithm v1.9, +21 Algorithm v2.0 (L-4/L-5/L-6), +11 L-2/L-3 degree resolution, +1 L-8 karmic |
 
 ---
 
@@ -171,7 +171,7 @@
 | Storage Bucket | **Done** | `photos` bucket + upload/view/delete policies |
 | `.env.local` | **Done** | SUPABASE_URL + ANON_KEY |
 | Vitest | **Done** | vitest + @testing-library/react + user-event |
-| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + matching algo + ZWDS bridge + pytest (439 tests) |
+| Python Astro Service | **Done** | `astro-service/` — FastAPI + pyswisseph + BaZi + matching algo + ZWDS bridge + pytest (440 tests) |
 
 ---
 
@@ -231,7 +231,7 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 | **L-5** | **P2 Important** | `matching.py` | `compute_tracks` partner track 缺少 Saturn cross-aspect（長期穩定/承諾指標） | **✅ Done (2026-02-24)** |
 | **L-6** | **P2 Important** | `shadow_engine.py` | 缺少 Moon-Pluto 觸發器（執念/靈魂侵蝕）；Pluto-Moon 是 D/s + 業力最強的相位之一 | **✅ Done (2026-02-24)** |
 | L-7 | P2 Important | `matching.py` | `compute_lust_score` 中 Jupiter Friend Track 只出現在 soul/friend 應出現的地方；lust 分組裡同時有 friendship 貢獻 | 待確認 |
-| L-8 | P2 Important | `matching.py` | `compute_tracks` soul track 使用 `compute_karmic_triggers`（sign-level）；應統一為 degree-level | P2 |
+| **L-8** | **P2 Important** | `matching.py` | `compute_tracks` soul track 使用 `compute_karmic_triggers`（sign-level）；應統一為 degree-level | **✅ Already Done (pre-v2.0)** — 函式內部已有 degree-level 分支；新增假相位測試確認 |
 | L-9 | P3 Minor | `shadow_engine.py` | `compute_shadow_and_wound` 缺少 Saturn-Moon cross（壓抑型依賴）；與 L-5 Saturn 主題一致 | P3 |
 | L-10 | P3 Minor | `matching.py` | `compute_lust_score` 中 `lust_power` 固定 0.30 比重，應考慮 power imbalance (RPV diff) 對 lust 是否有 diminishing returns | P3 |
 | L-11 | P3 Minor | `matching.py` | Attachment style 只影響 soul_score，未影響 lust/partner track；anxious×avoidant 的 lust spike 未建模 | P3 |

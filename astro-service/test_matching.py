@@ -1703,6 +1703,30 @@ class TestComputeKarmicTriggers:
         b = self._make_user("pisces", "aquarius", "scorpio", "leo", "libra", "sagittarius")
         assert compute_karmic_triggers(a, b) == pytest.approx(compute_karmic_triggers(b, a))
 
+    def test_false_conjunction_not_triggered_with_degrees(self):
+        """L-8: same outer/inner sign (sign-level conjunction → triggers) but 25° apart
+        in degrees → void-of-aspect → degree-level correctly returns baseline 0.50.
+
+        Without degrees: Pluto=Aries × Moon=Aries → sign-level conjunction 1.0 → triggers.
+        With degrees: 25° apart → no major aspect within orb → 0.10 → no trigger.
+
+        Uses minimal dicts so only the Pluto-Moon pair can fire; all other outer/inner
+        planet fields are absent (missing) → compute_sign_aspect(None, ...) = 0.65 → no trigger.
+        """
+        # Sign-level only: Pluto(aries) × Moon(aries) → conjunction 1.0 → triggers
+        a_sign = {"pluto_sign": "aries", "pluto_degree": None}
+        b_sign = {"moon_sign":  "aries", "moon_degree":  None}
+        result_sign = compute_karmic_triggers(a_sign, b_sign)
+        assert result_sign > 0.50, "Sign-level false conjunction should trigger"
+
+        # Degree-level: same aries band but 25° apart → void (0.1) → no trigger → baseline
+        a_deg = {"pluto_sign": "aries", "pluto_degree": 0.0}
+        b_deg = {"moon_sign":  "aries", "moon_degree":  25.0}
+        result_deg = compute_karmic_triggers(a_deg, b_deg)
+        assert result_deg == pytest.approx(0.50), (
+            f"Degree-level (25° apart, void) should return baseline 0.50, got {result_deg:.3f}"
+        )
+
 
 class TestKarmicInLustScore:
     """Verify that lust score no longer uses same-generation pluto×pluto comparison."""
