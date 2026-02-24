@@ -2882,3 +2882,132 @@ class TestBaziDiminishingReturns:
         assert score_res > score_none, (
             "restriction bonus should raise lust score above no-bazi baseline"
         )
+
+
+# ════════════════════════════════════════════════════════════════
+# Sprint 3: Karmic Tension Index + Resonance Badges
+# ════════════════════════════════════════════════════════════════
+
+class TestKarmicTensionAndBadges:
+    """Sprint 3: karmic_tension index and resonance_badges in compute_match_v2."""
+
+    def _base_user(self, **kwargs):
+        """Minimal Tier-3 user with no degree fields (no shadow triggers)."""
+        defaults = {
+            "data_tier": 3,
+            "sun_sign":     "cancer",
+            "moon_sign":    "cancer",
+            "mercury_sign": "cancer",
+            "saturn_sign":  "cancer",
+            "venus_sign":   "cancer",
+            "mars_sign":    "cancer",
+            "bazi_element": None,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_karmic_tension_zero_with_no_shadow(self):
+        """Users with no shadow-triggering degree positions → karmic_tension == 0.0.
+
+        No degree fields are provided, so compute_shadow_and_wound returns all
+        mods at 0.0 → raw_tension = 0.0 → karmic_tension = 0.0.
+        """
+        a = self._base_user()
+        b = self._base_user(moon_sign="capricorn")
+        result = compute_match_v2(a, b)
+        assert result["karmic_tension"] == pytest.approx(0.0), (
+            f"Expected karmic_tension 0.0 but got {result['karmic_tension']}"
+        )
+
+    def test_karmic_tension_weighted_formula(self):
+        """Saturn-Moon conjunction triggers shadow mods; karmic_tension formula verified.
+
+        Setup: A.saturn_degree=0.0, B.moon_degree=1.0 (1° apart, within 5° orb).
+        Expected trigger: A_Saturn_Suppresses_B_Moon
+          _shadow["soul_mod"]    = +10.0
+          _shadow["partner_mod"] = -15.0
+          _shadow["lust_mod"]    =   0.0
+
+        raw_tension = |partner_mod| * 1.5 + |lust_mod| * 1.0 + |soul_mod| * 0.5
+                    = 15.0 * 1.5  + 0.0 * 1.0   + 10.0 * 0.5
+                    = 22.5        + 0.0           + 5.0
+                    = 27.5
+        karmic_tension = clamp(27.5) = 27.5
+        """
+        a = self._base_user(saturn_degree=0.0)
+        b = self._base_user(moon_degree=1.0)
+        result = compute_match_v2(a, b)
+        assert result["karmic_tension"] == pytest.approx(27.5, abs=0.1), (
+            f"Expected karmic_tension 27.5 but got {result['karmic_tension']}"
+        )
+
+    def test_badge_mingliduochong_soul_high_generation(self):
+        """Badge A: 命理雙重認證 — soul ≥ 80 且 BaZi generation relationship.
+
+        Setup: all planets in same sign (cancer/cancer → conjunction ≈ 0.90 aspect)
+        → base soul ≈ 90. Wood generates Fire (木生火, a_generates_b).
+        Generation bonus: (1 - 0.90) * 0.30 * 100 ≈ 3 → soul ≈ 93 ≥ 80.
+        No degree fields → no shadow triggers → karmic_tension = 0.
+
+        Expected: "命理雙重認證" in resonance_badges.
+        """
+        a = self._base_user(bazi_element="wood")
+        b = self._base_user(bazi_element="fire")
+        result = compute_match_v2(a, b)
+        assert result["soul_score"] >= 80, (
+            f"Precondition: soul_score should be ≥ 80, got {result['soul_score']}"
+        )
+        assert result["bazi_relation"] in ("a_generates_b", "b_generates_a", "same"), (
+            f"Precondition: bazi_relation should be generation/same, got {result['bazi_relation']}"
+        )
+        assert "命理雙重認證" in result["resonance_badges"], (
+            f"Expected '命理雙重認證' in resonance_badges, got {result['resonance_badges']}"
+        )
+
+    def test_badge_c_karmic_tension_soul(self):
+        """Badge C: 進化型靈魂伴侶：虐戀與升級 — karmic_tension ≥ 30 且 soul ≥ 75.
+
+        Setup: bidirectional Saturn-Moon conjunctions (both within 5° orb).
+          A.saturn_degree=0.0, B.moon_degree=1.5  → A_Saturn_Suppresses_B_Moon
+          B.saturn_degree=2.0, A.moon_degree=1.0  → B_Saturn_Suppresses_A_Moon
+
+        Combined _shadow mods:
+          soul_mod    = +10.0 + 10.0 = +20.0
+          partner_mod = -15.0 - 15.0 = -30.0
+          lust_mod    =   0.0
+
+        raw_tension = |-30| * 1.5 + |0| * 1.0 + |20| * 0.5 = 45.0 + 0.0 + 10.0 = 55.0
+        karmic_tension = 55.0 ≥ 30.
+
+        All planets in same sign (cancer) → base soul ≈ 90.
+        soul after adj = min(100, 90 + 20) = 100 ≥ 75.
+
+        Expected: "進化型靈魂伴侶：虐戀與升級" in resonance_badges.
+        """
+        a = self._base_user(saturn_degree=0.0, moon_degree=1.0)
+        b = self._base_user(saturn_degree=2.0, moon_degree=1.5)
+        result = compute_match_v2(a, b)
+        assert result["karmic_tension"] >= 30, (
+            f"Precondition: karmic_tension should be ≥ 30, got {result['karmic_tension']}"
+        )
+        assert result["soul_score"] >= 75, (
+            f"Precondition: soul_score should be ≥ 75, got {result['soul_score']}"
+        )
+        assert "進化型靈魂伴侶：虐戀與升級" in result["resonance_badges"], (
+            f"Expected '進化型靈魂伴侶：虐戀與升級' in resonance_badges, "
+            f"got {result['resonance_badges']}"
+        )
+
+    def test_harmony_score_alias(self):
+        """harmony_score is always equal to soul_score (frontend compatibility alias).
+
+        Verified across multiple user configurations to ensure the alias is
+        consistently maintained regardless of shadow mods or BaZi element.
+        """
+        a = self._base_user(bazi_element="wood")
+        b = self._base_user(bazi_element="fire", moon_sign="capricorn")
+        result = compute_match_v2(a, b)
+        assert result["harmony_score"] == result["soul_score"], (
+            f"harmony_score ({result['harmony_score']}) must equal "
+            f"soul_score ({result['soul_score']})"
+        )

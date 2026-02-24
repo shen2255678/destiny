@@ -1202,6 +1202,7 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     psychological_tags: List[str] = []
 
     # 1. Shadow & Wound Engine (Chiron + 12th house cross-chart triggers)
+    _shadow: dict = {}
     try:
         _shadow = compute_shadow_and_wound(user_a, user_b)
         soul_adj    += _shadow["soul_mod"]
@@ -1249,6 +1250,31 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     if partner_adj != 0.0:
         tracks["partner"] = _clamp(tracks["partner"] + partner_adj)
 
+    # ── Karmic Tension Index (0-100) ──────────────────────────────────────────
+    # 痛感（partner_mod）佔最大視覺比重；情慾執念次之；靈魂羈絆為隱性張力
+    raw_tension = (
+        abs(_shadow.get("partner_mod", 0.0)) * 1.5 +
+        abs(_shadow.get("lust_mod",    0.0)) * 1.0 +
+        abs(_shadow.get("soul_mod",    0.0)) * 0.5
+    )
+    karmic_tension = _clamp(raw_tension)
+
+    # ── Resonance Badges ──────────────────────────────────────────────────────
+    resonance_badges: List[str] = []
+
+    # Badge A: 命理雙重認證 — soul ≥ 80 且八字相生/比和
+    if soul >= 80 and bazi_relation in ("a_generates_b", "b_generates_a", "same"):
+        resonance_badges.append("命理雙重認證")
+
+    # Badge B: 三界共振：宿命伴侶 — Badge A + ZWDS SOULMATE
+    if "命理雙重認證" in resonance_badges \
+            and zwds_result and zwds_result.get("spiciness_level") == "SOULMATE":
+        resonance_badges.append("三界共振：宿命伴侶")
+
+    # Badge C: 進化型靈魂伴侶 — karmic_tension ≥ 30 且 soul ≥ 75
+    if karmic_tension >= 30 and soul >= 75:
+        resonance_badges.append("進化型靈魂伴侶：虐戀與升級")
+
     primary_track = max(tracks, key=lambda k: tracks[k])
     quadrant      = classify_quadrant(lust, soul)
     label         = TRACK_LABELS.get(primary_track, primary_track)
@@ -1269,6 +1295,9 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     return {
         "lust_score":              round(lust, 1),
         "soul_score":              round(soul, 1),
+        "harmony_score":           round(soul, 1),
+        "karmic_tension":          round(karmic_tension, 1),
+        "resonance_badges":        resonance_badges,
         "power":                   power,
         "tracks":                  tracks,
         "primary_track":           primary_track,
