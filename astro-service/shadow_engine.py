@@ -93,6 +93,9 @@ def compute_shadow_and_wound(chart_a, chart_b):
                 result["soul_mod"] += 15.0
                 if p_name == "Mars":
                     result["lust_mod"] += 10.0
+                    result["partner_mod"] -= 15.0
+                else:
+                    result["partner_mod"] -= 10.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"A_{p_name}_Triggers_B_Chiron")
 
@@ -104,6 +107,9 @@ def compute_shadow_and_wound(chart_a, chart_b):
                 result["soul_mod"] += 15.0
                 if p_name == "Mars":
                     result["lust_mod"] += 10.0
+                    result["partner_mod"] -= 15.0
+                else:
+                    result["partner_mod"] -= 10.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"B_{p_name}_Triggers_A_Chiron")
 
@@ -195,6 +201,7 @@ def compute_shadow_and_wound(chart_a, chart_b):
             d = _dist(chart_a.get(p_key), lilith_b)
             if d is not None and d <= _VERTEX_LILITH_ORB:
                 result["lust_mod"] += 25.0
+                result["partner_mod"] -= 10.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"A_{p_name}_Conjunct_Lilith")
     if lilith_a is not None:
@@ -202,21 +209,25 @@ def compute_shadow_and_wound(chart_a, chart_b):
             d = _dist(chart_b.get(p_key), lilith_a)
             if d is not None and d <= _VERTEX_LILITH_ORB:
                 result["lust_mod"] += 25.0
+                result["partner_mod"] -= 10.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"B_{p_name}_Conjunct_Lilith")
 
     a_in_b12 = _in_house(chart_a.get("sun_degree"), h12_b, asc_b) or _in_house(chart_a.get("mars_degree"), h12_b, asc_b)
     if a_in_b12:
         result["soul_mod"] += 20.0
+        result["partner_mod"] -= 10.0
         result["high_voltage"] = True
         result["shadow_tags"].append("A_Illuminates_B_Shadow")
     b_in_a12 = _in_house(chart_b.get("sun_degree"), h12_a, asc_a) or _in_house(chart_b.get("mars_degree"), h12_a, asc_a)
     if b_in_a12:
         result["soul_mod"] += 20.0
+        result["partner_mod"] -= 10.0
         result["high_voltage"] = True
         result["shadow_tags"].append("B_Illuminates_A_Shadow")
     if a_in_b12 and b_in_a12:
         result["soul_mod"] += 40.0
+        result["partner_mod"] -= 20.0
         result["shadow_tags"].append("Mutual_Shadow_Integration")
 
     # ── Lunar Node triggers (南北交點) ──────────────────────────────────────
@@ -233,6 +244,7 @@ def compute_shadow_and_wound(chart_a, chart_b):
             d = _dist(chart_a.get(p_key), south_node_b)
             if d is not None and d <= _NODE_ORB:
                 result["soul_mod"] += 20.0
+                result["partner_mod"] -= 15.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"A_{p_name}_Conjunct_SouthNode")
     if north_node_b is not None:
@@ -249,6 +261,7 @@ def compute_shadow_and_wound(chart_a, chart_b):
             d = _dist(chart_b.get(p_key), south_node_a)
             if d is not None and d <= _NODE_ORB:
                 result["soul_mod"] += 20.0
+                result["partner_mod"] -= 15.0
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"B_{p_name}_Conjunct_SouthNode")
     if north_node_a is not None:

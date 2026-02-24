@@ -745,3 +745,64 @@ class TestSaturnVenusTrigger:
         r = compute_shadow_and_wound(a, b)
         venus_tags = [t for t in r["shadow_tags"] if "Venus" in t and "Saturn" in t]
         assert venus_tags == []
+
+
+# ── TestJungianShiftPartnerMod ─────────────────────────────────────────────────
+
+class TestJungianShiftPartnerMod:
+    """Sprint 1: Jungian Shift — partner_mod deductions on karmic triggers.
+
+    High-tension triggers add soul/lust bonuses but must also subtract partner_mod
+    to reflect the daily friction cost of high-voltage relationships.
+    """
+
+    def test_chiron_nonmars_partner_mod(self):
+        """Non-Mars planet (Sun) conjunct Chiron → partner_mod == -10."""
+        a = {"sun_degree": 50.0}
+        b = {"chiron_degree": 50.0}   # exact conjunction
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Sun_Triggers_B_Chiron" in r["shadow_tags"]
+        assert r["partner_mod"] == pytest.approx(-10.0)
+
+    def test_chiron_mars_partner_mod(self):
+        """Mars conjunct Chiron → partner_mod == -15 (higher penalty for Mars volatility)."""
+        a = {"mars_degree": 100.0}
+        b = {"chiron_degree": 100.0}   # exact conjunction
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Mars_Triggers_B_Chiron" in r["shadow_tags"]
+        assert r["partner_mod"] == pytest.approx(-15.0)
+
+    def test_south_node_partner_mod(self):
+        """Sun conjunct South Node → partner_mod == -15 (karmic debt pull)."""
+        a = {"sun_degree": 200.0}
+        b = {"south_node_degree": 201.0}   # 1° diff ≤ 3° orb
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Sun_Conjunct_SouthNode" in r["shadow_tags"]
+        assert r["partner_mod"] == pytest.approx(-15.0)
+
+    def test_12th_house_single_direction_partner_mod(self):
+        """One-directional 12th house overlay (A's Sun in B's 12th) → partner_mod == -10."""
+        a = {"sun_degree": 200.0}
+        b = {"house12_degree": 195.0, "ascendant_degree": 225.0}   # 12th: 195→225
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Illuminates_B_Shadow" in r["shadow_tags"]
+        assert "Mutual_Shadow_Integration" not in r["shadow_tags"]
+        assert r["partner_mod"] == pytest.approx(-10.0)
+
+    def test_mutual_shadow_partner_mod(self):
+        """Both-directional 12th overlay → partner_mod == -10 + -10 + -20 == -40."""
+        a = {"sun_degree": 200.0, "house12_degree": 188.0, "ascendant_degree": 218.0}
+        b = {"sun_degree": 195.0, "house12_degree": 193.0, "ascendant_degree": 223.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Illuminates_B_Shadow" in r["shadow_tags"]
+        assert "B_Illuminates_A_Shadow" in r["shadow_tags"]
+        assert "Mutual_Shadow_Integration" in r["shadow_tags"]
+        assert r["partner_mod"] == pytest.approx(-40.0)
+
+    def test_lilith_partner_mod(self):
+        """Venus conjunct Lilith → partner_mod == -10 (taboo lust friction cost)."""
+        a = {"venus_degree": 300.0}
+        b = {"lilith_degree": 300.0}   # exact conjunction
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Venus_Conjunct_Lilith" in r["shadow_tags"]
+        assert r["partner_mod"] == pytest.approx(-10.0)
