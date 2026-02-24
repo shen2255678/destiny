@@ -556,10 +556,21 @@ _IDEAL_MATCH_SCHEMA = """\
 }"""
 
 
-def get_ideal_match_prompt(chart_data: dict) -> str:
+def get_ideal_match_prompt(
+    chart_data: dict,
+    avatar_summary: dict = None,
+) -> str:
     """
     Build a DESTINY-worldview-enriched prompt for ideal partner profile (Tab C).
     整合西占(吸引)、八字(相處)、紫微斗數(終局)，並完美處理紫微「空宮借對宮」機制。
+
+    Parameters
+    ----------
+    chart_data : dict
+        Output of /calculate-chart.
+    avatar_summary : dict, optional
+        Output of extract_ideal_partner_profile.  When provided, injects a
+        pre-computed summary block so LLM skips derivation and writes copy.
     """
     # 1. 提取西占數據
     ep = chart_data.get("element_profile") or {}
@@ -594,6 +605,25 @@ def get_ideal_match_prompt(chart_data: dict) -> str:
         spouse_main_stars = ", ".join(spouse_palace.get("main_stars", []))
 
     spouse_bad_stars = ", ".join(spouse_palace.get("malevolent_stars", [])) if spouse_palace.get("malevolent_stars") else "無煞星"
+
+    # 4. 預算標籤注入 (Sprint 8)
+    avatar_block = ""
+    if avatar_summary is not None:
+        conflict_hint = (
+            "\n⚠️ 衝突格局（傷官見官/梟神奪食）：此人理智渴望穩定、"
+            "但潛意識被不穩定的人吸引，請在報告中直接點出此矛盾。"
+            if avatar_summary.get("psychological_conflict") else ""
+        )
+        avatar_block = f"""
+【後端預算命理摘要（直接使用，無需重新推導）】
+感情動態: {avatar_summary.get("relationship_dynamic", "unknown")}
+核心心理需求: {", ".join(avatar_summary.get("psychological_needs", [])[:4])}
+喜用神（真正需要的能量）: {", ".join(avatar_summary.get("favorable_elements", []))}
+依附風格: {avatar_summary.get("attachment_style", "unknown")}
+夫妻宮標籤: {", ".join(avatar_summary.get("zwds_partner_tags", []))}
+金星/火星特質: {", ".join(avatar_summary.get("venus_mars_tags", []))}
+業力配對需求: {avatar_summary.get("karmic_match_required", False)}{conflict_hint}
+"""
 
     prompt = f"""{DESTINY_WORLDVIEW}
 
@@ -634,7 +664,8 @@ def get_ideal_match_prompt(chart_data: dict) -> str:
 {_translate_psych_tags(all_tags)}
 
 {_profile_context(deficiency, dominant, sm_tags)}
-
+{avatar_block}
 {_IDEAL_MATCH_SCHEMA}"""
 
     return prompt
+

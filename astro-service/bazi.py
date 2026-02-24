@@ -590,3 +590,287 @@ def check_branch_relations(branch_a: str, branch_b: str) -> str:
         return "harm"
 
     return "neutral"
+
+
+# ── Ten Gods (十神) Engine ──────────────────────────────────────────
+
+# 5-1: Hidden Stems in each Earthly Branch (地支藏干)
+# Order: 本氣 (dominant) / 中氣 / 餘氣
+HIDDEN_STEMS: Dict[str, List[str]] = {
+    "子": ["癸"],
+    "丑": ["己", "癸", "辛"],
+    "寅": ["甲", "丙", "戊"],
+    "卯": ["乙"],
+    "辰": ["戊", "乙", "癸"],
+    "巳": ["丙", "庚", "戊"],
+    "午": ["丁", "己"],
+    "未": ["己", "丁", "乙"],
+    "申": ["庚", "壬", "戊"],
+    "酉": ["辛"],
+    "戌": ["戊", "辛", "丁"],
+    "亥": ["壬", "甲"],
+}
+
+
+# 5-2: Ten God mapping
+def get_ten_god(day_master: str, other_stem: str) -> str:
+    """Determine the Ten God (十神) relationship between day master and another stem.
+
+    Parameters
+    ----------
+    day_master : str   A Heavenly Stem (天干), e.g. "甲"
+    other_stem : str   Another Heavenly Stem
+
+    Returns
+    -------
+    str: one of 比肩/劫財/食神/傷官/偏財/正財/七殺/正官/偏印/正印
+    """
+    if day_master == other_stem:
+        return "比肩"
+
+    dm_elem = STEM_ELEMENTS[day_master]
+    dm_yy   = STEM_YINYANG[day_master]
+    ot_elem = STEM_ELEMENTS[other_stem]
+    ot_yy   = STEM_YINYANG[other_stem]
+
+    same_polarity = (dm_yy == ot_yy)
+
+    # Same element (比和)
+    if dm_elem == ot_elem:
+        return "比肩" if same_polarity else "劫財"
+
+    # I generate other (我生 → 食傷)
+    if GENERATION_CYCLE[dm_elem] == ot_elem:
+        return "食神" if same_polarity else "傷官"
+
+    # I restrict other (我剋 → 財星)
+    if RESTRICTION_CYCLE[dm_elem] == ot_elem:
+        return "偏財" if same_polarity else "正財"
+
+    # Other restricts me (剋我 → 官殺)
+    if RESTRICTION_CYCLE[ot_elem] == dm_elem:
+        return "七殺" if same_polarity else "正官"
+
+    # Other generates me (生我 → 印星)
+    if GENERATION_CYCLE[ot_elem] == dm_elem:
+        return "偏印" if same_polarity else "正印"
+
+    return "比肩"  # fallback (should not reach)
+
+
+# 5-3: Compute Ten Gods for all pillars
+def compute_ten_gods(bazi_chart: Dict) -> Dict:
+    """Compute Ten Gods for each pillar stem and branch hidden stem.
+
+    Parameters
+    ----------
+    bazi_chart : dict   Output of calculate_bazi()
+
+    Returns
+    -------
+    dict with keys:
+        stem_gods         : {year, month, day, hour}  — Ten God for each pillar stem
+        branch_gods       : {year, month, day, hour}  — Ten God for branch's dominant hidden stem
+        god_counts        : {十神名: count}            — frequency of each god
+        spouse_palace_god : str                        — day branch's dominant hidden stem god
+        month_god         : str                        — month stem's god (格局核心)
+    """
+    day_master = bazi_chart.get("day_master")
+    if not day_master:
+        return {
+            "stem_gods": {}, "branch_gods": {},
+            "god_counts": {}, "spouse_palace_god": None, "month_god": None,
+        }
+
+    pillars = bazi_chart.get("four_pillars", {})
+    stem_gods: Dict[str, Optional[str]] = {}
+    branch_gods: Dict[str, Optional[str]] = {}
+    god_counts: Dict[str, int] = {}
+
+    for pillar_name in ("year", "month", "day", "hour"):
+        pillar = pillars.get(pillar_name)
+        if pillar is None:
+            stem_gods[pillar_name] = None
+            branch_gods[pillar_name] = None
+            continue
+
+        # Stem god
+        stem = pillar.get("stem", "")
+        if pillar_name == "day":
+            stem_gods[pillar_name] = "日主"
+        elif stem:
+            god = get_ten_god(day_master, stem)
+            stem_gods[pillar_name] = god
+            god_counts[god] = god_counts.get(god, 0) + 1
+
+        # Branch god (use dominant hidden stem = first in list)
+        branch = pillar.get("branch", "")
+        if branch and branch in HIDDEN_STEMS:
+            dominant_hidden = HIDDEN_STEMS[branch][0]
+            god = get_ten_god(day_master, dominant_hidden)
+            branch_gods[pillar_name] = god
+            god_counts[god] = god_counts.get(god, 0) + 1
+        else:
+            branch_gods[pillar_name] = None
+
+    spouse_palace_god = branch_gods.get("day")
+    month_god = stem_gods.get("month")
+
+    return {
+        "stem_gods": stem_gods,
+        "branch_gods": branch_gods,
+        "god_counts": god_counts,
+        "spouse_palace_god": spouse_palace_god,
+        "month_god": month_god,
+    }
+
+
+# 5-4: Day Master Strength + Favorable Elements
+def evaluate_day_master_strength(bazi_chart: Dict) -> Dict:
+    """Evaluate whether the Day Master is strong or weak, and derive favorable elements.
+
+    Scoring system:
+      - Month branch supports Day Master (印/比劫): +40 (得令)
+      - Other stems/branches that are 印星: +10 each
+      - Other stems/branches that are 比劫: +8 each
+      - Other stems/branches that are 官殺/食傷/財星: -8 each
+
+    Tier 3 (no hour pillar): threshold lowered to 40.
+
+    Returns
+    -------
+    dict:
+        score              : int
+        is_strong          : bool
+        favorable_elements : List[str]   — Chinese element names (喜用神)
+        unfavorable_elements : List[str] — Chinese element names (忌神)
+        dominant_elements  : List[str]   — elements that are strong in chart
+    """
+    day_master = bazi_chart.get("day_master")
+    if not day_master:
+        return {
+            "score": 0, "is_strong": False,
+            "favorable_elements": [], "unfavorable_elements": [],
+            "dominant_elements": [],
+        }
+
+    dm_elem = STEM_ELEMENTS[day_master]
+    ten_gods = compute_ten_gods(bazi_chart)
+    pillars = bazi_chart.get("four_pillars", {})
+    hour_known = bazi_chart.get("hour_known", False)
+
+    # Determine threshold
+    threshold = 50 if hour_known else 40
+
+    score = 0
+    element_counts: Dict[str, int] = {}
+
+    # 印星 gods: 正印, 偏印
+    # 比劫 gods: 比肩, 劫財
+    # 洩耗 gods: 食神, 傷官, 偏財, 正財, 七殺, 正官
+    _YIN_GODS = frozenset(["正印", "偏印"])
+    _BI_GODS  = frozenset(["比肩", "劫財"])
+    _DRAIN_GODS = frozenset(["食神", "傷官", "偏財", "正財", "七殺", "正官"])
+
+    # Check month branch first (得令 = most important factor)
+    month_branch_god = ten_gods["branch_gods"].get("month")
+    if month_branch_god in _YIN_GODS or month_branch_god in _BI_GODS:
+        score += 40  # 得令
+
+    # Score all other positions (exclude day stem = 日主, month branch already counted)
+    all_gods = []
+    for pillar_name in ("year", "month", "hour"):
+        god = ten_gods["stem_gods"].get(pillar_name)
+        if god:
+            all_gods.append(god)
+    for pillar_name in ("year", "day", "hour"):  # month branch already counted above
+        god = ten_gods["branch_gods"].get(pillar_name)
+        if god:
+            all_gods.append(god)
+
+    for god in all_gods:
+        if god in _YIN_GODS:
+            score += 10
+        elif god in _BI_GODS:
+            score += 8
+        elif god in _DRAIN_GODS:
+            score -= 8
+
+    is_strong = score >= threshold
+
+    # Count element frequencies for dominant_elements
+    for pillar_name in ("year", "month", "day", "hour"):
+        pillar = pillars.get(pillar_name)
+        if pillar is None:
+            continue
+        stem = pillar.get("stem", "")
+        branch = pillar.get("branch", "")
+        if stem and stem in STEM_ELEMENTS:
+            e = STEM_ELEMENTS[stem]
+            element_counts[e] = element_counts.get(e, 0) + 1
+        if branch and branch in BRANCH_ELEMENTS:
+            e = BRANCH_ELEMENTS[branch]
+            element_counts[e] = element_counts.get(e, 0) + 1
+
+    # Dominant elements: above average count (or sole element when chart is monochrome)
+    if element_counts:
+        avg = sum(element_counts.values()) / len(element_counts)
+        dominant_elements = [
+            ELEMENT_PROFILES[e]["cn"]
+            for e, cnt in sorted(element_counts.items(), key=lambda x: -x[1])
+            if cnt >= avg and (len(element_counts) == 1 or cnt > avg)
+        ]
+    else:
+        dominant_elements = []
+
+    # Favorable / Unfavorable elements derivation
+    _CN = ELEMENT_PROFILES
+    if is_strong:
+        # 身強 → 喜: 財星(我剋), 食傷(我生), 官殺(剋我)
+        favorable_elems = [
+            RESTRICTION_CYCLE[dm_elem],             # 我剋 → 財星五行
+            GENERATION_CYCLE[dm_elem],              # 我生 → 食傷五行
+        ]
+        # 剋我 → find what restricts day master
+        restricts_me = next(
+            (k for k, v in RESTRICTION_CYCLE.items() if v == dm_elem), None
+        )
+        if restricts_me:
+            favorable_elems.append(restricts_me)
+
+        unfavorable_elems = [dm_elem]  # 比劫
+        # 生我
+        generates_me = next(
+            (k for k, v in GENERATION_CYCLE.items() if v == dm_elem), None
+        )
+        if generates_me:
+            unfavorable_elems.append(generates_me)
+    else:
+        # 身弱 → 喜: 印星(生我), 比劫(同我)
+        favorable_elems = [dm_elem]  # 比劫
+        generates_me = next(
+            (k for k, v in GENERATION_CYCLE.items() if v == dm_elem), None
+        )
+        if generates_me:
+            favorable_elems.append(generates_me)
+
+        unfavorable_elems = [
+            RESTRICTION_CYCLE[dm_elem],
+            GENERATION_CYCLE[dm_elem],
+        ]
+        restricts_me = next(
+            (k for k, v in RESTRICTION_CYCLE.items() if v == dm_elem), None
+        )
+        if restricts_me:
+            unfavorable_elems.append(restricts_me)
+
+    favorable_cn = [_CN[e]["cn"] for e in favorable_elems if e in _CN]
+    unfavorable_cn = [_CN[e]["cn"] for e in unfavorable_elems if e in _CN]
+
+    return {
+        "score": score,
+        "is_strong": is_strong,
+        "favorable_elements": favorable_cn,
+        "unfavorable_elements": unfavorable_cn,
+        "dominant_elements": dominant_elements,
+    }

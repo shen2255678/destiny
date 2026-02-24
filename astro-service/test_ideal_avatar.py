@@ -243,3 +243,150 @@ class TestEdgeCases:
         res = extract_ideal_partner_profile(w, {}, z)
         assert res["karmic_match_required"] is False
         assert res["relationship_dynamic"] == "high_voltage"  # Western alone is enough for dynamic
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Rule 4: Ten Gods Psychological Extraction (Sprint 6)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _bazi_with_pillars(day_stem, year_sb, month_sb, day_sb, hour_sb=None,
+                       hour_known=True):
+    """Build a bazi_chart dict with proper four_pillars structure."""
+    from bazi import STEM_ELEMENTS
+    pillars = {
+        "year":  {"stem": year_sb[0],  "branch": year_sb[1]},
+        "month": {"stem": month_sb[0], "branch": month_sb[1]},
+        "day":   {"stem": day_stem,    "branch": day_sb},
+    }
+    if hour_sb:
+        pillars["hour"] = {"stem": hour_sb[0], "branch": hour_sb[1]}
+    else:
+        pillars["hour"] = None
+    return {
+        "day_master": day_stem,
+        "day_master_element": STEM_ELEMENTS.get(day_stem, ""),
+        "hour_known": hour_known,
+        "four_pillars": pillars,
+    }
+
+
+class TestTenGodsExtraction:
+    """Tests for Rule 4: Ten Gods psychological tags (Sprint 6)."""
+
+    def test_qi_sha_in_spouse_palace_triggers_hv(self):
+        """甲日主, day branch 申 → 庚(七殺) in spouse palace → high_voltage."""
+        b = _bazi_with_pillars("甲", ("庚", "子"), ("丙", "寅"), "申", ("壬", "亥"))
+        res = extract_ideal_partner_profile({}, b, {})
+        # 七殺 should trigger HV
+        assert res["relationship_dynamic"] == "high_voltage"
+        assert any("征服" in n or "強勢" in n for n in res["psychological_needs"])
+
+    def test_shang_guan_jian_guan_conflict(self):
+        """Chart with both 傷官 and 正官 → psychological_conflict = True."""
+        # 甲日主: 丁=傷官, 辛=正官
+        b = _bazi_with_pillars("甲", ("丁", "巳"), ("辛", "酉"), "午", ("丁", "巳"))
+        res = extract_ideal_partner_profile({}, b, {})
+        assert res["psychological_conflict"] is True
+        assert any("矛盾" in n for n in res["psychological_needs"])
+
+    def test_pian_yin_duo_shi_conflict(self):
+        """Chart with both 偏印 and 食神 → psychological_conflict = True."""
+        # 甲日主: 壬=偏印, 丙=食神
+        b = _bazi_with_pillars("甲", ("壬", "子"), ("丙", "寅"), "午", ("壬", "子"))
+        res = extract_ideal_partner_profile({}, b, {})
+        assert res["psychological_conflict"] is True
+        assert any("憂鬱" in n or "安全感" in n for n in res["psychological_needs"])
+
+    def test_stable_gods_no_hv(self):
+        """Chart full of 正印/正財/食神 → stable, NOT high_voltage."""
+        # 甲日主: 癸=正印, 己=正財, 丙=食神
+        # 日支辰 → 戊=偏財 (not HV), avoid 午→丁=傷官 which would trigger HV
+        b = _bazi_with_pillars("甲", ("癸", "丑"), ("己", "未"), "辰", ("丙", "寅"))
+        res = extract_ideal_partner_profile({}, b, {})
+        # None of these gods are HV type
+        # Unless there's an accumulation, dynamic should be stable
+        assert "high_voltage" != res["relationship_dynamic"] or \
+               res["relationship_dynamic"] == "stable"
+
+    def test_empty_bazi_no_crash(self):
+        """Empty bazi should not crash the ten gods extraction."""
+        res = extract_ideal_partner_profile({}, {}, {})
+        assert res["psychological_conflict"] is False
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Rule 5: Psychology & Venus/Mars Merge (Sprint 8)
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestPsychologyMerge:
+    """Tests for Sprint 8: psychology_data integration."""
+
+    def test_attachment_style_anxious(self):
+        """anxious attachment style → specific psychological need."""
+        psych = {"attachment_style": "anxious"}
+        res = extract_ideal_partner_profile({}, {}, {}, psych)
+        assert res["attachment_style"] == "anxious"
+        assert any("焦慮" in n or "拋棄" in n for n in res["psychological_needs"])
+
+    def test_attachment_style_avoidant(self):
+        """avoidant attachment → need for space."""
+        psych = {"attachment_style": "avoidant"}
+        res = extract_ideal_partner_profile({}, {}, {}, psych)
+        assert res["attachment_style"] == "avoidant"
+        assert any("獨處" in n or "逃避" in n for n in res["psychological_needs"])
+
+    def test_attachment_style_disorganized(self):
+        """disorganized attachment → contradiction pattern."""
+        psych = {"attachment_style": "disorganized"}
+        res = extract_ideal_partner_profile({}, {}, {}, psych)
+        assert any("混亂" in n or "矛盾" in n for n in res["psychological_needs"])
+
+    def test_no_attachment_style(self):
+        """No attachment_style → None returned."""
+        res = extract_ideal_partner_profile({}, {}, {}, {})
+        assert res["attachment_style"] is None
+
+    def test_venus_mars_tags_populated(self):
+        """Venus scorpio + Mars aries → both tags generated."""
+        w = _western(venus_sign="scorpio", mars_sign="aries")
+        res = extract_ideal_partner_profile(w, {}, {})
+        assert len(res["venus_mars_tags"]) == 2
+        assert any("Scorpio" in t for t in res["venus_mars_tags"])
+        assert any("Aries" in t for t in res["venus_mars_tags"])
+
+    def test_venus_mars_tags_empty_when_no_signs(self):
+        """No venus/mars signs → empty venus_mars_tags."""
+        res = extract_ideal_partner_profile({}, {}, {})
+        assert res["venus_mars_tags"] == []
+
+    def test_favorable_elements_from_bazi(self):
+        """With a full bazi chart, favorable_elements should be populated."""
+        b = _bazi_with_pillars("甲", ("庚", "申"), ("辛", "酉"), "戌", ("戊", "辰"))
+        res = extract_ideal_partner_profile({}, b, {})
+        # 甲 weak → favorable should include 木 and/or 水
+        assert len(res["favorable_elements"]) > 0
+
+    def test_favorable_elements_empty_without_bazi(self):
+        """Without bazi data, favorable_elements should be empty."""
+        res = extract_ideal_partner_profile({}, {}, {})
+        assert res["favorable_elements"] == []
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Return Structure Completeness
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestReturnStructure:
+    """Ensures all expected keys exist in return dict."""
+
+    def test_all_keys_present(self):
+        res = extract_ideal_partner_profile({}, {}, {})
+        expected_keys = [
+            "target_western_signs", "target_bazi_elements",
+            "relationship_dynamic", "psychological_needs",
+            "zwds_partner_tags", "karmic_match_required",
+            "attachment_style", "psychological_conflict",
+            "venus_mars_tags", "favorable_elements",
+        ]
+        for key in expected_keys:
+            assert key in res, f"Missing key: {key}"

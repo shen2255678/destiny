@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from bazi import analyze_element_relation, compute_bazi_season_complement, check_branch_relations
+from bazi import analyze_element_relation, compute_bazi_season_complement, check_branch_relations, evaluate_day_master_strength
 from zwds import compute_zwds_chart
 from zwds_synastry import compute_zwds_synastry
 from shadow_engine import (
@@ -1097,6 +1097,61 @@ def _is_zwds_eligible(user: dict) -> bool:
     return user.get("data_tier") == 1 and bool(user.get("birth_time"))
 
 
+# ── Favorable Element Resonance (喜用神互補) — Sprint 7 ──────────────────────
+
+def compute_favorable_element_resonance(
+    strength_a: dict,
+    strength_b: dict,
+    current_soul: float = 50.0,
+) -> dict:
+    """Compute cross-chart favorable element resonance.
+
+    If B's dominant_elements overlap with A's favorable_elements → B is A's 貴人.
+    If A's dominant_elements overlap with B's favorable_elements → A is B's 貴人.
+    Bidirectional → perfect resonance.
+
+    Parameters
+    ----------
+    strength_a : dict  Output of evaluate_day_master_strength for user A.
+    strength_b : dict  Output of evaluate_day_master_strength for user B.
+    current_soul : float  Current soul score for marginal diminishing calc.
+
+    Returns
+    -------
+    dict:
+        soul_mod : float   — adjustment to soul score (marginal diminishing)
+        badges   : List[str]
+        b_helps_a : bool
+        a_helps_b : bool
+    """
+    fav_a = set(strength_a.get("favorable_elements", []))
+    fav_b = set(strength_b.get("favorable_elements", []))
+    dom_a = set(strength_a.get("dominant_elements", []))
+    dom_b = set(strength_b.get("dominant_elements", []))
+
+    b_helps_a = bool(fav_a & dom_b)  # B's strength fills A's need
+    a_helps_b = bool(fav_b & dom_a)  # A's strength fills B's need
+    bidirectional = b_helps_a and a_helps_b
+
+    soul_mod = 0.0
+    badges: list = []
+    headroom = max(100.0 - current_soul, 0.0)
+
+    if bidirectional:
+        soul_mod = headroom * 0.35
+        badges.append("完美互補：靈魂能量共振")
+    elif b_helps_a or a_helps_b:
+        soul_mod = headroom * 0.20
+        badges.append("專屬幸運星")
+
+    return {
+        "soul_mod":  round(soul_mod, 2),
+        "badges":    badges,
+        "b_helps_a": b_helps_a,
+        "a_helps_b": a_helps_b,
+    }
+
+
 def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     """Compute full Phase G v2.1 match score.
 
@@ -1200,6 +1255,7 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     partner_adj = 0.0
     high_voltage      = False
     psychological_tags: List[str] = []
+    resonance_badges: List[str] = []
 
     # 1. Shadow & Wound Engine (Chiron + 12th house cross-chart triggers)
     _shadow: dict = {}
@@ -1240,6 +1296,17 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         except Exception:
             pass
 
+    # 4. Favorable Element Resonance (Sprint 7)
+    try:
+        _str_a = evaluate_day_master_strength(user_a.get("bazi") or {})
+        _str_b = evaluate_day_master_strength(user_b.get("bazi") or {})
+        if _str_a.get("favorable_elements") or _str_b.get("favorable_elements"):
+            _res = compute_favorable_element_resonance(_str_a, _str_b, current_soul=soul)
+            soul_adj += _res["soul_mod"]
+            resonance_badges.extend(_res["badges"])
+    except Exception:
+        pass
+
     # Apply modifiers — clamp each track to [0, 100]
     if soul_adj != 0.0:
         tracks["soul"] = _clamp(tracks["soul"] + soul_adj)
@@ -1265,7 +1332,6 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     karmic_tension = _clamp(raw_tension)
 
     # ── Resonance Badges ──────────────────────────────────────────────────────
-    resonance_badges: List[str] = []
 
     # Badge A: 命理雙重認證 — soul ≥ 80 且八字相生/比和
     if soul >= 80 and bazi_relation in ("a_generates_b", "b_generates_a", "same"):

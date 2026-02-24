@@ -3038,3 +3038,74 @@ class TestKarmicTensionAndBadges:
             f"harmony_score ({result['harmony_score']}) must equal "
             f"soul_score ({result['soul_score']})"
         )
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Sprint 7: Favorable Element Resonance (喜用神互補)
+# ═════════════════════════════════════════════════════════════════════════════
+
+from matching import compute_favorable_element_resonance
+
+
+class TestFavorableElementResonance:
+    """Tests for compute_favorable_element_resonance (Sprint 7)."""
+
+    def test_bidirectional_resonance(self):
+        """Both users fill each other's needs → perfect resonance badge."""
+        a = {"favorable_elements": ["火", "土"], "dominant_elements": ["水", "金"]}
+        b = {"favorable_elements": ["水", "金"], "dominant_elements": ["火", "土"]}
+        result = compute_favorable_element_resonance(a, b)
+        assert result["b_helps_a"] is True
+        assert result["a_helps_b"] is True
+        assert "完美互補：靈魂能量共振" in result["badges"]
+        assert result["soul_mod"] > 0
+
+    def test_unidirectional_resonance(self):
+        """Only B fills A's need → 專屬幸運星 badge."""
+        a = {"favorable_elements": ["火"], "dominant_elements": ["木"]}
+        b = {"favorable_elements": ["金"], "dominant_elements": ["火"]}
+        result = compute_favorable_element_resonance(a, b)
+        assert result["b_helps_a"] is True
+        assert result["a_helps_b"] is False
+        assert "專屬幸運星" in result["badges"]
+
+    def test_no_match(self):
+        """No overlap → no badge, no soul_mod."""
+        a = {"favorable_elements": ["火"], "dominant_elements": ["木"]}
+        b = {"favorable_elements": ["金"], "dominant_elements": ["水"]}
+        result = compute_favorable_element_resonance(a, b)
+        assert result["b_helps_a"] is False
+        assert result["a_helps_b"] is False
+        assert result["badges"] == []
+        assert result["soul_mod"] == 0.0
+
+    def test_empty_inputs(self):
+        """Empty dicts → safe defaults."""
+        result = compute_favorable_element_resonance({}, {})
+        assert result["soul_mod"] == 0.0
+        assert result["badges"] == []
+
+    def test_marginal_diminishing(self):
+        """Higher current_soul → smaller soul_mod (marginal diminishing)."""
+        a = {"favorable_elements": ["火"], "dominant_elements": ["水"]}
+        b = {"favorable_elements": ["水"], "dominant_elements": ["火"]}
+        r_low  = compute_favorable_element_resonance(a, b, current_soul=30.0)
+        r_high = compute_favorable_element_resonance(a, b, current_soul=80.0)
+        assert r_low["soul_mod"] > r_high["soul_mod"]
+
+    def test_soul_at_100_gives_zero_mod(self):
+        """When soul is already 100, no room for bonus → soul_mod = 0."""
+        a = {"favorable_elements": ["火"], "dominant_elements": ["水"]}
+        b = {"favorable_elements": ["水"], "dominant_elements": ["火"]}
+        result = compute_favorable_element_resonance(a, b, current_soul=100.0)
+        assert result["soul_mod"] == 0.0
+
+    def test_bidirectional_mod_higher_than_unidirectional(self):
+        """Bidirectional should give higher soul_mod than unidirectional."""
+        a_bi = {"favorable_elements": ["火", "土"], "dominant_elements": ["水", "金"]}
+        b_bi = {"favorable_elements": ["水", "金"], "dominant_elements": ["火", "土"]}
+        a_uni = {"favorable_elements": ["火"], "dominant_elements": ["木"]}
+        b_uni = {"favorable_elements": ["金"], "dominant_elements": ["火"]}
+        r_bi  = compute_favorable_element_resonance(a_bi, b_bi, current_soul=50.0)
+        r_uni = compute_favorable_element_resonance(a_uni, b_uni, current_soul=50.0)
+        assert r_bi["soul_mod"] > r_uni["soul_mod"]

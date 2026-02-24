@@ -1,23 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-DESTINY — Ideal Partner Avatar Profiler (Sprint 4)
+DESTINY — Ideal Partner Avatar Profiler (Sprint 4/6/8)
 
 Reverse-engineers a single person's natal chart into "ideal partner" trait tags
 for the recommendation system's first-pass DB filtering.
 
-Three-layer extraction:
+Five-layer extraction:
   Rule 1: Western Astrology — DSC, Venus, Mars, natal hard aspects
   Rule 2: BaZi (八字)        — Day Master complement + Day Branch 偏印
   Rule 3: ZWDS (紫微斗數)    — Spouse palace stars, sha-stars, empty palace
+  Rule 4: Ten Gods (十神)    — psychological needs from bazi ten gods
+  Rule 5: Psychology merge   — attachment_style, venus/mars tags, favorable_elements
 
 Public API:
-    extract_ideal_partner_profile(western_chart, bazi_chart, zwds_chart) -> dict
+    extract_ideal_partner_profile(western_chart, bazi_chart, zwds_chart, psychology_data) -> dict
 """
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from bazi import GENERATION_CYCLE
+from bazi import GENERATION_CYCLE, compute_ten_gods, evaluate_day_master_strength
 
 # ── Sign helpers ─────────────────────────────────────────────────────────────
 
@@ -108,6 +110,63 @@ AFFLICTION_STAR_MAP: Dict[str, Dict] = {
 # Hard natal aspects that trigger high-voltage flag
 _HARD_ASPECT_TYPES = frozenset(["conjunction", "square", "opposition"])
 _VOLATILE_PLANETS = frozenset(["pluto", "uranus", "chiron"])
+
+
+# ── Ten Gods psychology mapping (Sprint 6) ───────────────────────────────────
+
+_TEN_GOD_PSYCHOLOGY: Dict[str, Dict[str, Any]] = {
+    "正印": {"need": "極度需要穩定與承諾；偏好溫和、具備長輩般包容力", "dynamic": "stable"},
+    "偏印": {"need": "極度缺乏安全感，防備心重；需要極致偏愛", "dynamic": "high_voltage"},
+    "正官": {"need": "重視對方社會價值與人品；需要體面、情緒穩定的伴侶", "dynamic": "stable"},
+    "七殺": {"need": "外表強勢但內在渴望被征服；需要勢均力敵的對手", "dynamic": "high_voltage"},
+    "正財": {"need": "感情觀極度務實；偏好生活規律、願意實質付出的對象", "dynamic": "stable"},
+    "偏財": {"need": "追求戀愛的樂趣與新鮮感；容易被幽默不黏人的人吸引", "dynamic": None},
+    "食神": {"need": "追求純粹快樂、無壓力的相處；需要懂生活脾氣好的伴侶", "dynamic": "stable"},
+    "傷官": {"need": "討厭世俗管束與愚笨；容易被才華洋溢具獨特魅力的人吸引", "dynamic": "high_voltage"},
+    "比肩": {"need": "感情觀如兄弟般平等；需要懂得分寸感給予獨立空間", "dynamic": None},
+    "劫財": {"need": "感情容易充滿戲劇性與競爭感；需要極高情緒價值", "dynamic": "high_voltage"},
+}
+
+# Gods that are "high voltage" type
+_HV_GODS = frozenset(["七殺", "偏印", "傷官", "劫財"])
+
+# Conflict detection pairs
+_CONFLICT_PAIRS = [
+    (frozenset(["傷官", "正官"]), "內在充滿矛盾：理智渴望穩定，但潛意識被不穩定的人吸引"),
+    (frozenset(["偏印", "食神"]), "容易有突發性憂鬱；極度需要情緒穩定、能提供安全感的伴侶"),
+]
+
+# Venus sign → aesthetic/romantic tag
+_VENUS_SIGN_TAGS: Dict[str, str] = {
+    "aries": "喜歡直接主動、帶有衝勁的人",
+    "taurus": "重視感官享受、穩定與美感",
+    "gemini": "容易被聰明健談、帶有知性魅力的人吸引",
+    "cancer": "需要對方給予家庭般的溫暖與歸屬感",
+    "leo": "被自信耀眼、懂得讚美自己的人吸引",
+    "virgo": "重視對方的品格與生活細節",
+    "libra": "追求優雅和諧，偏好社交能力強的伴侶",
+    "scorpio": "審美帶有強烈神秘色彩，渴望深層連結",
+    "sagittarius": "喜歡自由奔放、有冒險精神的對象",
+    "capricorn": "偏好穩重有野心、腳踏實地的人",
+    "aquarius": "被獨立思考、不隨波逐流的人吸引",
+    "pisces": "容易被浪漫溫柔、具藝術氣質的人吸引",
+}
+
+# Mars sign → desire/passion tag
+_MARS_SIGN_TAGS: Dict[str, str] = {
+    "aries": "快速燃燒型，追求激情與征服",
+    "taurus": "慢熱但持久，重視身體層面的連結",
+    "gemini": "注重言語挑逗，心智刺激就是春藥",
+    "cancer": "在安全感的包裹下才會釋放情慾",
+    "leo": "需要被崇拜與注視，表演型慾望",
+    "virgo": "克制表面下是細膩的感官需求",
+    "libra": "追求均衡與美感，被優雅氣質點燃",
+    "scorpio": "極致深層的佔有慾與控制慾",
+    "sagittarius": "注重精神層面的火花與冒險快感",
+    "capricorn": "務實而持久，權力動態中的慾望",
+    "aquarius": "不走尋常路的慾望模式，重視精神獨立",
+    "pisces": "夢幻而柔軟，容易在幻想中燃燒",
+}
 
 
 # ── Hua stripping ────────────────────────────────────────────────────────────
@@ -281,14 +340,95 @@ def _extract_zwds(
     return high_voltage
 
 
+# ── Rule 4: Ten Gods Psychological Extraction (Sprint 6) ─────────────────────
+
+def _extract_ten_gods(
+    bazi_chart: dict,
+    psych_needs: List[str],
+) -> tuple:
+    """Extract psychological needs from Ten Gods.
+
+    Returns (ten_gods_hv: bool, psychological_conflict: bool).
+    """
+    ten_gods_hv = False
+    psychological_conflict = False
+
+    try:
+        tg = compute_ten_gods(bazi_chart)
+    except Exception:
+        return False, False
+
+    if not tg or not tg.get("god_counts"):
+        return False, False
+
+    god_counts = tg.get("god_counts", {})
+    spouse_god = tg.get("spouse_palace_god")
+    hour_known = bazi_chart.get("hour_known", False)
+
+    # Dynamic threshold: Tier 1 (8 chars) >= 3 to be "偏旺"; Tier 3 (6 chars) >= 2
+    dominant_threshold = 3 if hour_known else 2
+
+    triggered_gods: set = set()
+
+    # Check each god for 偏旺 (above threshold) or spouse palace presence
+    for god, info in _TEN_GOD_PSYCHOLOGY.items():
+        count = god_counts.get(god, 0)
+        is_dominant = count >= dominant_threshold
+        is_spouse = (spouse_god == god)
+
+        if is_dominant or is_spouse:
+            triggered_gods.add(god)
+            need = info["need"]
+            if need not in psych_needs:
+                psych_needs.append(need)
+            if info["dynamic"] == "high_voltage":
+                ten_gods_hv = True
+
+    # Spouse palace HV gods always trigger even if not 偏旺
+    if spouse_god and spouse_god in _HV_GODS and spouse_god not in triggered_gods:
+        info = _TEN_GOD_PSYCHOLOGY.get(spouse_god)
+        if info:
+            need = info["need"]
+            if need not in psych_needs:
+                psych_needs.append(need)
+            ten_gods_hv = True
+
+    # Conflict detection: 傷官見官 / 梟神奪食
+    all_gods_present = set(god_counts.keys()) | ({spouse_god} if spouse_god else set())
+    for pair, conflict_msg in _CONFLICT_PAIRS:
+        if pair.issubset(all_gods_present):
+            psychological_conflict = True
+            if conflict_msg not in psych_needs:
+                psych_needs.append(conflict_msg)
+
+    return ten_gods_hv, psychological_conflict
+
+
+# ── Rule 5: Psychology & Venus/Mars merge (Sprint 8) ──────────────────────────
+
+def _extract_venus_mars_tags(western_chart: dict) -> List[str]:
+    """Extract Venus and Mars sign-based psychological tags."""
+    tags: List[str] = []
+    venus = _safe_sign(western_chart, "venus_sign")
+    if venus and venus in _VENUS_SIGN_TAGS:
+        tags.append(f"金星{venus.capitalize()}：{_VENUS_SIGN_TAGS[venus]}")
+
+    mars = _safe_sign(western_chart, "mars_sign")
+    if mars and mars in _MARS_SIGN_TAGS:
+        tags.append(f"火星{mars.capitalize()}：{_MARS_SIGN_TAGS[mars]}")
+
+    return tags
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def extract_ideal_partner_profile(
     western_chart: dict,
     bazi_chart: dict,
     zwds_chart: dict,
+    psychology_data: dict = None,
 ) -> dict:
-    """Extract an ideal partner profile from three chart sources.
+    """Extract an ideal partner profile from chart sources + psychology data.
 
     Parameters
     ----------
@@ -298,20 +438,27 @@ def extract_ideal_partner_profile(
         BaZi dict (``chart_data["bazi"]``).  May be ``{}``.
     zwds_chart : dict
         ZWDS dict (output of compute_zwds_chart).  May be ``None`` or ``{}``.
+    psychology_data : dict
+        Output of psychology.py.  May be ``None`` or ``{}``.
 
     Returns
     -------
     dict
-        target_western_signs   : List[str]
-        target_bazi_elements   : List[str]
-        relationship_dynamic   : str   ("stable" | "high_voltage")
-        psychological_needs    : List[str]
-        zwds_partner_tags      : List[str]
-        karmic_match_required  : bool
+        target_western_signs    : List[str]
+        target_bazi_elements    : List[str]
+        relationship_dynamic    : str   ("stable" | "high_voltage")
+        psychological_needs     : List[str]
+        zwds_partner_tags       : List[str]
+        karmic_match_required   : bool
+        attachment_style         : str | None
+        psychological_conflict  : bool
+        venus_mars_tags         : List[str]
+        favorable_elements      : List[str]
     """
     western_chart = western_chart or {}
     bazi_chart = bazi_chart or {}
     zwds_chart = zwds_chart or {}
+    psychology_data = psychology_data or {}
 
     target_signs:   List[str] = []
     target_elems:   List[str] = []
@@ -321,7 +468,7 @@ def extract_ideal_partner_profile(
     # Rule 1 — Western
     western_hv = _extract_western(western_chart, target_signs, psych_needs)
 
-    # Rule 2 — BaZi
+    # Rule 2 — BaZi elements
     _extract_bazi(bazi_chart, target_elems, psych_needs)
 
     # Rule 3 — ZWDS (never crash)
@@ -332,17 +479,52 @@ def extract_ideal_partner_profile(
         except Exception:
             pass
 
-    # Aggregate dynamic
-    dynamic = "high_voltage" if (western_hv or zwds_hv) else "stable"
+    # Rule 4 — Ten Gods (Sprint 6)
+    ten_gods_hv = False
+    psychological_conflict = False
+    if bazi_chart:
+        try:
+            ten_gods_hv, psychological_conflict = _extract_ten_gods(bazi_chart, psych_needs)
+        except Exception:
+            pass
+
+    # Rule 5 — Psychology & Venus/Mars merge (Sprint 8)
+    attachment_style = psychology_data.get("attachment_style")
+    if attachment_style:
+        _ATTACH_NEEDS = {
+            "anxious": "高焦慮依附：極度需要回應與確認，害怕被拋棄",
+            "avoidant": "逃避型依附：需要大量獨處空間，親密感會引發壓力",
+            "disorganized": "混亂型依附：同時渴望又害怕親密，關係模式矛盾",
+        }
+        attach_need = _ATTACH_NEEDS.get(attachment_style)
+        if attach_need and attach_need not in psych_needs:
+            psych_needs.append(attach_need)
+
+    venus_mars_tags = _extract_venus_mars_tags(western_chart)
+
+    # Favorable elements from bazi strength analysis
+    favorable_elements: List[str] = []
+    try:
+        dms = evaluate_day_master_strength(bazi_chart)
+        favorable_elements = dms.get("favorable_elements", [])
+    except Exception:
+        pass
+
+    # Aggregate dynamic: any source triggering HV makes overall HV
+    dynamic = "high_voltage" if (western_hv or zwds_hv or ten_gods_hv) else "stable"
 
     # Karmic flag: BOTH Western AND ZWDS must independently trigger high_voltage
     karmic = western_hv and zwds_hv
 
     return {
-        "target_western_signs":  target_signs,
-        "target_bazi_elements":  target_elems,
-        "relationship_dynamic":  dynamic,
-        "psychological_needs":   psych_needs,
-        "zwds_partner_tags":     zwds_tags,
-        "karmic_match_required": karmic,
+        "target_western_signs":   target_signs,
+        "target_bazi_elements":   target_elems,
+        "relationship_dynamic":   dynamic,
+        "psychological_needs":    psych_needs,
+        "zwds_partner_tags":      zwds_tags,
+        "karmic_match_required":  karmic,
+        "attachment_style":       attachment_style,
+        "psychological_conflict": psychological_conflict,
+        "venus_mars_tags":        venus_mars_tags,
+        "favorable_elements":     favorable_elements,
     }
