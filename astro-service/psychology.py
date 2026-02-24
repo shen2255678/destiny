@@ -2,12 +2,18 @@
 DESTINY — Psychology Layer
 Extracts psychological tags from a natal chart dict.
 
-Five public functions:
+Public functions:
   - extract_sm_dynamics(chart)               -> List[str]
   - extract_critical_degrees(chart)          -> List[str]
   - compute_element_profile(chart, is_exact_time) -> dict
   - extract_retrograde_karma(chart)          -> List[str]
   - extract_karmic_axis(chart)               -> List[str]
+
+V3 Classical Astrology:
+  - evaluate_planet_dignity(planet, sign)    -> str
+  - find_dispositor_chain(chart, planet)     -> dict
+
+Constants: ESSENTIAL_DIGNITIES, MODERN_RULERSHIPS
 """
 
 from __future__ import annotations
@@ -381,4 +387,91 @@ def evaluate_planet_dignity(planet_name: str, sign_name: str) -> str:
         if sign_lower in signs:
             return state
     return "Peregrine"
+
+
+# ---------------------------------------------------------------------------
+# Modern Rulerships & Dispositor Chain (V3 Classical Astrology)
+# ---------------------------------------------------------------------------
+
+MODERN_RULERSHIPS: Dict[str, str] = {
+    "aries":       "Mars",    "taurus":      "Venus",   "gemini":      "Mercury",
+    "cancer":      "Moon",    "leo":         "Sun",     "virgo":       "Mercury",
+    "libra":       "Venus",   "scorpio":     "Pluto",   "sagittarius": "Jupiter",
+    "capricorn":   "Saturn",  "aquarius":    "Uranus",  "pisces":      "Neptune",
+}
+
+# Map planet name → chart dict key
+_PLANET_SIGN_KEY: Dict[str, str] = {
+    "Sun":     "sun_sign",     "Moon":    "moon_sign",
+    "Mercury": "mercury_sign", "Venus":   "venus_sign",
+    "Mars":    "mars_sign",    "Jupiter": "jupiter_sign",
+    "Saturn":  "saturn_sign",  "Uranus":  "uranus_sign",
+    "Neptune": "neptune_sign", "Pluto":   "pluto_sign",
+}
+
+
+def find_dispositor_chain(western_chart: dict, start_planet: str) -> dict:
+    """Trace the dispositor chain from start_planet until a termination condition.
+
+    Termination conditions:
+      1. Final Dispositor — planet falls in a sign it rules (self-ruling).
+      2. Mutual Reception — planet A is in a sign ruled by B, and B is in a sign ruled by A.
+      3. Mixed Loop       — visited set grows to 3 unique planets with no resolution.
+      4. Incomplete       — a required sign is missing from the chart (e.g. Tier 3 Moon).
+
+    Returns:
+      {
+        "chain": List[str],            # planets visited in order (includes MR partner)
+        "final_dispositor": str|None,  # set when status == "final_dispositor"
+        "mutual_reception": List[str], # [A, B] when status == "mutual_reception"
+        "status": str,                 # one of the four termination states above
+      }
+    """
+    chain: List[str] = []
+    visited: set = set()
+    current = start_planet
+
+    while True:
+        sign_key = _PLANET_SIGN_KEY.get(current)
+        if sign_key is None:
+            return {"chain": chain, "final_dispositor": None,
+                    "mutual_reception": [], "status": "incomplete"}
+
+        current_sign = western_chart.get(sign_key)
+        if not current_sign:
+            return {"chain": chain, "final_dispositor": None,
+                    "mutual_reception": [], "status": "incomplete"}
+
+        sign_lower = current_sign.lower()
+        chain.append(current)
+
+        ruler = MODERN_RULERSHIPS.get(sign_lower)
+        if ruler is None:
+            return {"chain": chain, "final_dispositor": None,
+                    "mutual_reception": [], "status": "incomplete"}
+
+        # Termination 1: Final Dispositor (self-rules)
+        if ruler == current:
+            return {"chain": chain, "final_dispositor": current,
+                    "mutual_reception": [], "status": "final_dispositor"}
+
+        # Termination 2: Mutual Reception
+        ruler_sign_key = _PLANET_SIGN_KEY.get(ruler)
+        if ruler_sign_key:
+            ruler_sign = western_chart.get(ruler_sign_key, "")
+            if ruler_sign:
+                back_ruler = MODERN_RULERSHIPS.get(ruler_sign.lower(), "")
+                if back_ruler == current:
+                    chain.append(ruler)
+                    return {"chain": chain, "final_dispositor": None,
+                            "mutual_reception": [current, ruler],
+                            "status": "mutual_reception"}
+
+        # Termination 3: Loop guard (max 3 unique planets before giving up)
+        if ruler in visited or len(visited) >= 3:
+            return {"chain": chain, "final_dispositor": None,
+                    "mutual_reception": [], "status": "mixed_loop"}
+
+        visited.add(current)
+        current = ruler
 

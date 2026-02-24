@@ -266,3 +266,69 @@ class TestEssentialDignities:
 
     def test_moon_in_cancer_is_dignity(self):
         assert evaluate_planet_dignity("Moon", "cancer") == "Dignity"
+
+
+from psychology import MODERN_RULERSHIPS, find_dispositor_chain
+
+
+class TestDispositorChain:
+    def _chart(self, **signs):
+        """Build a minimal western_chart with {planet}_sign keys."""
+        return {f"{k}_sign": v for k, v in signs.items()}
+
+    def test_rulerships_has_all_12_signs(self):
+        expected = {
+            "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+            "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces"
+        }
+        assert set(MODERN_RULERSHIPS.keys()) == expected
+
+    def test_final_dispositor_self_ruling(self):
+        """Venus in Taurus → Venus rules Taurus → Final Dispositor = Venus."""
+        chart = self._chart(venus="taurus")
+        result = find_dispositor_chain(chart, "Venus")
+        assert result["status"] == "final_dispositor"
+        assert result["final_dispositor"] == "Venus"
+        assert "Venus" in result["chain"]
+
+    def test_final_dispositor_moon_in_cancer(self):
+        """Moon in Cancer → self-rules → Final Dispositor = Moon."""
+        chart = self._chart(moon="cancer")
+        result = find_dispositor_chain(chart, "Moon")
+        assert result["status"] == "final_dispositor"
+        assert result["final_dispositor"] == "Moon"
+
+    def test_mutual_reception_venus_mars(self):
+        """Venus in Aries (ruled by Mars) + Mars in Taurus (ruled by Venus) → MR."""
+        chart = self._chart(venus="aries", mars="taurus")
+        result = find_dispositor_chain(chart, "Venus")
+        assert result["status"] == "mutual_reception"
+        assert set(result["mutual_reception"]) == {"Venus", "Mars"}
+
+    def test_mutual_reception_bidirectional(self):
+        """Same chart — starting from Mars should also detect the MR."""
+        chart = self._chart(venus="aries", mars="taurus")
+        result = find_dispositor_chain(chart, "Mars")
+        assert result["status"] == "mutual_reception"
+        assert set(result["mutual_reception"]) == {"Venus", "Mars"}
+
+    def test_mixed_loop_terminates(self):
+        """3+ planets with no resolution → mixed_loop, no infinite loop."""
+        # Sun in Capricorn → Saturn; Saturn in Aries → Mars; Mars in Libra → Venus...
+        chart = self._chart(sun="capricorn", saturn="aries", mars="libra", venus="gemini")
+        result = find_dispositor_chain(chart, "Sun")
+        assert result["status"] == "mixed_loop"
+
+    def test_incomplete_when_sign_missing(self):
+        """Moon sign is None (Tier 3) → incomplete immediately."""
+        chart = {}  # no moon_sign key
+        result = find_dispositor_chain(chart, "Moon")
+        assert result["status"] == "incomplete"
+
+    def test_chain_records_path(self):
+        """Chain list should record all visited planets in order."""
+        # Sun in Leo → Sun rules Leo → Final Dispositor immediately
+        chart = self._chart(sun="leo")
+        result = find_dispositor_chain(chart, "Sun")
+        assert result["chain"][0] == "Sun"
+        assert result["status"] == "final_dispositor"
