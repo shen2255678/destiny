@@ -227,3 +227,42 @@ def test_karmic_axis_empty_chart():
     """Empty chart returns no tags."""
     tags = extract_karmic_axis({})
     assert tags == []
+
+
+# ── Essential Dignities ───────────────────────────────────────────────────────
+
+from psychology import ESSENTIAL_DIGNITIES, evaluate_planet_dignity
+
+
+class TestEssentialDignities:
+    def test_all_four_planets_present(self):
+        for p in ("Sun", "Moon", "Venus", "Mars"):
+            assert p in ESSENTIAL_DIGNITIES
+
+    def test_venus_in_scorpio_is_detriment(self):
+        assert evaluate_planet_dignity("Venus", "scorpio") == "Detriment"
+
+    def test_mars_in_capricorn_is_exaltation(self):
+        assert evaluate_planet_dignity("Mars", "capricorn") == "Exaltation"
+
+    def test_moon_in_taurus_is_exaltation(self):
+        assert evaluate_planet_dignity("Moon", "taurus") == "Exaltation"
+
+    def test_sun_in_aquarius_is_detriment(self):
+        assert evaluate_planet_dignity("Sun", "aquarius") == "Detriment"
+
+    def test_venus_in_libra_is_dignity(self):
+        assert evaluate_planet_dignity("Venus", "libra") == "Dignity"
+
+    def test_unknown_planet_is_peregrine(self):
+        assert evaluate_planet_dignity("Jupiter", "aries") == "Peregrine"
+
+    def test_unknown_sign_is_peregrine(self):
+        assert evaluate_planet_dignity("Sun", "unknown") == "Peregrine"
+
+    def test_title_case_sign_accepted(self):
+        """Sign can be "Scorpio" or "scorpio" — both should work."""
+        assert evaluate_planet_dignity("Venus", "Scorpio") == "Detriment"
+
+    def test_moon_in_cancer_is_dignity(self):
+        assert evaluate_planet_dignity("Moon", "cancer") == "Dignity"

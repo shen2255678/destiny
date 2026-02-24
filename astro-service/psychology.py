@@ -349,3 +349,36 @@ def extract_karmic_axis(chart: Dict[str, Any]) -> List[str]:
 
     return tags
 
+
+# ---------------------------------------------------------------------------
+# Essential Dignities (V3 Classical Astrology)
+# ---------------------------------------------------------------------------
+
+ESSENTIAL_DIGNITIES: Dict[str, Dict[str, List[str]]] = {
+    "Sun":   {"Dignity": ["leo"],               "Exaltation": ["aries"],
+              "Detriment": ["aquarius"],         "Fall": ["libra"]},
+    "Moon":  {"Dignity": ["cancer"],            "Exaltation": ["taurus"],
+              "Detriment": ["capricorn"],        "Fall": ["scorpio"]},
+    "Venus": {"Dignity": ["taurus", "libra"],   "Exaltation": ["pisces"],
+              "Detriment": ["scorpio", "aries"], "Fall": ["virgo"]},
+    "Mars":  {"Dignity": ["aries", "scorpio"],  "Exaltation": ["capricorn"],
+              "Detriment": ["libra", "taurus"],  "Fall": ["cancer"]},
+}
+
+
+def evaluate_planet_dignity(planet_name: str, sign_name: str) -> str:
+    """Return the essential dignity state of a planet in a sign.
+
+    Returns: "Dignity" | "Exaltation" | "Detriment" | "Fall" | "Peregrine"
+    Unknown planet or sign -> "Peregrine" (never crashes).
+    sign_name accepts lowercase ("scorpio") or title-case ("Scorpio").
+    """
+    planet_data = ESSENTIAL_DIGNITIES.get(planet_name)
+    if not planet_data:
+        return "Peregrine"
+    sign_lower = sign_name.lower() if sign_name else ""
+    for state, signs in planet_data.items():
+        if sign_lower in signs:
+            return state
+    return "Peregrine"
+
