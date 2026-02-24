@@ -76,6 +76,7 @@ def test_mutual_shadow_double_bonus():
     result = compute_shadow_and_wound(a, b)
     assert "Mutual_Shadow_Integration" in result["shadow_tags"]
     assert result["soul_mod"] >= 80.0   # 20 + 20 + 40
+    assert result["partner_mod"] == pytest.approx(-40.0)
 
 
 def test_chiron_b_triggers_a_wound():
@@ -97,6 +98,7 @@ def test_b_illuminates_a_shadow():
     assert "B_Illuminates_A_Shadow" in result["shadow_tags"]
     assert result["high_voltage"] is True
     assert result["soul_mod"] >= 20.0
+    assert result["partner_mod"] == pytest.approx(-10.0)
 
 
 # ── New tests: expanded Chiron triggers (all personal planets) ────────────────
@@ -110,6 +112,7 @@ def test_a_sun_triggers_b_chiron_conjunction():
     assert result["soul_mod"] == pytest.approx(15.0)
     assert result["lust_mod"] == pytest.approx(0.0)
     assert result["high_voltage"] is True
+    assert result["partner_mod"] == pytest.approx(-10.0)
 
 
 def test_a_venus_triggers_b_chiron_conjunction():
@@ -121,6 +124,7 @@ def test_a_venus_triggers_b_chiron_conjunction():
     assert result["soul_mod"] == pytest.approx(15.0)
     assert result["lust_mod"] == pytest.approx(0.0)
     assert result["high_voltage"] is True
+    assert result["partner_mod"] == pytest.approx(-10.0)
 
 
 def test_a_mars_triggers_b_chiron_adds_lust_mod():
@@ -132,6 +136,7 @@ def test_a_mars_triggers_b_chiron_adds_lust_mod():
     assert result["soul_mod"] == pytest.approx(15.0)
     assert result["lust_mod"] == pytest.approx(10.0)
     assert result["high_voltage"] is True
+    assert result["partner_mod"] == pytest.approx(-15.0)
 
 
 def test_a_moon_triggers_b_chiron_no_lust_mod():
@@ -142,6 +147,7 @@ def test_a_moon_triggers_b_chiron_no_lust_mod():
     assert "A_Moon_Triggers_B_Chiron" in result["shadow_tags"]
     assert result["soul_mod"] == pytest.approx(15.0)
     assert result["lust_mod"] == pytest.approx(0.0)
+    assert result["partner_mod"] == pytest.approx(-10.0)
 
 
 def test_opposition_within_5deg_triggers():
@@ -791,6 +797,7 @@ class TestJungianShiftPartnerMod:
 
     def test_mutual_shadow_partner_mod(self):
         """Both-directional 12th overlay → partner_mod == -10 + -10 + -20 == -40."""
+        # A's sun at 200° is in B's 12th (193→223); B's sun at 195° is in A's 12th (188→218)
         a = {"sun_degree": 200.0, "house12_degree": 188.0, "ascendant_degree": 218.0}
         b = {"sun_degree": 195.0, "house12_degree": 193.0, "ascendant_degree": 223.0}
         r = compute_shadow_and_wound(a, b)
