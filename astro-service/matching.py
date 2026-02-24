@@ -1252,6 +1252,11 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
 
     # ── Karmic Tension Index (0-100) ──────────────────────────────────────────
     # 痛感（partner_mod）佔最大視覺比重；情慾執念次之；靈魂羈絆為隱性張力
+    # DESIGN DECISION: reads _shadow (astro/karmic layer) only — intentionally
+    # excludes attachment dynamics (_att) and elemental fulfillment (_ep).
+    # Rationale: karmic_tension measures fated friction encoded in birth charts,
+    # not psychological attachment patterns which are captured in psychological_tags.
+    # If _shadow fell back to {} (engine error), karmic_tension = 0.0 (safe default).
     raw_tension = (
         abs(_shadow.get("partner_mod", 0.0)) * 1.5 +
         abs(_shadow.get("lust_mod",    0.0)) * 1.0 +
