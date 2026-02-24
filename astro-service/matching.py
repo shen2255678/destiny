@@ -591,8 +591,8 @@ def compute_lust_score(user_a: dict, user_b: dict) -> float:
     Power:  RPV dynamic (soft-capped) × WEIGHTS["lust_power"]  (0.30)
             Diminishing returns above lust_power_plateau (0.75): slope = 0.60.
 
-    Multipliers (applied after base_score):
-      × WEIGHTS["lust_bazi_restrict_mult"] (1.25) when BaZi elements clash.
+    Additive boosts (applied after base_score, diminishing-returns):
+      + (1 - base) × 0.25 when BaZi elements clash (Sprint 2; never exceeds 1.0).
       × WEIGHTS["lust_attachment_aa_mult"] (1.15) when anxious × avoidant pair (L-11).
     Terms 1-4 fall back to sign-level aspect when exact degrees unavailable.
     House 8 signals (terms 5-6) require exact degrees and are omitted when absent.
@@ -722,7 +722,9 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
       attachment × 0.20  — when questionnaire filled
       sun_moon   × 0.20  — Sun-Moon cross-aspect (always present)
 
-    Multiplier: × 1.2 if bazi elements are in a generation relationship.
+    Additive bonuses (diminishing-returns, Sprint 2):
+      + (1 - base) × 0.30 when BaZi elements are in a generation relationship (相生).
+      + (1 - base) × 0.15 when BaZi elements are same (比和).
     """
     score = 0.0
     total_weight = 0.0
