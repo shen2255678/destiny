@@ -7,6 +7,7 @@ for the recommendation system's first-pass DB filtering.
 
 Five-layer extraction:
   Rule 1: Western Astrology — DSC, Venus, Mars, natal hard aspects
+  Rule 1.5: Classical Astrology (V3) — dignity states, dispositor chain, natal mutual reception
   Rule 2: BaZi (八字)        — Day Master complement + Day Branch 偏印
   Rule 3: ZWDS (紫微斗數)    — Spouse palace stars, sha-stars, empty palace
   Rule 4: Ten Gods (十神)    — psychological needs from bazi ten gods
@@ -23,7 +24,6 @@ from bazi import GENERATION_CYCLE, compute_ten_gods, evaluate_day_master_strengt
 from psychology import (
     evaluate_planet_dignity,
     find_dispositor_chain,
-    MODERN_RULERSHIPS,
 )
 
 # ── Sign helpers ─────────────────────────────────────────────────────────────
