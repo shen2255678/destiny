@@ -444,6 +444,7 @@ class TestClassicalAstrologyLayer:
         """Completely empty western_chart → no crash, returns valid dict."""
         res = extract_ideal_partner_profile({}, {}, {})
         assert "relationship_dynamic" in res
+        assert "psychological_needs" in res
 
 
 # ═════════════════════════════════════════════════════════════════════════════
