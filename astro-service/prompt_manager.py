@@ -312,6 +312,26 @@ _ATT_TRAPS = {
     "Healing_Anchor", "Chaotic_Oscillation", "Safe_Haven",
 }
 
+_PSYCHOLOGICAL_TRIGGERS_GUIDE = """\
+【深層心理動態轉譯指南（專供 LLM 參考，禁止直接輸出給用戶）】
+當你收到 psychological_triggers 中的標籤時，強制啟動以下解讀劇本，寫入 shadow 或 reality_check：
+
+1. [attachment_trap: anxious_avoidant]（焦慮與逃避陷阱）
+   解讀方向：這是一場「追與逃」的虐心遊戲。一方的忽冷忽熱徹底激發另一方的遺棄焦慮，
+   導致越追越緊，另一方越逃越遠。
+   關鍵字：窒息感、邊界感入侵、安全感黑洞。
+
+2. [intimacy_fear: soul_runner]（親密恐懼／靈魂逃兵）
+   觸發條件：通常伴隨極高的靈魂共振與高壓張力。
+   解讀方向：因為對方太懂你、靈魂共振太強烈，反而激發「怕被完全看穿、怕受傷而失去自我」
+   的巨大恐懼，讓人想逃回「安全但不那麼愛」的關係裡。
+   關鍵字：赤裸感、靈魂的照妖鏡、防禦性撤退。
+
+3. [attachment_healing: secure_base]（安全感重塑／治癒）
+   解讀方向：其中一方的溫暖與包容（木星/金星/安全型能量），奇蹟般地撫平了另一方原本的
+   焦慮或逃避，讓關係走向安全型依戀。
+   關鍵字：承接、卸下防備、安穩的著陸。"""
+
 _MATCH_ARCHETYPE_SCHEMA = """\
 請只回傳以下 JSON，不要包含任何其他文字或 markdown：
 {
@@ -364,6 +384,7 @@ def get_match_report_prompt(
     power  = match_data.get("power", {})
     zwds   = match_data.get("zwds") or {}
     psych_tags   = match_data.get("psychological_tags", [])
+    psy_triggers = match_data.get("psychological_triggers", [])
     high_voltage = match_data.get("high_voltage", False)
     ep_a = match_data.get("element_profile_a")
     ep_b = match_data.get("element_profile_b")
@@ -449,10 +470,12 @@ ChemistryScore（靈魂共鳴深度）: {round(match_data.get('soul_score', 0), 
 框架崩潰 (理智斷線): {power.get('frame_break', False)}
 高壓警告 (修羅場/禁忌感): {high_voltage}
 紫微斗數烈度: {zwds.get('spiciness_level', 'N/A')}
+動態心理觸發器（極重要）: {', '.join(psy_triggers) if psy_triggers else '無特殊心理陷阱'}
 
 【心理與業力分析結果（請將以下標籤轉譯為白話情境，禁止直接輸出原始英文標籤）】
 {_translate_psych_tags(psych_tags)}{elem_context}
 {profile_block}{writing_rules_block}
+{_PSYCHOLOGICAL_TRIGGERS_GUIDE if psy_triggers else ''}
 {_MATCH_ARCHETYPE_SCHEMA}"""
 
     return prompt, effective_mode

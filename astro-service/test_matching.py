@@ -3156,3 +3156,60 @@ class TestSynastryMutualReception:
         b = _wc(moon="leo")     # no sun
         result = check_synastry_mutual_reception(a, b)
         assert isinstance(result, list)
+
+
+# ── compute_match_v2: psychological_triggers ─────────────────────────────────
+
+class TestPsychologicalTriggers:
+    """compute_match_v2 must populate psychological_triggers correctly."""
+
+    def _base(self, attachment_a=None, attachment_b=None):
+        """Minimal chart dict for compute_match_v2."""
+        u = {
+            "sun_sign": "aries", "moon_sign": "taurus",
+            "venus_sign": "gemini", "mars_sign": "cancer",
+            "ascendant_sign": "leo",
+            "birth_year": 1995, "birth_month": 3, "birth_day": 26,
+            "birth_time": "14:30",
+        }
+        a = dict(u, gender="M")
+        b = dict(u, gender="F")
+        if attachment_a:
+            a["attachment_style"] = attachment_a
+        if attachment_b:
+            b["attachment_style"] = attachment_b
+        return a, b
+
+    def test_no_triggers_by_default(self):
+        """No attachment styles + moderate scores → empty psychological_triggers."""
+        from matching import compute_match_v2
+        a, b = self._base()
+        result = compute_match_v2(a, b)
+        assert "psychological_triggers" in result
+        # Without anxious/avoidant pair or extreme soul+HV, list is empty
+        triggers = result["psychological_triggers"]
+        assert isinstance(triggers, list)
+        # No attachment styles set → attachment_trap trigger absent
+        assert "attachment_trap: anxious_avoidant" not in triggers
+
+    def test_anxious_avoidant_adds_attachment_trap_trigger(self):
+        """anxious + avoidant attachment pair → attachment_trap: anxious_avoidant trigger."""
+        from matching import compute_match_v2
+        a, b = self._base(attachment_a="anxious", attachment_b="avoidant")
+        result = compute_match_v2(a, b)
+        assert "attachment_trap: anxious_avoidant" in result["psychological_triggers"]
+
+    def test_healing_anchor_adds_healing_trigger(self):
+        """secure + anxious pair → attachment_healing: secure_base trigger."""
+        from matching import compute_match_v2
+        a, b = self._base(attachment_a="secure", attachment_b="anxious")
+        result = compute_match_v2(a, b)
+        assert "attachment_healing: secure_base" in result["psychological_triggers"]
+
+    def test_triggers_list_in_return_dict(self):
+        """psychological_triggers key is always present in compute_match_v2 output."""
+        from matching import compute_match_v2
+        a, b = self._base()
+        result = compute_match_v2(a, b)
+        assert "psychological_triggers" in result
+        assert isinstance(result["psychological_triggers"], list)

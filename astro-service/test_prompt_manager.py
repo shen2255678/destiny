@@ -261,3 +261,52 @@ def test_trap_tag_injected_from_psych_tags():
     prompt, _ = get_match_report_prompt(data, user_a_profile=prof_a, user_b_profile=prof_b)
     assert "合盤依戀陷阱觸發" in prompt
     assert "Anxious_Avoidant_Trap" in prompt
+
+
+# ── psychological_triggers injection ─────────────────────────────────────────
+
+def test_triggers_appear_in_data_section():
+    """psychological_triggers list is injected into the data section of the prompt."""
+    data = _match_data()
+    data["psychological_triggers"] = ["attachment_trap: anxious_avoidant"]
+    prompt, _ = get_match_report_prompt(data)
+    assert "attachment_trap: anxious_avoidant" in prompt
+
+
+def test_no_triggers_shows_fallback():
+    """When psychological_triggers is empty, fallback text '無特殊心理陷阱' appears."""
+    data = _match_data()
+    data["psychological_triggers"] = []
+    prompt, _ = get_match_report_prompt(data)
+    assert "無特殊心理陷阱" in prompt
+
+
+def test_guide_block_present_when_triggers_exist():
+    """深層心理動態轉譯指南 guide is injected only when triggers exist."""
+    data = _match_data()
+    data["psychological_triggers"] = ["intimacy_fear: soul_runner"]
+    prompt, _ = get_match_report_prompt(data)
+    assert "深層心理動態轉譯指南" in prompt
+    assert "soul_runner" in prompt
+
+
+def test_guide_block_absent_when_no_triggers():
+    """深層心理動態轉譯指南 guide is NOT injected when trigger list is empty."""
+    data = _match_data()
+    data["psychological_triggers"] = []
+    prompt, _ = get_match_report_prompt(data)
+    assert "深層心理動態轉譯指南" not in prompt
+
+
+def test_multiple_triggers_all_appear():
+    """All three trigger types are injected when present."""
+    data = _match_data()
+    data["psychological_triggers"] = [
+        "attachment_trap: anxious_avoidant",
+        "intimacy_fear: soul_runner",
+        "attachment_healing: secure_base",
+    ]
+    prompt, _ = get_match_report_prompt(data)
+    assert "attachment_trap: anxious_avoidant" in prompt
+    assert "intimacy_fear: soul_runner" in prompt
+    assert "attachment_healing: secure_base" in prompt

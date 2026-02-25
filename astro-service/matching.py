@@ -1407,6 +1407,23 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     # Synastry MR badges (V3 Classical Astrology)
     resonance_badges.extend(_synastry_mr_badges)
 
+    # ── Dynamic Psychological Triggers ────────────────────────────────────────
+    # Surface high-signal psychological dynamics as named triggers so the LLM
+    # can apply targeted decoding scripts instead of guessing from raw scores.
+    psychological_triggers: List[str] = []
+
+    # 1. Attachment-trap: classic anxious-avoidant chase-and-flee loop
+    if "Anxious_Avoidant_Trap" in psychological_tags:
+        psychological_triggers.append("attachment_trap: anxious_avoidant")
+
+    # 2. Intimacy fear / soul runner — soul resonance so intense it triggers flight
+    if soul >= 80 and high_voltage:
+        psychological_triggers.append("intimacy_fear: soul_runner")
+
+    # 3. Healing anchor — one secure person softens the other's attachment wound
+    if "Healing_Anchor" in psychological_tags:
+        psychological_triggers.append("attachment_healing: secure_base")
+
     primary_track = max(tracks, key=lambda k: tracks[k])
     quadrant      = classify_quadrant(lust, soul)
     label         = TRACK_LABELS.get(primary_track, primary_track)
@@ -1440,8 +1457,9 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         "useful_god_complement":   round(useful_god_complement, 2),
         "zwds":                    zwds_result,
         "spiciness_level":         spiciness,
-        "psychological_tags":  psychological_tags,
-        "high_voltage":        high_voltage,
+        "psychological_tags":      psychological_tags,
+        "psychological_triggers":  psychological_triggers,
+        "high_voltage":            high_voltage,
         "defense_mechanisms": {
             "viewer": zwds_result["defense_a"] if zwds_result else [],
             "target": zwds_result["defense_b"] if zwds_result else [],
