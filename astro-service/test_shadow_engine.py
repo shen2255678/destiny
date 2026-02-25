@@ -813,3 +813,22 @@ class TestJungianShiftPartnerMod:
         r = compute_shadow_and_wound(a, b)
         assert "A_Venus_Conjunct_Lilith" in r["shadow_tags"]
         assert r["partner_mod"] == pytest.approx(-10.0)
+
+
+# ── compute_attachment_dynamics: fearful-avoidant alias ──────────────────────
+
+def test_fearful_avoidant_alias_gives_chaotic_oscillation():
+    """'fearful-avoidant' must be aliased to 'fearful' → Chaotic_Oscillation."""
+    from shadow_engine import compute_attachment_dynamics
+    r = compute_attachment_dynamics("fearful-avoidant", "anxious")
+    assert r["trap_tag"] == "Chaotic_Oscillation"
+    assert r["high_voltage"] is True
+
+
+def test_fearful_avoidant_same_as_fearful():
+    """'fearful-avoidant' and 'fearful' must produce identical results."""
+    from shadow_engine import compute_attachment_dynamics
+    r_hyphen = compute_attachment_dynamics("fearful-avoidant", "avoidant")
+    r_direct = compute_attachment_dynamics("fearful", "avoidant")
+    assert r_hyphen["trap_tag"] == r_direct["trap_tag"]
+    assert r_hyphen["high_voltage"] == r_direct["high_voltage"]

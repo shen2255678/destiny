@@ -328,7 +328,7 @@ def compute_dynamic_attachment(base_att_a, base_att_b, chart_a, chart_b):
 
 
 def compute_attachment_dynamics(att_a, att_b):
-    _alias = {"disorganized": "fearful"}
+    _alias = {"disorganized": "fearful", "fearful-avoidant": "fearful"}
     a = _alias.get((att_a or "secure").lower(), (att_a or "secure").lower())
     b = _alias.get((att_b or "secure").lower(), (att_b or "secure").lower())
     pair = tuple(sorted([a, b]))

@@ -3213,3 +3213,37 @@ class TestPsychologicalTriggers:
         result = compute_match_v2(a, b)
         assert "psychological_triggers" in result
         assert isinstance(result["psychological_triggers"], list)
+
+
+# ── compute_match_v2: element_profile_a/b surface ────────────────────────────
+
+class TestElementProfileSurface:
+    """element_profile_a / element_profile_b must appear in compute_match_v2 output."""
+
+    def _user(self, ep=None):
+        u = {
+            "sun_sign": "aries", "moon_sign": "taurus",
+            "venus_sign": "gemini", "mars_sign": "cancer",
+            "ascendant_sign": "leo",
+            "birth_year": 1995, "birth_month": 3, "birth_day": 26,
+            "birth_time": "14:30", "gender": "M",
+        }
+        if ep is not None:
+            u["element_profile"] = ep
+        return u
+
+    def test_element_profiles_surfaced_when_present(self):
+        """element_profile from user dicts must appear in compute_match_v2 output."""
+        from matching import compute_match_v2
+        ep_a = {"dominant": ["fire"], "deficiency": ["water"]}
+        ep_b = {"dominant": ["air"],  "deficiency": ["earth"]}
+        result = compute_match_v2(self._user(ep_a), self._user(ep_b))
+        assert result.get("element_profile_a") == ep_a
+        assert result.get("element_profile_b") == ep_b
+
+    def test_element_profiles_none_when_absent(self):
+        """When user has no element_profile, key is present but value is None."""
+        from matching import compute_match_v2
+        result = compute_match_v2(self._user(), self._user())
+        assert "element_profile_a" in result
+        assert result["element_profile_a"] is None

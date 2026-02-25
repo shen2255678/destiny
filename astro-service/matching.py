@@ -1460,9 +1460,11 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         "psychological_tags":      psychological_tags,
         "psychological_triggers":  psychological_triggers,
         "high_voltage":            high_voltage,
+        "element_profile_a":       user_a.get("element_profile"),
+        "element_profile_b":       user_b.get("element_profile"),
         "defense_mechanisms": {
-            "viewer": zwds_result["defense_a"] if zwds_result else [],
-            "target": zwds_result["defense_b"] if zwds_result else [],
+            "viewer": zwds_result.get("defense_a", []) if zwds_result else [],
+            "target": zwds_result.get("defense_b", []) if zwds_result else [],
         },
         "layered_analysis":        zwds_result.get("layered_analysis", {}) if zwds_result else {},
     }
