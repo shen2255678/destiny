@@ -250,3 +250,14 @@ def test_no_profile_block_when_absent():
     """When no profiles passed, the 雙方心理結構 block must not appear."""
     prompt, _ = get_match_report_prompt(_match_data())
     assert "雙方心理結構" not in prompt
+
+
+def test_trap_tag_injected_from_psych_tags():
+    """Attachment trap tag from psychological_tags appears in profile block."""
+    data = _match_data()
+    data["psychological_tags"] = ["Anxious_Avoidant_Trap"]
+    prof_a = {"psychological_needs": [], "relationship_dynamic": "stable", "attachment_style": "anxious"}
+    prof_b = {"psychological_needs": [], "relationship_dynamic": "stable", "attachment_style": "avoidant"}
+    prompt, _ = get_match_report_prompt(data, user_a_profile=prof_a, user_b_profile=prof_b)
+    assert "合盤依戀陷阱觸發" in prompt
+    assert "Anxious_Avoidant_Trap" in prompt
