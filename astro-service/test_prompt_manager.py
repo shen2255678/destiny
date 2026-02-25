@@ -10,7 +10,7 @@ Tests cover:
 """
 import pytest
 
-from prompt_manager import get_ideal_match_prompt
+from prompt_manager import get_ideal_match_prompt, get_match_report_prompt, _MATCH_ARCHETYPE_SCHEMA
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -163,3 +163,22 @@ class TestPolarizingValueConflictPrompt:
         prompt = get_ideal_match_prompt(chart)
         assert "價值觀衝突" in prompt or "普世皆準" in prompt, \
             "Prompt should instruct LLM to use polarizing value conflict framing for toxic_trap"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Task 1: _MATCH_ARCHETYPE_SCHEMA — no UI markup, anti-Barnum formula
+# ═════════════════════════════════════════════════════════════════════════════
+
+def test_schema_has_no_ui_markup():
+    """JSON schema must not contain emoji or numbered list prefixes."""
+    assert "❌" not in _MATCH_ARCHETYPE_SCHEMA
+    assert "👉" not in _MATCH_ARCHETYPE_SCHEMA
+    assert "一、" not in _MATCH_ARCHETYPE_SCHEMA
+    assert "二、" not in _MATCH_ARCHETYPE_SCHEMA
+    assert "五、" not in _MATCH_ARCHETYPE_SCHEMA
+
+
+def test_schema_has_anti_barnum_formula():
+    """reality_check description must reference the A撞B collision formula."""
+    assert "User A" in _MATCH_ARCHETYPE_SCHEMA
+    assert "User B" in _MATCH_ARCHETYPE_SCHEMA
