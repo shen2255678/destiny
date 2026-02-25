@@ -406,7 +406,7 @@ def get_match_report_prompt(
 
         # Also extract attachment trap_tag from psychological_tags if present
         trap_tag = next(
-            (t for t in psych_tags if any(trap in t for trap in _ATT_TRAPS)),
+            (t for t in psych_tags if t in _ATT_TRAPS),
             None,
         )
         trap_line = f"\n合盤依戀陷阱觸發：{trap_tag}" if trap_tag else ""
@@ -824,7 +824,7 @@ def build_synastry_report_prompt(
         b_att_zh = _ATTACHMENT_ZH.get(b_att.lower(), b_att) if b_att else "（未提供）"
 
         trap_tag = next(
-            (t for t in psych_tags if any(trap in t for trap in _ATT_TRAPS)),
+            (t for t in psych_tags if t in _ATT_TRAPS),
             None,
         )
         trap_line = f"\n合盤依戀陷阱觸發：{trap_tag}" if trap_tag else ""

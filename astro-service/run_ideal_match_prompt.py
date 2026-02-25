@@ -175,10 +175,22 @@ def build_synastry_prompt(
     # Compute individual profiles locally (no DB required for CLI)
     prof_a: dict = {}
     prof_b: dict = {}
+    # Build complete western chart dicts that include natal_aspects so that
+    # extract_ideal_partner_profile can use aspect data (Fix: natal_aspects
+    # was previously silently dropped because the filtered planets sub-dict
+    # only contained keys with _sign / _degree / _rx).
+    western_a = {
+        **full_report_a.get("western_astrology", {}).get("planets", {}),
+        "natal_aspects": full_report_a.get("western_astrology", {}).get("aspects", []),
+    }
+    western_b = {
+        **full_report_b.get("western_astrology", {}).get("planets", {}),
+        "natal_aspects": full_report_b.get("western_astrology", {}).get("aspects", []),
+    }
     if _HAS_IDEAL_AVATAR:
         try:
             prof_a = extract_ideal_partner_profile(
-                full_report_a.get("western_astrology", {}).get("planets", {}),
+                western_a,
                 full_report_a.get("bazi", {}),
                 full_report_a.get("zwds", {}),
             )
@@ -186,7 +198,7 @@ def build_synastry_prompt(
             pass
         try:
             prof_b = extract_ideal_partner_profile(
-                full_report_b.get("western_astrology", {}).get("planets", {}),
+                western_b,
                 full_report_b.get("bazi", {}),
                 full_report_b.get("zwds", {}),
             )

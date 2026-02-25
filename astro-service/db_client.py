@@ -80,6 +80,7 @@ def upsert_psychology_profile(user_id: str, profile: dict) -> None:
         "relationship_dynamic", "psychological_needs",
         "favorable_elements", "dominant_elements",
         "karmic_boss", "llm_natal_report",
+        "attachment_style",
     ]:
         if field in profile:
             row[field] = profile[field]
