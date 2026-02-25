@@ -73,6 +73,18 @@ def build_natal_report(birth_date: str, birth_time: str, gender: str,
         "data_tier": 1,
     })
 
+    # Fallback: 若服務版本較舊未回傳 house7_sign，從上升星座推算對宮（下降 = 上升對面）
+    if not chart.get("house7_sign") and chart.get("ascendant_sign"):
+        _OPPOSITE = {
+            "aries": "libra",   "libra": "aries",
+            "taurus": "scorpio", "scorpio": "taurus",
+            "gemini": "sagittarius", "sagittarius": "gemini",
+            "cancer": "capricorn",   "capricorn": "cancer",
+            "leo": "aquarius",  "aquarius": "leo",
+            "virgo": "pisces",  "pisces": "virgo",
+        }
+        chart["house7_sign"] = _OPPOSITE.get(chart["ascendant_sign"].lower())
+
     # 紫微斗數
     zwds = call_api("/compute-zwds-chart", {
         "birth_year": y, "birth_month": m, "birth_day": d,
