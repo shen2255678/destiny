@@ -2,7 +2,7 @@
 DESTINY — LLM Prompt Manager
 Assembles DESTINY-worldview-enriched prompts for AI report generation.
 
-Four public functions:
+Five public functions:
   get_match_report_prompt(match_data, mode, person_a, person_b)
       → (prompt: str, effective_mode: str)
       Used by /generate-archetype and /generate-match-report
@@ -18,6 +18,10 @@ Four public functions:
   get_ideal_match_prompt(chart_data)
       → prompt: str
       Used by /generate-ideal-match (Tab C, ideal partner profile)
+
+  build_synastry_report_prompt(raw_match_data)
+      → prompt: str
+      Used by /api/matches/compute (DTO pipeline, 150-char synastry report)
 """
 
 from __future__ import annotations
@@ -178,10 +182,11 @@ _PSYCH_TAG_ZH: dict[str, str] = {
 }
 
 _ELEMENT_ZH = {
-    "Fire":  "火（衝勁/野心）",
-    "Earth": "土（安全感/落地）",
-    "Air":   "風（思維/溝通）",
-    "Water": "水（情感/直覺）",
+    # 支援大小寫（API 回傳小寫，舊版用大寫）
+    "fire":  "火（衝勁/野心）",  "Fire":  "火（衝勁/野心）",
+    "earth": "土（安全感/落地）", "Earth": "土（安全感/落地）",
+    "air":   "風（思維/溝通）",  "Air":   "風（思維/溝通）",
+    "water": "水（情感/直覺）", "Water": "水（情感/直覺）",
 }
 
 
@@ -213,12 +218,13 @@ def _element_summary(ep: dict | None) -> str:
 def _profile_context(deficiency: list, dominant: list, sm_tags: list) -> str:
     """Build additional character context hints for the profile prompt."""
     hints: list[str] = []
+    # 小寫/大寫全支援（API 回傳小寫）
     if deficiency:
         elem_hints = {
-            "Fire":  "壓抑自己的野心與衝勁，不敢爭取",
-            "Earth": "缺乏安全感，很難完全放鬆",
-            "Air":   "在表達思想時有障礙或過度分析",
-            "Water": "迴避深層情感，難以完全敞開",
+            "fire":  "壓抑自己的野心與衝勁，不敢爭取",   "Fire":  "壓抑自己的野心與衝勁，不敢爭取",
+            "earth": "缺乏安全感，很難完全放鬆",  "Earth": "缺乏安全感，很難完全放鬆",
+            "air":   "在表達思想時有障礎或過度分析", "Air":   "在表達思想時有障礎或過度分析",
+            "water": "迢避深層情感，難以完全敬開",  "Water": "迢避深層情感，難以完全敬開",
         }
         for e in deficiency:
             h = elem_hints.get(e)
@@ -226,10 +232,10 @@ def _profile_context(deficiency: list, dominant: list, sm_tags: list) -> str:
                 hints.append(h)
     if dominant:
         elem_hints = {
-            "Fire":  "野心強烈、行動力爆棚，但容易燃燒自己",
-            "Earth": "極度務實穩重，但可能過於保守",
-            "Air":   "思維敏銳、善於溝通，但容易想太多",
-            "Water": "情感豐沛、直覺強，但容易被情緒淹沒",
+            "fire":  "野心強烈、行動力爆棒，但容易燃燒自己",  "Fire":  "野心強烈、行動力爆棒，但容易燃燒自己",
+            "earth": "極度務實穩重，但可能過於保守",  "Earth": "極度務實穩重，但可能過於保守",
+            "air":   "思維敏銃、善於溝通，但容易想太多",  "Air":   "思維敏銃、善於溝通，但容易想太多",
+            "water": "情感豐沛、直覺強，但容易被情緒淡沒",  "Water": "情感豐沛、直覺強，但容易被情緒淡沒",
         }
         for e in dominant:
             h = elem_hints.get(e)
@@ -241,7 +247,7 @@ def _profile_context(deficiency: list, dominant: list, sm_tags: list) -> str:
         hints.append("在親密關係中容易過度付出，渴望被接住的安全感")
     if not hints:
         return ""
-    return "【命盤解讀提示（提供給你的參考，不要直接輸出給用戶）】\n" + "\n".join(f"- {h}" for h in hints)
+    return "「命盤解讀提示（提供給你的參考，不要直接輸出給用戶）」\n" + "\n".join(f"- {h}" for h in hints)
 
 
 def _pick_mode(match_data: dict, mode: str) -> str:
@@ -545,11 +551,11 @@ _IDEAL_MATCH_SCHEMA = """\
   "ideal_partner": "【靈魂解毒劑：你真正需要的人】約150字：綜合八字能量、西占下降星座與婚神星。你總是被什麼樣的人騙去，但你真正需要、能治癒你的對象具備什麼特質？不說星座，說具體行為。",
   "appearance": "【命中注定的外在輪廓】約60字：根據金星星座與下降星座，描繪這個人在視覺上本能心動的對象長相氣質。不說星座，說具體的五官特徵、臉部輪廓、眼神氣質與穿搭風格。",
   "toxic_trap": [
-    "❌ 致命毒藥1（≤20字，必須是「只對此人有毒」的價值觀衝突，非普世壞人特質。例：讓你失控的不是壞人，是那個說走就走從不計畫的人）",
-    "❌ 致命毒藥2（≤20字）",
-    "❌ 致命毒藥3（≤20字）",
-    "❌ 致命毒藥4（≤20字）",
-    "❌ 致命毒藥5（≤20字）"
+    "❌ 地雷1（≤20字，【必須用因果公式】：因為此人極度需要[X]，所以絕對無法忍受對方[Y行為]，這會觸發[Z恐懼]。例：因為你需要掌控感，無法忍受說走就走從不計畫的人，這觸發你的失控焦慮）",
+    "❌ 地雷2（≤20字，對別人是中性甚至優點，但對你卻是毒藥的特質）",
+    "❌ 地雷3（≤20字，嚴禁寫：自私/花心/說謊/脾氣差等普世皆準負面詞——這些每個人都討厭，寫了等於沒寫）",
+    "❌ 地雷4（≤20字）",
+    "❌ 地雷5（≤20字）"
   ],
   "ideal_state": "【理想的感情發展與歸宿】約100字：根據紫微夫妻宮與西占婚姻指標，這段關係應該以什麼樣的姿態發展？(例如：是職場並肩作戰的戰友，還是能讓你在家安心卸下武裝的避風港？)",
   "core_need": "一到二句話道出這個人最深的靈魂渴望，極具震撼力與療癒感的金句作結（≤30字）"
@@ -582,7 +588,11 @@ def get_ideal_match_prompt(
     all_tags   = sm_tags + karmic
 
     elem_context = _element_summary(ep)
-    descendant = chart_data.get("houses", {}).get("descendant") or chart_data.get("house7_sign") or "（無精確時間）"
+    descendant = (
+        chart_data.get("house7_sign")
+        or chart_data.get("houses", {}).get("descendant")
+        or "（無精確時間）"
+    )
     juno_sign = chart_data.get("juno_sign", "unknown")
 
     # 2. 提取八字數據
@@ -641,7 +651,13 @@ def get_ideal_match_prompt(
 
 2. 嚴禁抽象與玄學詞彙：不說「能量、潛意識、防禦機制、八字、化忌」，把心理狀態寫成具體的「行為與感受」。
 
-3. 致命毒藥（toxic_trap）必須是「價值觀衝突」：絕對禁止使用「自私、花心、愛說謊、脾氣差」等普世皆準的負面詞彙（因為每個人都討厭這些）。必須根據此人的核心渴望，描寫一種「對別人來說是中性特質，但對此人卻是致命毒藥」的具體行為衝突。寫作公式：【此人極度需要X，因此絕對無法忍受對方的Y行為，因為這會觸發Z深層恐懼】。
+3. 致命毒藥（toxic_trap）——【防止巴納姆效應的核心規則】：
+   ⚠️ 嚴禁寫「自私、花心、愛說謊、脾氣差、不負責任」等通用負面詞——每個人都討厭這些，等於廢話，無法驗證報告準不準。
+   ✅ 必須根據此人的命盤，找出「對大多數人是中性甚至優點，但對此人的靈魂結構來說是致命毒藥」的具體行為衝突。
+   ✅ 強制使用因果公式：【此人極度需要X，因此絕對無法忍受對方的Y行為，因為這會觸發Z深層恐懼】。
+   例1（水象/月亮巨蟹型）：寫「衝突時只用邏輯說服你、不靠近不擁抱的人」，而非寫「冷漠的人」。
+   例2（土象/傷官格型）：寫「用傳統框架要求你安定下來、放棄創意的人」，而非寫「控制狂」。
+   例3（火象/天王星強型）：寫「喜歡固定行程、反對臨時決定的人」，而非寫「無趣的人」（因為對別人這是穩定的優點！）。
 
 【輸入數據】
 [一、八字結構 (相處姿態)]
@@ -671,3 +687,63 @@ def get_ideal_match_prompt(
 
     return prompt
 
+
+# ── Synastry Report Prompt (for /api/matches/compute, DTO pipeline) ──────────
+
+def build_synastry_report_prompt(raw_match_data: dict) -> str:
+    """Build a safe LLM prompt for pairwise synastry report generation.
+
+    Only feeds the LLM safe, high-level labels and scores — no raw degrees,
+    ten gods, or palace data. Used by the /api/matches/compute endpoint
+    to generate the ai_insight_report field in the DTO response.
+
+    Parameters
+    ----------
+    raw_match_data : dict
+        Full output from compute_match_v2().
+
+    Returns
+    -------
+    str : Prompt string ready for call_llm().
+    """
+    tension = raw_match_data.get("karmic_tension", 0)
+    badges = raw_match_data.get("resonance_badges", [])
+    tracks = raw_match_data.get("tracks", {})
+    soul_score = tracks.get("soul", 0)
+    partner_score = tracks.get("partner", 0)
+    passion_score = tracks.get("passion", 0)
+    friend_score = tracks.get("friend", 0)
+    high_voltage = raw_match_data.get("high_voltage", False)
+    quadrant = raw_match_data.get("quadrant", "unknown")
+    psych_tags = raw_match_data.get("psychological_tags", [])
+
+    # Translate psychological tags to Chinese
+    psych_section = _translate_psych_tags(psych_tags)
+
+    prompt = f"""{DESTINY_WORLDVIEW}
+
+【本次任務：雙人關係洞察報告生成】
+你是一位榮格深度心理占星師。請根據以下演算法算出的「關係標籤」，為這對潛在伴侶寫一段 150 字的【關係洞察報告】。
+
+【核心配對數據】：
+- 靈魂共鳴度：{round(soul_score)} / 100（代表天生頻率契合度）
+- 現實相處穩定度：{round(partner_score)} / 100（代表日常柴米油鹽的摩擦程度）
+- 費洛蒙張力：{round(passion_score)} / 100（代表肉體與慾望的吸引力）
+- 友誼默契度：{round(friend_score)} / 100（代表思維共振與溝通品質）
+- 業力與張力指數：{round(tension)} / 100（分數越高，代表致命吸引力越強，但也越容易相愛相殺）
+- 關係四象限落點：{quadrant}
+- 高壓警告 ⚡：{high_voltage}
+- 關係特殊徽章：{', '.join(badges) if badges else '無'}
+
+【心理動力學標籤（請轉譯為白話情境，禁止直接輸出原始標籤）】
+{psych_section}
+
+【寫作指南】：
+1. 如果「靈魂」高但「相處」低，請點出這是一段「深刻但需要磨合」的關係。
+2. 如果「張力指數」大於 60，請務必警告他們這段關係帶有強烈的業力或致命吸引力，不要用平淡的語氣。
+3. 如果有特殊徽章（如：完美互補、金火互溶），請用浪漫但深刻的語氣解釋這個徽章的意義。
+4. 不要出現任何占星或八字專有名詞，請轉化為心理學與感情視角的白話文。
+5. 控制在 150 字以內，語氣像一個極度懂他們的知己。
+6. 直接回傳純文字，不要用 JSON 或 markdown 格式。"""
+
+    return prompt
