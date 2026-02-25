@@ -182,3 +182,71 @@ def test_schema_has_anti_barnum_formula():
     """reality_check description must reference the A撞B collision formula."""
     assert "User A" in _MATCH_ARCHETYPE_SCHEMA
     assert "User B" in _MATCH_ARCHETYPE_SCHEMA
+
+
+# ── Task 2 tests ──────────────────────────────────────────────────────────────
+
+def _match_data():
+    return {
+        "lust_score": 30,
+        "soul_score": 80,
+        "tracks": {"friend": 40, "passion": 30, "partner": 50, "soul": 80},
+        "primary_track": "soul",
+        "quadrant": "partner",
+        "power": {"viewer_role": "Equal", "target_role": "Equal", "rpv": 0.0, "frame_break": False},
+        "high_voltage": False,
+        "psychological_tags": [],
+        "zwds": {},
+    }
+
+
+def test_no_duplicate_task_block():
+    """Only one 【本次任務 block should appear in the final prompt."""
+    prompt, _ = get_match_report_prompt(_match_data())
+    assert prompt.count("【本次任務") == 1
+
+
+def test_rpv_low_shows_equal_description():
+    """For rpv=0.0 the prompt should contain the equal-balance description."""
+    prompt, _ = get_match_report_prompt(_match_data())
+    assert "勢均力敵" in prompt
+
+
+def test_rpv_high_shows_position_description():
+    """RPV > 20 should include a high-position description."""
+    data = _match_data()
+    data["power"]["rpv"] = 35.0
+    prompt, _ = get_match_report_prompt(data)
+    assert "高位" in prompt
+
+
+def test_profile_injection_needs_and_dynamic():
+    """psychological_needs and relationship_dynamic appear when profiles provided."""
+    prof_a = {
+        "psychological_needs": ["極度需要秩序", "無法忍受計畫被打破"],
+        "relationship_dynamic": "stable",
+        "attachment_style": "anxious",
+    }
+    prof_b = {
+        "psychological_needs": ["需要思想自由", "討厭被框架綁死"],
+        "relationship_dynamic": "high_voltage",
+        "attachment_style": "avoidant",
+    }
+    prompt, _ = get_match_report_prompt(_match_data(), user_a_profile=prof_a, user_b_profile=prof_b)
+    assert "極度需要秩序" in prompt
+    assert "需要思想自由" in prompt
+
+
+def test_profile_injection_includes_attachment_style():
+    """attachment_style from each profile must appear in the prompt."""
+    prof_a = {"psychological_needs": [], "relationship_dynamic": "stable", "attachment_style": "anxious"}
+    prof_b = {"psychological_needs": [], "relationship_dynamic": "stable", "attachment_style": "avoidant"}
+    prompt, _ = get_match_report_prompt(_match_data(), user_a_profile=prof_a, user_b_profile=prof_b)
+    assert "anxious" in prompt or "焦慮" in prompt
+    assert "avoidant" in prompt or "逃避" in prompt
+
+
+def test_no_profile_block_when_absent():
+    """When no profiles passed, the 雙方心理結構 block must not appear."""
+    prompt, _ = get_match_report_prompt(_match_data())
+    assert "雙方心理結構" not in prompt

@@ -299,6 +299,14 @@ _INSTRUCTION_MAP = {
 
 # ── Match Report Prompt (for /generate-archetype, Tab A) ─────────────────────
 
+# Attachment style Chinese labels for human-readable injection
+_ATTACHMENT_ZH = {
+    "anxious":  "焦慮型（恐懼被拋棄，需要不斷確認）",
+    "avoidant": "逃避型（恐懼被吞噬，一靠近就想逃）",
+    "fearful":  "恐懼型（既怕被拋棄又怕被吞噬）",
+    "secure":   "安全型（內核穩定，不怕親密也不怕獨處）",
+}
+
 _MATCH_ARCHETYPE_SCHEMA = """\
 請只回傳以下 JSON，不要包含任何其他文字或 markdown：
 {
@@ -322,17 +330,27 @@ _MATCH_ARCHETYPE_SCHEMA = """\
 def get_match_report_prompt(
     match_data: dict,
     mode: str = "auto",
-    person_a: str = "A",
-    person_b: str = "B",
+    person_a: str = "User A",
+    person_b: str = "User B",
+    user_a_profile: dict = None,
+    user_b_profile: dict = None,
 ) -> tuple[str, str]:
     """
     Build a DESTINY-worldview-enriched prompt for pairwise AI analysis (Tab A).
 
+    Parameters
+    ----------
+    match_data        : output of compute_match_v2()
+    mode              : "auto" | "abyss" | "hunt" | "nest" | "friend"
+    person_a / person_b : display labels (default "User A" / "User B")
+    user_a_profile    : dict from extract_ideal_partner_profile() for person A.
+                        Keys used: psychological_needs, relationship_dynamic, attachment_style
+    user_b_profile    : same for person B.
+                        When either is None the profile injection block is skipped.
+
     Returns
     -------
     (prompt, effective_mode)
-        prompt        — full string to pass to call_llm()
-        effective_mode — the resolved mode ("abyss"/"hunt"/"nest"/"friend")
     """
     effective_mode = _pick_mode(match_data, mode)
     instruction = _INSTRUCTION_MAP.get(effective_mode, _SOUL_INSTRUCTION)
@@ -345,6 +363,21 @@ def get_match_report_prompt(
     ep_a = match_data.get("element_profile_a")
     ep_b = match_data.get("element_profile_b")
 
+    # RPV human-readable translation (Bug #3 fix)
+    rpv_val = float(power.get("rpv", 0.0))
+    if rpv_val > 20:
+        power_desc = (
+            f"{person_a}={power.get('viewer_role', 'Equal')}，"
+            f"{person_b}={power.get('target_role', 'Equal')}，"
+            f"RPV={rpv_val}（差距顯著，某方在這段關係中處於明顯高位或被極度偏愛）"
+        )
+    else:
+        power_desc = (
+            f"{person_a}={power.get('viewer_role', 'Equal')}，"
+            f"{person_b}={power.get('target_role', 'Equal')}，"
+            f"RPV={rpv_val}（勢均力敵的博弈，雙方話語權接近）"
+        )
+
     elem_context = ""
     if ep_a or ep_b:
         elem_context = (
@@ -353,13 +386,57 @@ def get_match_report_prompt(
             f"\n{person_b} 能量: {_element_summary(ep_b)}"
         )
 
+    # Individual psychology + attachment profile injection
+    profile_block = ""
+    if user_a_profile and user_b_profile:
+        a_needs = "、".join(user_a_profile.get("psychological_needs", [])) or "（未提供）"
+        a_dyn   = user_a_profile.get("relationship_dynamic", "unknown")
+        a_att   = user_a_profile.get("attachment_style") or ""
+        a_att_zh = _ATTACHMENT_ZH.get(a_att.lower(), a_att) if a_att else "（未提供）"
+
+        b_needs = "、".join(user_b_profile.get("psychological_needs", [])) or "（未提供）"
+        b_dyn   = user_b_profile.get("relationship_dynamic", "unknown")
+        b_att   = user_b_profile.get("attachment_style") or ""
+        b_att_zh = _ATTACHMENT_ZH.get(b_att.lower(), b_att) if b_att else "（未提供）"
+
+        # Also extract attachment trap_tag from psychological_tags if present
+        _ATT_TRAPS = {
+            "Anxious_Avoidant_Trap", "Co_Dependency", "Parallel_Lines",
+            "Healing_Anchor", "Chaotic_Oscillation", "Safe_Haven",
+        }
+        trap_tag = next(
+            (t for t in psych_tags if any(trap in t for trap in _ATT_TRAPS)),
+            None,
+        )
+        trap_line = f"\n合盤依戀陷阱觸發：{trap_tag}" if trap_tag else ""
+
+        profile_block = f"""
+【雙方心理結構（Reality Check 必須使用此素材）】
+[{person_a}]
+- 核心需求與恐懼：{a_needs}
+- 關係動態傾向：{a_dyn}
+- 依戀類型：{a_att_zh}
+
+[{person_b}]
+- 核心需求與恐懼：{b_needs}
+- 關係動態傾向：{b_dyn}
+- 依戀類型：{b_att_zh}{trap_line}
+"""
+
+    # Writing rules block — only injected when profiles are available
+    if user_a_profile and user_b_profile:
+        writing_rules_block = f"""
+【寫作嚴格規範】
+- reality_check 中的每一條，必須基於上方【雙方心理結構】，套用「{person_a}的某項具體需求或依戀模式，撞上{person_b}的某項具體恐懼或雷區」的公式。
+- 嚴禁寫「溝通不良、脾氣差、缺乏信任」等通用廢話——每個人都適用的句子等於沒寫。
+- 若依戀類型為焦慮型或逃避型，shadow 段落必須描述具體的「追與逃」或「確認與抽離」行為動態。
+"""
+    else:
+        writing_rules_block = ""
+
     prompt = f"""{DESTINY_WORLDVIEW}
 
 {instruction}
-
-【本次任務：雙人宿命深度破防解析 (塔羅牌模式)】
-請根據以下數據，寫出一份讓他們看懂彼此靈魂牽絆的報告。
-如果出現「高壓警告」或「南/北交點/第7宮」等業力標籤，請在文字中強化「命中注定」與「痛並快樂著」的宿命感。
 
 【輸入數據 — {person_a} × {person_b}】
 VibeScore（肉體費洛蒙張力）: {round(match_data.get('lust_score', 0), 1)}/100
@@ -367,15 +444,14 @@ ChemistryScore（靈魂共鳴深度）: {round(match_data.get('soul_score', 0), 
 四軌: 朋友={round(tracks.get('friend', 0), 1)} 激情={round(tracks.get('passion', 0), 1)} 伴侶(正緣)={round(tracks.get('partner', 0), 1)} 靈魂(業力)={round(tracks.get('soul', 0), 1)}
 主要連結類型: {match_data.get('primary_track', 'unknown')}
 四象限落點: {match_data.get('quadrant', 'unknown')}
-權力動態: {person_a}={power.get('viewer_role', 'Equal')}，{person_b}={power.get('target_role', 'Equal')}，RPV={power.get('rpv', 0)}
+權力動態: {power_desc}
 框架崩潰 (理智斷線): {power.get('frame_break', False)}
-高壓警告 ⚡ (修羅場/禁忌感): {high_voltage}
+高壓警告 (修羅場/禁忌感): {high_voltage}
 紫微斗數烈度: {zwds.get('spiciness_level', 'N/A')}
 
 【心理與業力分析結果（請將以下標籤轉譯為白話情境，禁止直接輸出原始英文標籤）】
-{_translate_psych_tags(psych_tags)}
-{elem_context}
-
+{_translate_psych_tags(psych_tags)}{elem_context}
+{profile_block}{writing_rules_block}
 {_MATCH_ARCHETYPE_SCHEMA}"""
 
     return prompt, effective_mode
