@@ -97,6 +97,37 @@ def get_psychology_profile(user_id: str) -> Optional[dict]:
     return result.data if result.data else None
 
 
+def get_or_compute_psychology_profile(user_id: str, natal_data: dict) -> dict:
+    """Return cached psychology profile from DB, or compute and cache it on miss.
+
+    Parameters
+    ----------
+    user_id    : Supabase user UUID
+    natal_data : dict with keys western_chart, bazi_chart, zwds_chart
+                 (same shape as returned by get_natal_data())
+
+    Returns
+    -------
+    dict — same shape as extract_ideal_partner_profile() output.
+           Returns {} on any error so callers can safely fallback.
+    """
+    try:
+        cached = get_psychology_profile(user_id)
+        if cached:
+            return cached
+
+        from ideal_avatar import extract_ideal_partner_profile
+        profile = extract_ideal_partner_profile(
+            natal_data.get("western_chart", {}),
+            natal_data.get("bazi_chart", {}),
+            natal_data.get("zwds_chart", {}),
+        )
+        upsert_psychology_profile(user_id, profile)
+        return profile
+    except Exception:
+        return {}
+
+
 # ── Match Results (matches) ──────────────────────────────────────────────────
 
 def get_cached_match(user_a_id: str, user_b_id: str) -> Optional[dict]:
