@@ -307,6 +307,11 @@ _ATTACHMENT_ZH = {
     "secure":   "安全型（內核穩定，不怕親密也不怕獨處）",
 }
 
+_ATT_TRAPS = {
+    "Anxious_Avoidant_Trap", "Co_Dependency", "Parallel_Lines",
+    "Healing_Anchor", "Chaotic_Oscillation", "Safe_Haven",
+}
+
 _MATCH_ARCHETYPE_SCHEMA = """\
 請只回傳以下 JSON，不要包含任何其他文字或 markdown：
 {
@@ -400,10 +405,6 @@ def get_match_report_prompt(
         b_att_zh = _ATTACHMENT_ZH.get(b_att.lower(), b_att) if b_att else "（未提供）"
 
         # Also extract attachment trap_tag from psychological_tags if present
-        _ATT_TRAPS = {
-            "Anxious_Avoidant_Trap", "Co_Dependency", "Parallel_Lines",
-            "Healing_Anchor", "Chaotic_Oscillation", "Safe_Haven",
-        }
         trap_tag = next(
             (t for t in psych_tags if any(trap in t for trap in _ATT_TRAPS)),
             None,
