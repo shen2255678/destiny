@@ -261,6 +261,77 @@ curl -X POST http://localhost:8001/generate-ideal-match \
 
 回傳：`{antidote, reality_anchors: [3 items], core_need}`
 
+### `POST /api/users/onboard` 🆕
+
+Onboarding 一站式 API — 計算星盤 + 快取到 Supabase + 回傳安全 DTO。
+
+```bash
+curl -X POST http://localhost:8001/api/users/onboard \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "uuid-here",
+    "birth_date": "1997-03-07",
+    "birth_time": "precise",
+    "birth_time_exact": "10:59",
+    "lat": 25.033, "lng": 121.565,
+    "data_tier": 1,
+    "gender": "M",
+    "generate_report": false
+  }'
+```
+
+回傳（DTO 脫敏後）：
+```json
+{
+  "status": "success",
+  "data": {
+    "relationship_dynamic": "high_voltage",
+    "psychological_needs": ["渴望被完全理解"],
+    "favorable_elements": ["水", "木"],
+    "attachment_style": "anxious",
+    "ai_natal_report": ""
+  }
+}
+```
+
+> **Note:** Raw chart data 寫入 `user_natal_data` 表，永不回傳前端。
+
+### `POST /api/matches/compute` 🆕
+
+雙人配對 API — 快取查詢 → 計算 → LLM 報告 → DTO 脫敏。
+
+```bash
+curl -X POST http://localhost:8001/api/matches/compute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_a_id": "uuid-a",
+    "user_b_id": "uuid-b",
+    "force_recompute": false,
+    "generate_report": true,
+    "provider": "anthropic",
+    "api_key": "sk-ant-..."
+  }'
+```
+
+回傳（DTO 脫敏後）：
+```json
+{
+  "status": "success",
+  "cached": false,
+  "data": {
+    "harmony_score": 86,
+    "tension_level": 3,
+    "badges": ["命理雙重認證"],
+    "tracks": {"friend": 62, "passion": 79, "partner": 55, "soul": 89},
+    "primary_track": "soul",
+    "quadrant": "soulmate",
+    "ai_insight_report": "你們之間的連結..."
+  }
+}
+```
+
+> **Note:** 第二次呼叫相同 pair 會從 `matches` 表快取直接回傳（`cached: true`）。
+
 ---
 
 ## Data Tier 行為
@@ -326,20 +397,23 @@ curl -X POST http://localhost:8001/generate-ideal-match \
 ```
 astro-service/
 ├── requirements.txt
-├── main.py            # FastAPI server (port 8001) — 13 endpoints
+├── main.py            # FastAPI server (port 8001) — 15 endpoints (含 2 新 production API)
 ├── chart.py           # Western astrology: planetary positions + natal aspects + Lilith/Vertex
 ├── bazi.py            # BaZi 八字四柱: Four Pillars + Five Elements + true solar time
 ├── matching.py        # Compatibility scoring: lust/soul/tracks/power/quadrant (v2)
 ├── shadow_engine.py   # Synastry modifiers: Chiron/Vertex/Lilith triggers + 12th house overlay + Lunar Nodes + DSC Overlay (v1.9)
 ├── psychology.py      # Psychology layer: SM dynamics + retrograde karma + element profile + Karmic Axis (v1.9)
 ├── zwds.py            # ZiWei DouShu bridge
-├── prompt_manager.py  # LLM prompt templates (profile/match/archetype/ideal-match)
+├── prompt_manager.py  # LLM prompt templates (profile/match/archetype/ideal-match/synastry)
+├── api_presenter.py   # 🆕 DTO 脫敏層 (format_safe_match_response / format_safe_onboard_response)
+├── db_client.py       # 🆕 Supabase Python client (natal data + psychology + match cache)
 ├── test_chart.py      # pytest (109 tests)
 ├── test_matching.py   # pytest (173 tests)
 ├── test_shadow_engine.py # pytest (56 tests)
 ├── test_zwds.py       # pytest (31 tests)
 ├── test_psychology.py # pytest (33 tests)
 ├── test_sandbox.py    # pytest (5 tests)
+├── test_api_presenter.py # 🆕 pytest (34 tests — DTO 安全性稽核)
 ├── sandbox.html       # Algorithm validation sandbox (browser-based dev tool)
 └── ephe/              # Swiss Ephemeris data files
 ```
@@ -350,13 +424,15 @@ astro-service/
 
 ```bash
 cd astro-service
-pytest -v                       # 全部 407 個測試（Python）
+pytest -v                       # 全部 446 個測試（Python）
 pytest test_chart.py -v         # 109 tests — 西洋占星 + 本命相位 + Lilith/Vertex + Lunar Nodes + House 7
 pytest test_matching.py -v      # 173 tests — 配對演算法
 pytest test_shadow_engine.py -v # 56 tests — 暗黑修正器 + Descendant Overlay
 pytest test_zwds.py -v          # 31 tests — 紫微斗數
 pytest test_psychology.py -v    # 33 tests — 心理標籤 + Karmic Axis
 pytest test_sandbox.py -v       # 5 tests — Sandbox endpoints
+pytest test_api_presenter.py -v # 34 tests — DTO 安全性稽核 🆕
+pytest test_prompt_manager.py -v # 15 tests — LLM Prompt 結構
 ```
 
 測試涵蓋：

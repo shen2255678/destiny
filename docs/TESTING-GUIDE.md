@@ -335,7 +335,7 @@ pip install -r requirements.txt    # 首次安裝（含 lunardate）
 uvicorn main:app --port 8001       # 啟動
 ```
 
-### Python Unit Tests (412 tests)
+### Python Unit Tests (446 tests)
 
 ```bash
 cd astro-service
@@ -360,6 +360,12 @@ pytest test_sandbox.py -v
 
 # 全部一起跑
 pytest -v
+
+# 🆕 DTO 安全性稽核 (34 tests)
+pytest test_api_presenter.py -v
+
+# 🆕 LLM Prompt 結構 (15 tests)
+pytest test_prompt_manager.py -v
 ```
 
 **test_zwds.py 測試分類（31 tests）：**
@@ -876,10 +882,11 @@ UPDATE users SET onboarding_step = 'birth_data' WHERE email = 'test1@example.com
 | 配對演算法（含 v1.8 升級）| Astro Service: `pytest test_matching.py` (178 tests) |
 | 心理層標籤（SM/業力/元素/逆行/業力軸線）| Astro Service: `pytest test_psychology.py` (33 tests) |
 | 陰影/依戀/元素填充/交點觸發 | Astro Service: `pytest test_shadow_engine.py` (56 tests) |
-| 全部 Python 測試 | `pytest -v` (412 tests) |
+| DTO 脫敏安全性稽核 | Astro Service: `pytest test_api_presenter.py` (34 tests) 🆕 |
+| 全部 Python 測試 | `pytest -v` (446 tests) |
 | 完整用戶流程（註冊到聊天）| Layer 2: 瀏覽器 E2E |
 | 單一 API response 格式 | Layer 3: 瀏覽器 Console fetch |
-| DB 是否正確寫入（含 v1.8 lunar nodes）| Supabase Dashboard (migration 012/013) |
+| DB 是否正確寫入（含 v1.8 lunar nodes）| Supabase Dashboard (migration 012/013/014) |
 | Error handling (401/400/403) | Layer 1 (mock) 或 Layer 3 (real) |
 | 出生時間校正流程 | Layer 3: rectification endpoints |
 | Realtime 即時訊息 | Layer 2: 兩個瀏覽器視窗互傳 |

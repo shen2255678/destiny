@@ -24,7 +24,9 @@ from chart import calculate_chart
 from bazi import analyze_element_relation
 from matching import compute_match_score, compute_match_v2
 from zwds import compute_zwds_chart
-from prompt_manager import get_match_report_prompt, get_simple_report_prompt, get_profile_prompt, get_ideal_match_prompt
+from prompt_manager import get_match_report_prompt, get_simple_report_prompt, get_profile_prompt, get_ideal_match_prompt, build_synastry_report_prompt
+from api_presenter import format_safe_match_response, format_safe_onboard_response
+from ideal_avatar import extract_ideal_partner_profile
 from anthropic import Anthropic
 from google import genai as google_genai
 
@@ -361,3 +363,238 @@ async def extract_ideal_profile(req: dict):
         req.get("zwds_chart", {}),
         req.get("psychology_data", {}),
     )
+
+
+# ── Production API: Onboarding + Match Compute (with DTO & Caching) ──────────
+
+class OnboardRequest(BaseModel):
+    user_id: str
+    birth_date: str                              # "1995-06-15"
+    birth_time: Optional[str] = None             # "precise" | "morning" | "afternoon" | "unknown"
+    birth_time_exact: Optional[str] = None       # "14:30"
+    lat: float = 25.033
+    lng: float = 121.565
+    data_tier: int = 3
+    gender: str = "M"
+    generate_report: bool = False                # whether to call LLM for natal report
+    provider: str = "anthropic"
+    api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+
+
+@app.post("/api/users/onboard")
+async def onboard_user(req: OnboardRequest):
+    """Compute natal chart & psychology profile, cache to Supabase, return safe DTO.
+
+    Pipeline:
+      1. chart.py → western chart
+      2. bazi.py → BaZi four pillars
+      3. zwds.py → ZWDS chart (Tier 1 only)
+      4. ideal_avatar.py → psychology tags
+      5. Write raw data → user_natal_data (black box)
+      6. Write psychology → user_psychology_profiles
+      7. (Optional) LLM → natal report
+      8. Return safe DTO (no raw chart data)
+    """
+    try:
+        # 1. Calculate western chart
+        western = calculate_chart(
+            birth_date=req.birth_date,
+            birth_time=req.birth_time,
+            birth_time_exact=req.birth_time_exact,
+            lat=req.lat, lng=req.lng,
+            data_tier=req.data_tier,
+        )
+
+        # 2. BaZi is embedded in the chart result
+        bazi_data = western.get("bazi", {})
+
+        # 3. ZWDS chart (Tier 1 only)
+        zwds_data = {}
+        if req.data_tier == 1 and req.birth_time_exact:
+            try:
+                from datetime import datetime as _dt
+                dt = _dt.strptime(req.birth_date, "%Y-%m-%d")
+                zwds_data = compute_zwds_chart(
+                    dt.year, dt.month, dt.day,
+                    req.birth_time_exact, req.gender,
+                ) or {}
+            except Exception:
+                zwds_data = {}
+
+        # 4. Extract psychology profile
+        psychology = {}
+        try:
+            from psychology import extract_sm_dynamics, extract_critical_degrees, compute_element_profile
+            psychology = {
+                "sm_tags": western.get("sm_tags", []),
+                "karmic_tags": western.get("karmic_tags", []),
+                "element_profile": western.get("element_profile", {}),
+            }
+        except Exception:
+            pass
+
+        profile = extract_ideal_partner_profile(
+            western_chart=western,
+            bazi_chart=bazi_data,
+            zwds_chart=zwds_data,
+            psychology_data=psychology,
+        )
+
+        # 5 & 6. Write to Supabase (graceful failure)
+        try:
+            import db_client
+            db_client.upsert_natal_data(
+                user_id=req.user_id,
+                western_chart=western,
+                bazi_chart=bazi_data,
+                zwds_chart=zwds_data,
+            )
+            db_client.upsert_psychology_profile(
+                user_id=req.user_id,
+                profile=profile,
+            )
+        except Exception as db_err:
+            # Log but don't block — Supabase may not be configured
+            import traceback
+            traceback.print_exc()
+
+        # 7. Optional LLM natal report
+        llm_report = ""
+        if req.generate_report:
+            try:
+                prompt = get_profile_prompt(
+                    chart_data=western,
+                    rpv_data={},
+                    attachment_style=profile.get("attachment_style", "secure"),
+                )
+                raw = call_llm(prompt, provider=req.provider, max_tokens=600,
+                               api_key=req.api_key, gemini_model=req.gemini_model)
+                llm_report = raw
+                # Update report in DB
+                try:
+                    import db_client as _dbc
+                    _dbc.upsert_psychology_profile(req.user_id, {"llm_natal_report": raw})
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+        # 8. Return safe DTO
+        return format_safe_onboard_response(profile, llm_report)
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class MatchComputeRequest(BaseModel):
+    user_a_id: str
+    user_b_id: str
+    force_recompute: bool = False                # bypass cache
+    generate_report: bool = True                 # whether to call LLM
+    provider: str = "anthropic"
+    api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
+
+
+@app.post("/api/matches/compute")
+async def compute_match_cached(req: MatchComputeRequest):
+    """Compute pairwise match with caching and DTO sanitization.
+
+    Pipeline:
+      1. Check matches table for cached result → return if found
+      2. Load natal data from user_natal_data (no recomputation!)
+      3. Flatten data and feed to compute_match_v2()
+      4. (Optional) LLM → synastry insight report
+      5. Sanitize via api_presenter → safe DTO
+      6. Cache result in matches table
+      7. Return safe DTO
+    """
+    try:
+        import db_client
+
+        # 1. Cache check
+        if not req.force_recompute:
+            try:
+                cached = db_client.get_cached_match(req.user_a_id, req.user_b_id)
+                if cached:
+                    return {
+                        "status": "success",
+                        "cached": True,
+                        "data": {
+                            "harmony_score": cached.get("harmony_score"),
+                            "tension_level": cached.get("tension_level"),
+                            "badges": cached.get("badges", []),
+                            "tracks": cached.get("tracks", {}),
+                            "ai_insight_report": cached.get("llm_insight_report", ""),
+                        }
+                    }
+            except Exception:
+                pass  # If cache check fails, proceed to compute
+
+        # 2. Load natal data
+        natal_a = db_client.get_natal_data(req.user_a_id)
+        natal_b = db_client.get_natal_data(req.user_b_id)
+
+        if not natal_a or not natal_b:
+            raise HTTPException(
+                status_code=404,
+                detail="Natal data not found. Both users must complete onboarding first."
+            )
+
+        # 3. Flatten chart data for compute_match_v2
+        # compute_match_v2 expects flat user dicts with sign keys at top level
+        def _flatten_natal(natal: dict) -> dict:
+            """Merge western_chart + bazi_chart fields into a flat dict."""
+            flat = {}
+            wc = natal.get("western_chart", {})
+            bc = natal.get("bazi_chart", {})
+            flat.update(wc)
+            # Add bazi fields that matching.py expects
+            flat["bazi_element"] = bc.get("day_master_element", wc.get("bazi_element"))
+            flat["bazi_month_branch"] = bc.get("bazi_month_branch", wc.get("bazi_month_branch"))
+            flat["bazi_day_branch"] = bc.get("bazi_day_branch", wc.get("bazi_day_branch"))
+            flat["bazi"] = bc
+            # data_tier from western chart
+            flat.setdefault("data_tier", wc.get("data_tier", 3))
+            return flat
+
+        user_a = _flatten_natal(natal_a)
+        user_b = _flatten_natal(natal_b)
+
+        # 4. Compute match
+        raw_result = compute_match_v2(user_a, user_b)
+
+        # 5. Optional LLM report
+        llm_report = ""
+        if req.generate_report:
+            try:
+                prompt = build_synastry_report_prompt(raw_result)
+                llm_report = call_llm(
+                    prompt, provider=req.provider, max_tokens=400,
+                    api_key=req.api_key, gemini_model=req.gemini_model,
+                )
+            except Exception:
+                llm_report = ""  # Never block matching for LLM failure
+
+        # 6. Sanitize
+        safe_response = format_safe_match_response(raw_result, llm_report)
+
+        # 7. Cache result (non-blocking)
+        try:
+            db_client.save_match_result(
+                user_a_id=req.user_a_id,
+                user_b_id=req.user_b_id,
+                safe_result=safe_response,
+                raw_result=raw_result,
+            )
+        except Exception:
+            pass  # Cache failure is non-critical
+
+        safe_response["cached"] = False
+        return safe_response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
