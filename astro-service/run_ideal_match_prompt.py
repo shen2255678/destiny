@@ -25,7 +25,13 @@ except ImportError:
     print("[ERROR] 請先安裝 requests：pip install requests")
     sys.exit(1)
 
-from prompt_manager import get_ideal_match_prompt
+from prompt_manager import get_ideal_match_prompt, get_match_report_prompt
+
+try:
+    from ideal_avatar import extract_ideal_partner_profile
+    _HAS_IDEAL_AVATAR = True
+except ImportError:
+    _HAS_IDEAL_AVATAR = False
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -36,6 +42,9 @@ DEFAULT_TIME    = "10:59"        # 出生時間 HH:MM（24小時制）
 DEFAULT_GENDER  = "M"            # M = 男, F = 女
 DEFAULT_LAT     = 25.033         # 出生地緯度（預設台北）
 DEFAULT_LNG     = 121.565        # 出生地經度（預設台北）
+DEFAULT_DATE2   = "1995-03-26"
+DEFAULT_TIME2   = "14:30"
+DEFAULT_GENDER2 = "F"
 ASTRO_SERVICE   = "http://localhost:8001"   # astro-service 位址
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -145,6 +154,61 @@ def flatten_to_chart_data(full_report: dict, chart: dict) -> dict:
     }
 
 
+# ── 3. 合盤 Prompt 建構 ───────────────────────────────────────────────────────
+
+def build_synastry_prompt(
+    full_report_a: dict, chart_a: dict,
+    full_report_b: dict, chart_b: dict,
+) -> str:
+    """Build enriched synastry prompt for two persons.
+
+    Calls /compute-match for match scores, then injects individual
+    psychology profiles from ideal_avatar locally (no DB required for CLI).
+    """
+    # Flatten both charts for /compute-match
+    flat_a = flatten_to_chart_data(full_report_a, chart_a)
+    flat_b = flatten_to_chart_data(full_report_b, chart_b)
+
+    # /compute-match expects flat dicts with sign keys at top level
+    match_resp = call_api("/compute-match", {"user_a": flat_a, "user_b": flat_b})
+
+    # Compute individual profiles locally (no DB required for CLI)
+    prof_a: dict = {}
+    prof_b: dict = {}
+    if _HAS_IDEAL_AVATAR:
+        try:
+            prof_a = extract_ideal_partner_profile(
+                full_report_a.get("western_astrology", {}).get("planets", {}),
+                full_report_a.get("bazi", {}),
+                full_report_a.get("zwds", {}),
+            )
+        except Exception:
+            pass
+        try:
+            prof_b = extract_ideal_partner_profile(
+                full_report_b.get("western_astrology", {}).get("planets", {}),
+                full_report_b.get("bazi", {}),
+                full_report_b.get("zwds", {}),
+            )
+        except Exception:
+            pass
+
+    # Build human-readable labels from birth date + gender
+    ident_a = full_report_a["ident"]
+    ident_b = full_report_b["ident"]
+    label_a = f"{'女' if ident_a['gender'] == 'F' else '男'}({ident_a['birth_date'][5:]})"
+    label_b = f"{'女' if ident_b['gender'] == 'F' else '男'}({ident_b['birth_date'][5:]})"
+
+    prompt, mode = get_match_report_prompt(
+        match_resp,
+        person_a=label_a,
+        person_b=label_b,
+        user_a_profile=prof_a,
+        user_b_profile=prof_b,
+    )
+    return prompt
+
+
 # ── 主程式 ────────────────────────────────────────────────────────────────────
 
 def main():
@@ -154,6 +218,11 @@ def main():
     parser.add_argument("--gender", default=DEFAULT_GENDER, help="M / F")
     parser.add_argument("--lat",    type=float, default=DEFAULT_LAT)
     parser.add_argument("--lng",    type=float, default=DEFAULT_LNG)
+    parser.add_argument("--synastry",  action="store_true",
+                        help="合盤模式：計算兩人合盤並輸出 Prompt 到 synastry_output.txt")
+    parser.add_argument("--date2",     default=DEFAULT_DATE2,   help="第二人出生日期 YYYY-MM-DD")
+    parser.add_argument("--time2",     default=DEFAULT_TIME2,   help="第二人出生時間 HH:MM")
+    parser.add_argument("--gender2",   default=DEFAULT_GENDER2, help="第二人性別 M / F")
     parser.add_argument("--show-chart",  action="store_true", help="印出完整命盤 JSON")
     parser.add_argument("--copy-prompt", action="store_true",
                         help="只輸出 Prompt 純文字（最適合整段複製）")
@@ -218,6 +287,34 @@ def main():
     print("-" * 65)
     print(f"\n💡 只想要 Prompt 文字（方便全選）：")
     print(f"   py -3.12 run_ideal_match_prompt.py --copy-prompt")
+
+    # ── Step 3 (optional): 合盤模式 ──────────────────────────────────────
+    if args.synastry:
+        if not args.copy_prompt:
+            print(f"\n{SEP}")
+            print(f"  合盤模式：排第二人 {args.date2} {args.time2} {'女' if args.gender2 == 'F' else '男'}")
+            print(SEP)
+
+        full_report_b, chart_b = build_natal_report(
+            args.date2, args.time2, args.gender2, args.lat, args.lng
+        )
+
+        synastry_prompt = build_synastry_prompt(
+            full_report, chart,
+            full_report_b, chart_b,
+        )
+
+        # Write to file (avoids Windows cp950 encoding issues with Chinese/emoji in terminal)
+        out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "synastry_output.txt")
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(synastry_prompt)
+
+        if args.copy_prompt:
+            sys.stdout.buffer.write(synastry_prompt.encode("utf-8"))
+        else:
+            print(f"\n合盤 Prompt 已寫入 {out_path}")
+            print(f"💡 只輸出 Prompt 文字：py -3.12 run_ideal_match_prompt.py --synastry --copy-prompt")
+        return
 
 
 if __name__ == "__main__":
