@@ -20,6 +20,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from bazi import GENERATION_CYCLE, compute_ten_gods, evaluate_day_master_strength
+from psychology import (
+    evaluate_planet_dignity,
+    find_dispositor_chain,
+    MODERN_RULERSHIPS,
+)
 
 # ── Sign helpers ─────────────────────────────────────────────────────────────
 
@@ -420,6 +425,100 @@ def _extract_venus_mars_tags(western_chart: dict) -> List[str]:
     return tags
 
 
+# ── Classical Astrology layer constants (V3) ─────────────────────────────────
+
+_DISPOSITOR_BOSS_TAGS: Dict[str, str] = {
+    "Pluto":   "潛意識底層受到強烈的業力驅動，比起輕鬆的愛，更看重深刻的靈魂綁定或世俗成就的共同成長",
+    "Saturn":  "潛意識底層受到強烈的業力驅動，比起輕鬆的愛，更看重深刻的靈魂綁定或世俗成就的共同成長",
+    "Venus":   "生命底層渴望和諧與豐盛，感情中極度需要情緒價值、美感與享受",
+    "Jupiter": "生命底層渴望和諧與豐盛，感情中極度需要情緒價值、美感與享受",
+    "Uranus":  "極度需要心智上的刺激與靈魂自由，討厭沉悶與傳統的感情束縛",
+    "Mercury": "極度需要心智上的刺激與靈魂自由，討厭沉悶與傳統的感情束縛",
+}
+
+_NATAL_MR_TAGS: Dict[Any, Dict[str, Any]] = {
+    frozenset({"Venus", "Mars"}): {
+        "need": "情慾與愛情的表達充滿張力與宿命感，容易在感情中產生強烈的執念、佔有慾與投射",
+        "dynamic": "high_voltage",
+    },
+    frozenset({"Sun", "Moon"}): {
+        "need": "內在意志與情緒極度自洽，但也容易固執己見，感情中需要完全的包容與認同",
+        "dynamic": None,
+    },
+    frozenset({"Venus", "Jupiter"}): {
+        "need": "感情中擁有強大的滋養能力，追求極致的浪漫、美感與情緒價值",
+        "dynamic": None,
+    },
+    frozenset({"Venus", "Moon"}): {
+        "need": "感情中擁有強大的滋養能力，追求極致的浪漫、美感與情緒價值",
+        "dynamic": None,
+    },
+}
+
+
+def _extract_classical_astrology_layer(
+    western_chart: dict,
+    psych_needs: List[str],
+) -> Optional[str]:
+    """Rule 1.5: Classical astrology — dignity states, dispositor chain, natal mutual reception.
+
+    Returns relationship_dynamic hint: "high_voltage" | "stable" | None.
+    Tier 3 safe: missing moon_sign is silently skipped.
+    """
+    dynamic_hint: Optional[str] = None
+
+    # Step 1 — Dignity states (Venus + Moon)
+    for planet, sign_key in (("Venus", "venus_sign"), ("Moon", "moon_sign")):
+        sign = western_chart.get(sign_key)
+        if not sign:
+            continue
+        state = evaluate_planet_dignity(planet, sign)
+        if state in ("Detriment", "Fall"):
+            need = "感情中容易缺乏安全感，帶有較強的執念、防禦機制與測試心理"
+            if need not in psych_needs:
+                psych_needs.append(need)
+            dynamic_hint = "high_voltage"
+        elif state in ("Dignity", "Exaltation"):
+            need = "感情需求直接且純粹，有能力給予並享受穩定的愛"
+            if need not in psych_needs:
+                psych_needs.append(need)
+            if dynamic_hint is None:
+                dynamic_hint = "stable"
+
+    # Step 2 — Final Dispositor (潛意識大 Boss) from Sun/Moon/Venus/Mars chains
+    boss_counts: Dict[str, int] = {}
+    for planet in ("Sun", "Moon", "Venus", "Mars"):
+        result = find_dispositor_chain(western_chart, planet)
+        if result["status"] == "final_dispositor" and result["final_dispositor"]:
+            boss = result["final_dispositor"]
+            boss_counts[boss] = boss_counts.get(boss, 0) + 1
+
+    if boss_counts:
+        top_boss = max(boss_counts, key=lambda b: boss_counts[b])
+        tag = _DISPOSITOR_BOSS_TAGS.get(top_boss)
+        if tag and tag not in psych_needs:
+            psych_needs.append(tag)
+
+    # Step 3 — Natal Mutual Reception detection
+    seen_mr_pairs: set = set()
+    for planet in ("Sun", "Moon", "Venus", "Mars"):
+        result = find_dispositor_chain(western_chart, planet)
+        if result["status"] == "mutual_reception" and len(result["mutual_reception"]) >= 2:
+            pair = frozenset(result["mutual_reception"][:2])
+            if pair in seen_mr_pairs:
+                continue
+            seen_mr_pairs.add(pair)
+            mr_info = _NATAL_MR_TAGS.get(pair)
+            if mr_info:
+                need = mr_info["need"]
+                if need not in psych_needs:
+                    psych_needs.append(need)
+                if mr_info["dynamic"] == "high_voltage":
+                    dynamic_hint = "high_voltage"
+
+    return dynamic_hint
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def extract_ideal_partner_profile(
@@ -468,6 +567,13 @@ def extract_ideal_partner_profile(
     # Rule 1 — Western
     western_hv = _extract_western(western_chart, target_signs, psych_needs)
 
+    # Rule 1.5 — Classical Astrology (V3): dignity + dispositor chain + natal MR
+    classical_dynamic: Optional[str] = None
+    try:
+        classical_dynamic = _extract_classical_astrology_layer(western_chart, psych_needs)
+    except Exception:
+        pass
+
     # Rule 2 — BaZi elements
     _extract_bazi(bazi_chart, target_elems, psych_needs)
 
@@ -511,7 +617,8 @@ def extract_ideal_partner_profile(
         pass
 
     # Aggregate dynamic: any source triggering HV makes overall HV
-    dynamic = "high_voltage" if (western_hv or zwds_hv or ten_gods_hv) else "stable"
+    classical_hv = (classical_dynamic == "high_voltage")
+    dynamic = "high_voltage" if (western_hv or zwds_hv or ten_gods_hv or classical_hv) else "stable"
 
     # Karmic flag: BOTH Western AND ZWDS must independently trigger high_voltage
     karmic = western_hv and zwds_hv

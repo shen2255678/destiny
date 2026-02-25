@@ -390,3 +390,58 @@ class TestReturnStructure:
         ]
         for key in expected_keys:
             assert key in res, f"Missing key: {key}"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Rule 1.5: Classical Astrology Layer (V3)
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestClassicalAstrologyLayer:
+    """Tests for _extract_classical_astrology_layer integration in extract_ideal_partner_profile."""
+
+    def _w(self, **signs):
+        return {f"{k}_sign": v for k, v in signs.items()}
+
+    def test_venus_detriment_triggers_hv(self):
+        """Venus in Scorpio (Detriment) → high_voltage + 執念 need."""
+        res = extract_ideal_partner_profile(self._w(venus="scorpio"), {}, {})
+        assert res["relationship_dynamic"] == "high_voltage"
+        assert any("執念" in n for n in res["psychological_needs"])
+
+    def test_moon_exaltation_stable_no_other_hv(self):
+        """Moon in Taurus (Exaltation), no other HV → stable + 穩定的愛 need."""
+        res = extract_ideal_partner_profile(self._w(moon="taurus"), {}, {})
+        assert res["relationship_dynamic"] == "stable"
+        assert any("穩定的愛" in n for n in res["psychological_needs"])
+
+    def test_pluto_boss_tag_injected(self):
+        """Sun in Scorpio → Pluto; Pluto in Scorpio → self-rules → FD = Pluto → 業力驅動 tag."""
+        res = extract_ideal_partner_profile(self._w(sun="scorpio", pluto="scorpio"), {}, {})
+        assert any("業力驅動" in n for n in res["psychological_needs"])
+
+    def test_venus_jupiter_boss_tag(self):
+        """Sun in Taurus → Venus; Venus in Taurus → self-rules FD = Venus → 豐盛 tag."""
+        res = extract_ideal_partner_profile(self._w(sun="taurus", venus="taurus"), {}, {})
+        assert any("豐盛" in n for n in res["psychological_needs"])
+
+    def test_venus_mars_natal_mr_triggers_hv(self):
+        """Venus in Aries + Mars in Taurus → Natal MR → high_voltage + 執念 tag."""
+        res = extract_ideal_partner_profile(self._w(venus="aries", mars="taurus"), {}, {})
+        assert res["relationship_dynamic"] == "high_voltage"
+        assert any("執念" in n or "佔有慾" in n for n in res["psychological_needs"])
+
+    def test_sun_moon_natal_mr_tag(self):
+        """Sun in Cancer + Moon in Leo → Sun-Moon MR → 自洽 tag."""
+        res = extract_ideal_partner_profile(self._w(sun="cancer", moon="leo"), {}, {})
+        assert any("自洽" in n for n in res["psychological_needs"])
+
+    def test_tier3_no_moon_no_crash(self):
+        """Tier 3: moon_sign absent → no crash, Venus dignity still runs."""
+        res = extract_ideal_partner_profile(self._w(venus="taurus"), {}, {})
+        assert isinstance(res["relationship_dynamic"], str)
+
+    def test_empty_western_chart_no_crash(self):
+        """Completely empty western_chart → no crash, returns valid dict."""
+        res = extract_ideal_partner_profile({}, {}, {})
+        assert "relationship_dynamic" in res
+        assert "psychological_needs" in res
