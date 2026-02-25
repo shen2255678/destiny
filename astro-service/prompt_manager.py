@@ -775,7 +775,11 @@ def get_ideal_match_prompt(
 
 # ── Synastry Report Prompt (for /api/matches/compute, DTO pipeline) ──────────
 
-def build_synastry_report_prompt(raw_match_data: dict) -> str:
+def build_synastry_report_prompt(
+    raw_match_data: dict,
+    user_a_profile: dict = None,
+    user_b_profile: dict = None,
+) -> str:
     """Build a safe LLM prompt for pairwise synastry report generation.
 
     Only feeds the LLM safe, high-level labels and scores — no raw degrees,
@@ -784,8 +788,10 @@ def build_synastry_report_prompt(raw_match_data: dict) -> str:
 
     Parameters
     ----------
-    raw_match_data : dict
-        Full output from compute_match_v2().
+    raw_match_data   : Full output from compute_match_v2().
+    user_a_profile   : Optional dict from extract_ideal_partner_profile() for person A.
+                       Keys used: psychological_needs, relationship_dynamic, attachment_style
+    user_b_profile   : Optional dict for person B. If either is None, profile block is skipped.
 
     Returns
     -------
@@ -802,8 +808,32 @@ def build_synastry_report_prompt(raw_match_data: dict) -> str:
     quadrant = raw_match_data.get("quadrant", "unknown")
     psych_tags = raw_match_data.get("psychological_tags", [])
 
-    # Translate psychological tags to Chinese
     psych_section = _translate_psych_tags(psych_tags)
+
+    # Profile injection (same pattern as get_match_report_prompt)
+    profile_block = ""
+    if user_a_profile and user_b_profile:
+        a_needs = "、".join(user_a_profile.get("psychological_needs", [])) or "（未提供）"
+        a_dyn   = user_a_profile.get("relationship_dynamic", "unknown")
+        a_att   = user_a_profile.get("attachment_style") or ""
+        a_att_zh = _ATTACHMENT_ZH.get(a_att.lower(), a_att) if a_att else "（未提供）"
+
+        b_needs = "、".join(user_b_profile.get("psychological_needs", [])) or "（未提供）"
+        b_dyn   = user_b_profile.get("relationship_dynamic", "unknown")
+        b_att   = user_b_profile.get("attachment_style") or ""
+        b_att_zh = _ATTACHMENT_ZH.get(b_att.lower(), b_att) if b_att else "（未提供）"
+
+        trap_tag = next(
+            (t for t in psych_tags if any(trap in t for trap in _ATT_TRAPS)),
+            None,
+        )
+        trap_line = f"\n合盤依戀陷阱觸發：{trap_tag}" if trap_tag else ""
+
+        profile_block = f"""
+【雙方心理結構（請據此寫出具體的現實碰撞，禁止使用通用廢話）】
+[User A] 核心需求：{a_needs}｜關係傾向：{a_dyn}｜依戀：{a_att_zh}
+[User B] 核心需求：{b_needs}｜關係傾向：{b_dyn}｜依戀：{b_att_zh}{trap_line}
+"""
 
     prompt = f"""{DESTINY_WORLDVIEW}
 
@@ -817,12 +847,12 @@ def build_synastry_report_prompt(raw_match_data: dict) -> str:
 - 友誼默契度：{round(friend_score)} / 100（代表思維共振與溝通品質）
 - 業力與張力指數：{round(tension)} / 100（分數越高，代表致命吸引力越強，但也越容易相愛相殺）
 - 關係四象限落點：{quadrant}
-- 高壓警告 ⚡：{high_voltage}
+- 高壓警告：{high_voltage}
 - 關係特殊徽章：{', '.join(badges) if badges else '無'}
 
 【心理動力學標籤（請轉譯為白話情境，禁止直接輸出原始標籤）】
 {psych_section}
-
+{profile_block}
 【寫作指南】：
 1. 如果「靈魂」高但「相處」低，請點出這是一段「深刻但需要磨合」的關係。
 2. 如果「張力指數」大於 60，請務必警告他們這段關係帶有強烈的業力或致命吸引力，不要用平淡的語氣。

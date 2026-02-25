@@ -562,6 +562,15 @@ async def compute_match_cached(req: MatchComputeRequest):
         user_a = _flatten_natal(natal_a)
         user_b = _flatten_natal(natal_b)
 
+        # 3.5 Load or compute psychology profiles (non-blocking, cache-first)
+        prof_a: dict = {}
+        prof_b: dict = {}
+        try:
+            prof_a = db_client.get_or_compute_psychology_profile(req.user_a_id, natal_a)
+            prof_b = db_client.get_or_compute_psychology_profile(req.user_b_id, natal_b)
+        except Exception:
+            pass  # Profile enrichment is non-critical; matching still works without it
+
         # 4. Compute match
         raw_result = compute_match_v2(user_a, user_b)
 
@@ -569,7 +578,7 @@ async def compute_match_cached(req: MatchComputeRequest):
         llm_report = ""
         if req.generate_report:
             try:
-                prompt = build_synastry_report_prompt(raw_result)
+                prompt = build_synastry_report_prompt(raw_result, prof_a, prof_b)
                 llm_report = call_llm(
                     prompt, provider=req.provider, max_tokens=400,
                     api_key=req.api_key, gemini_model=req.gemini_model,
