@@ -67,6 +67,7 @@ COMMENT ON COLUMN public.matches.raw_result IS 'Full compute_match_v2 JSON — b
 -- user_natal_data: service role only (no direct user access)
 ALTER TABLE public.user_natal_data ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Service role can manage natal data" ON public.user_natal_data;
 CREATE POLICY "Service role can manage natal data"
   ON public.user_natal_data FOR ALL
   USING (true)
@@ -75,10 +76,12 @@ CREATE POLICY "Service role can manage natal data"
 -- user_psychology_profiles: users can read own, service role can write
 ALTER TABLE public.user_psychology_profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own psychology profile" ON public.user_psychology_profiles;
 CREATE POLICY "Users can read own psychology profile"
   ON public.user_psychology_profiles FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Service role can manage psychology profiles" ON public.user_psychology_profiles;
 CREATE POLICY "Service role can manage psychology profiles"
   ON public.user_psychology_profiles FOR ALL
   USING (true)
@@ -87,10 +90,12 @@ CREATE POLICY "Service role can manage psychology profiles"
 -- matches: users can read own matches
 ALTER TABLE public.matches ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can read own matches" ON public.matches;
 CREATE POLICY "Users can read own matches"
   ON public.matches FOR SELECT
   USING (auth.uid() = user_a_id OR auth.uid() = user_b_id);
 
+DROP POLICY IF EXISTS "Service role can manage matches" ON public.matches;
 CREATE POLICY "Service role can manage matches"
   ON public.matches FOR ALL
   USING (true)
