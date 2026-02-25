@@ -147,3 +147,19 @@ class TestGetIdealMatchPrompt:
         assert "西占星盤" in prompt
         assert "紫微斗數" in prompt
         assert "天機, 天梁" in prompt or "天機" in prompt
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Task 5: Polarizing Value Conflicts — prompt writing rule
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestPolarizingValueConflictPrompt:
+    """Verify prompt_manager includes value-conflict writing rule."""
+
+    def test_toxic_trap_rule_in_ideal_match_prompt(self):
+        """get_ideal_match_prompt output should contain value-conflict writing rule."""
+        chart = {"sun_sign": "aries", "moon_sign": "taurus", "venus_sign": "gemini",
+                 "mars_sign": "cancer", "bazi": {}, "element_profile": {}}
+        prompt = get_ideal_match_prompt(chart)
+        assert "價值觀衝突" in prompt or "普世皆準" in prompt, \
+            "Prompt should instruct LLM to use polarizing value conflict framing for toxic_trap"

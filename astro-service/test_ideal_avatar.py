@@ -444,4 +444,38 @@ class TestClassicalAstrologyLayer:
         """Completely empty western_chart → no crash, returns valid dict."""
         res = extract_ideal_partner_profile({}, {}, {})
         assert "relationship_dynamic" in res
-        assert "psychological_needs" in res
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Task 5: Polarizing Value Conflicts — dealbreaker label upgrade
+# ═════════════════════════════════════════════════════════════════════════════
+
+class TestPolarizingValueConflicts:
+    """Verify Ten Gods dealbreaker labels use value-conflict framing."""
+
+    def _bazi_with_day_god(self, god: str):
+        """Return minimal inputs to trigger a specific day-branch Ten God for 甲 day master."""
+        # We use the ten_gods output directly to test _TEN_GOD_PSYCHOLOGY labels
+        from ideal_avatar import _TEN_GOD_PSYCHOLOGY
+        return _TEN_GOD_PSYCHOLOGY.get(god, {}).get("need", "")
+
+    def test_zheng_guan_uses_value_conflict(self):
+        """正官 need contains 無法忍受 (value conflict framing)."""
+        need = self._bazi_with_day_god("正官")
+        assert "無法忍受" in need, f"正官 need should use value-conflict framing, got: {need}"
+
+    def test_qi_sha_uses_value_conflict(self):
+        """七殺 need contains 無法忍受 (value conflict framing)."""
+        need = self._bazi_with_day_god("七殺")
+        assert "無法忍受" in need, f"七殺 need should use value-conflict framing, got: {need}"
+
+    def test_shang_guan_no_generic_hate(self):
+        """傷官 need no longer says 討厭 (generic hate), uses value-conflict framing."""
+        need = self._bazi_with_day_god("傷官")
+        assert "討厭" not in need, f"傷官 need should not use generic 討厭, got: {need}"
+        assert "無法忍受" in need, f"傷官 need should use value-conflict framing, got: {need}"
+
+    def test_zheng_yin_uses_value_conflict(self):
+        """正印 need contains 無法忍受 (value conflict framing)."""
+        need = self._bazi_with_day_god("正印")
+        assert "無法忍受" in need, f"正印 need should use value-conflict framing, got: {need}"

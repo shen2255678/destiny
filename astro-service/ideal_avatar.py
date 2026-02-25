@@ -120,14 +120,14 @@ _VOLATILE_PLANETS = frozenset(["pluto", "uranus", "chiron"])
 # ── Ten Gods psychology mapping (Sprint 6) ───────────────────────────────────
 
 _TEN_GOD_PSYCHOLOGY: Dict[str, Dict[str, Any]] = {
-    "正印": {"need": "極度需要穩定與承諾；偏好溫和、具備長輩般包容力", "dynamic": "stable"},
+    "正印": {"need": "極度需要情緒承接與溫柔的安全感；絕對無法忍受在衝突中只講大道理、完全無視你情感的超理智派，這種冷暴力會讓你徹底心死", "dynamic": "stable"},
     "偏印": {"need": "極度缺乏安全感，防備心重；需要極致偏愛", "dynamic": "high_voltage"},
-    "正官": {"need": "重視對方社會價值與人品；需要體面、情緒穩定的伴侶", "dynamic": "stable"},
-    "七殺": {"need": "外表強勢但內在渴望被征服；需要勢均力敵的對手", "dynamic": "high_voltage"},
+    "正官": {"need": "需要對方有承諾感與秩序感；絕對無法忍受頻繁打破計畫和承諾的隨性態度，這會觸發你的失控焦慮", "dynamic": "stable"},
+    "七殺": {"need": "外表強勢但內在渴望被征服；絕對無法忍受遇事逃避、只會情緒勒索的弱者，你寧願對方跟你吵架也不能接受軟弱", "dynamic": "high_voltage"},
     "正財": {"need": "感情觀極度務實；偏好生活規律、願意實質付出的對象", "dynamic": "stable"},
     "偏財": {"need": "追求戀愛的樂趣與新鮮感；容易被幽默不黏人的人吸引", "dynamic": None},
     "食神": {"need": "追求純粹快樂、無壓力的相處；需要懂生活脾氣好的伴侶", "dynamic": "stable"},
-    "傷官": {"need": "討厭世俗管束與愚笨；容易被才華洋溢具獨特魅力的人吸引", "dynamic": "high_voltage"},
+    "傷官": {"need": "絕對無法忍受試圖用傳統框架和說教把你綁死的控制狂；笨與無趣對你來說是原罪，才華與個性才是真正的春藥", "dynamic": "high_voltage"},
     "比肩": {"need": "感情觀如兄弟般平等；需要懂得分寸感給予獨立空間", "dynamic": None},
     "劫財": {"need": "感情容易充滿戲劇性與競爭感；需要極高情緒價值", "dynamic": "high_voltage"},
 }
