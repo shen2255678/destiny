@@ -3109,3 +3109,50 @@ class TestFavorableElementResonance:
         r_bi  = compute_favorable_element_resonance(a_bi, b_bi, current_soul=50.0)
         r_uni = compute_favorable_element_resonance(a_uni, b_uni, current_soul=50.0)
         assert r_bi["soul_mod"] > r_uni["soul_mod"]
+
+
+# ── Synastry Mutual Reception (V3 Classical Astrology) ───────────────────────
+
+from matching import check_synastry_mutual_reception
+
+
+def _wc(**signs):
+    """Build a minimal western_chart with {planet}_sign keys."""
+    return {f"{k}_sign": v for k, v in signs.items()}
+
+
+class TestSynastryMutualReception:
+    def test_venus_mars_mr_badge(self):
+        """A.venus in Aries + B.mars in Taurus → 金火互溶 badge."""
+        a = _wc(venus="aries", mars="gemini")
+        b = _wc(venus="leo",   mars="taurus")
+        badges = check_synastry_mutual_reception(a, b)
+        assert any("金火互溶" in badge for badge in badges)
+
+    def test_sun_moon_mr_badge(self):
+        """A.sun in Cancer + B.moon in Leo → 日月互溶 badge."""
+        a = _wc(sun="cancer", moon="aries")
+        b = _wc(sun="libra",  moon="leo")
+        badges = check_synastry_mutual_reception(a, b)
+        assert any("日月互溶" in badge for badge in badges)
+
+    def test_venus_moon_mr_badge(self):
+        """A.venus in Cancer + B.moon in Taurus → 金月互溶 badge (Venus rules Taurus, Moon rules Cancer)."""
+        a = _wc(venus="cancer", moon="aries")
+        b = _wc(venus="leo",    moon="taurus")
+        badges = check_synastry_mutual_reception(a, b)
+        assert any("金月互溶" in badge for badge in badges)
+
+    def test_no_mr_no_badge(self):
+        """Completely unrelated signs → no badges."""
+        a = _wc(sun="gemini",  moon="gemini",  venus="gemini",  mars="gemini")
+        b = _wc(sun="gemini",  moon="gemini",  venus="gemini",  mars="gemini")
+        badges = check_synastry_mutual_reception(a, b)
+        assert badges == []
+
+    def test_missing_sign_no_crash(self):
+        """One chart has no moon_sign (Tier 3) → no crash, returns list."""
+        a = _wc(sun="cancer")   # no moon
+        b = _wc(moon="leo")     # no sun
+        result = check_synastry_mutual_reception(a, b)
+        assert isinstance(result, list)

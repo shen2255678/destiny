@@ -22,6 +22,7 @@ from shadow_engine import (
     compute_attachment_dynamics,
     compute_elemental_fulfillment,
 )
+from psychology import MODERN_RULERSHIPS
 
 # ── Zodiac Constants ─────────────────────────────────────────
 
@@ -1152,6 +1153,52 @@ def compute_favorable_element_resonance(
     }
 
 
+def check_synastry_mutual_reception(chart_a: dict, chart_b: dict) -> List[str]:
+    """Check cross-chart mutual reception for three key planet pairs.
+
+    Uses MODERN_RULERSHIPS from psychology.py.
+    Missing sign fields are silently skipped — never crashes.
+
+    Returns list of badge strings (empty if none detected).
+    """
+
+    def _is_mr(
+        sign_x: Optional[str], sign_y: Optional[str],
+        planet_x: str, planet_y: str
+    ) -> bool:
+        if not sign_x or not sign_y:
+            return False
+        return (
+            MODERN_RULERSHIPS.get(sign_x.lower()) == planet_y and
+            MODERN_RULERSHIPS.get(sign_y.lower()) == planet_x
+        )
+
+    badges: List[str] = []
+
+    a_sun   = chart_a.get("sun_sign")
+    a_moon  = chart_a.get("moon_sign")
+    a_venus = chart_a.get("venus_sign")
+    a_mars  = chart_a.get("mars_sign")
+    b_sun   = chart_b.get("sun_sign")
+    b_moon  = chart_b.get("moon_sign")
+    b_venus = chart_b.get("venus_sign")
+    b_mars  = chart_b.get("mars_sign")
+
+    # 1. 日月互溶 (Sun ↔ Moon)
+    if _is_mr(a_sun, b_moon, "Sun", "Moon") or _is_mr(b_sun, a_moon, "Sun", "Moon"):
+        badges.append("古典業力：日月互溶 (靈魂深處的陰陽完美契合)")
+
+    # 2. 金火互溶 (Venus ↔ Mars)
+    if _is_mr(a_venus, b_mars, "Venus", "Mars") or _is_mr(b_venus, a_mars, "Venus", "Mars"):
+        badges.append("古典業力：金火互溶 (無法抗拒的致命吸引力與肉體契合)")
+
+    # 3. 金月互溶 (Venus ↔ Moon)
+    if _is_mr(a_venus, b_moon, "Venus", "Moon") or _is_mr(b_venus, a_moon, "Venus", "Moon"):
+        badges.append("古典業力：金月互溶 (無條件的溫柔接納與情緒滋養)")
+
+    return badges
+
+
 def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     """Compute full Phase G v2.1 match score.
 
@@ -1307,6 +1354,17 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     except Exception:
         pass
 
+    # 5. Synastry Mutual Reception (V3 Classical Astrology)
+    _synastry_mr_badges: List[str] = []
+    try:
+        _wa = user_a.get("western_chart", user_a)
+        _wb = user_b.get("western_chart", user_b)
+        _synastry_mr_badges = check_synastry_mutual_reception(_wa, _wb)
+        for _ in _synastry_mr_badges:
+            soul_adj += (100.0 - soul) * 0.22   # diminishing returns per badge
+    except Exception:
+        pass
+
     # Apply modifiers — clamp each track to [0, 100]
     if soul_adj != 0.0:
         tracks["soul"] = _clamp(tracks["soul"] + soul_adj)
@@ -1345,6 +1403,9 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     # Badge C: 進化型靈魂伴侶 — karmic_tension ≥ 30 且 soul ≥ 75
     if karmic_tension >= 30 and soul >= 75:
         resonance_badges.append("進化型靈魂伴侶：虐戀與升級")
+
+    # Synastry MR badges (V3 Classical Astrology)
+    resonance_badges.extend(_synastry_mr_badges)
 
     primary_track = max(tracks, key=lambda k: tracks[k])
     quadrant      = classify_quadrant(lust, soul)
