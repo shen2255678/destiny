@@ -1,26 +1,134 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+
+  /* DESTINY Custom Colors */
+  --color-primary-dark: #b86e7d;
+  --color-accent-peach: #f7c5a8;
+  --color-accent-teal: #a8e6cf;
+  --color-glow-passion: #ff9eb5;
+  --color-glow-stable: #9be3d5;
+  --color-glow-wildcard: #e6b3cc;
+  --color-text-main: #5c4059;
+  --color-text-light: #8c7089;
+  --color-glass-surface: rgba(255, 255, 255, 0.4);
+  --color-glass-border: rgba(255, 255, 255, 0.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 1rem;
+
+  /* Healing Glassmorphism Theme */
+  --background: #fdfbfb;
+  --foreground: #5c4059;
+  --card: rgba(255, 255, 255, 0.5);
+  --card-foreground: #5c4059;
+  --popover: #ffffff;
+  --popover-foreground: #5c4059;
+  --primary: #d98695;
+  --primary-foreground: #ffffff;
+  --secondary: #a8e6cf;
+  --secondary-foreground: #3d6b5a;
+  --muted: #fcecf0;
+  --muted-foreground: #8c7089;
+  --accent: #f7c5a8;
+  --accent-foreground: #5c4059;
+  --destructive: #e74c3c;
+  --border: rgba(255, 255, 255, 0.6);
+  --input: rgba(255, 255, 255, 0.5);
+  --ring: #d98695;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-image: linear-gradient(135deg, #fdfbfb 0%, #fcecf0 40%, #fdf2e9 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    font-family: var(--font-inter, system-ui, sans-serif);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ===== DESTINY Custom Utilities ===== */
+
+/* Glassmorphism panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(217, 134, 149, 0.1);
 }
+
+/* Breathing hover animation for cards */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); box-shadow: 0 10px 30px -10px rgba(217, 134, 149, 0.3); }
+  50% { transform: scale(1.02); box-shadow: 0 20px 40px -10px rgba(217, 134, 149, 0.5); }
+}
+.breathing-card:hover {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+/* Float animation */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Soft pulse glow */
+@keyframes soft-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(217, 134, 149, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(217, 134, 149, 0.5); }
+}
+.animate-soft-pulse {
+  animation: soft-pulse 3s ease-in-out infinite;
+}
+
+/* Text glow */
+.text-glow {
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+/* Hide scrollbar */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #fdfbfb; }
+::-webkit-scrollbar-thumb { background: #f7c5a8; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #d98695; }
