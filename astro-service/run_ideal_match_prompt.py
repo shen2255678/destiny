@@ -143,6 +143,7 @@ def flatten_to_chart_data(full_report: dict, chart: dict) -> dict:
 
     return {
         **{k: v for k, v in planets.items() if k.endswith("_sign")},
+        **{k: v for k, v in planets.items() if k.endswith("_degree")},
         **{k: v for k, v in planets.items() if k.endswith("_rx")},
         "house7_sign":     house7,      # prompt_manager fallback 用
         "houses":          houses,      # prompt_manager 主要讀 houses.descendant
