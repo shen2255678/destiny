@@ -179,6 +179,11 @@ _PSYCH_TAG_ZH: dict[str, str] = {
     "Karmic_Crisis_MARS":           "火星位於星座末度（29°），你的行動力與欲望帶有強烈的業力迫切感，這一世的行動模式正在完成某種靈魂使命的最終章",
     "Karmic_Crisis_MOON":           "月亮位於星座末度（29°），你的情感模式與安全感需求帶有強烈的業力色彩，這一世的情感課題正在走向深刻的蛻變與完成",
     "Karmic_Crisis_ASC":            "上升星座位於末度（29°），你的整個人生形象與外在展現都帶有業力的迫切感，這一世的身份認同正在完成一場深刻的靈魂蛻變",
+    # Ascendant Magnetism triggers (上升點磁場共鳴 — first-impression physical pull)
+    "A_Mars_Activates_B_Ascendant": "你的慾望與行動力直接點燃對方的外在魅力，他在你面前無法保持距離",
+    "A_Venus_Matches_B_Ascendant":  "你的美感精準嵌進對方的外在氣質，一見面就有渾然天成的吸引力",
+    "B_Mars_Activates_A_Ascendant": "對方的慾望與征服欲直接激發你的persona，讓你本能地想靠近",
+    "B_Venus_Matches_A_Ascendant":  "對方的吸引力天然契合你的外在氣質，彼此的費洛蒙頻率完美對齊",
 }
 
 _ELEMENT_ZH = {

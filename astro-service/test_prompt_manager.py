@@ -310,3 +310,51 @@ def test_multiple_triggers_all_appear():
     assert "attachment_trap: anxious_avoidant" in prompt
     assert "intimacy_fear: soul_runner" in prompt
     assert "attachment_healing: secure_base" in prompt
+
+
+def test_all_shadow_tags_have_zh_translations():
+    """Every tag that compute_shadow_and_wound() can emit must have a _PSYCH_TAG_ZH entry.
+
+    This is a coverage guard — if a new tag is added to shadow_engine.py without
+    a matching translation, this test will catch it immediately.
+    """
+    from prompt_manager import _PSYCH_TAG_ZH
+    known_shadow_tags = [
+        # Chiron
+        "A_Sun_Triggers_B_Chiron", "A_Moon_Triggers_B_Chiron",
+        "A_Venus_Triggers_B_Chiron", "A_Mars_Triggers_B_Chiron",
+        "B_Sun_Triggers_A_Chiron", "B_Moon_Triggers_A_Chiron",
+        "B_Venus_Triggers_A_Chiron", "B_Mars_Triggers_A_Chiron",
+        # Pluto-Moon
+        "A_Pluto_Wounds_B_Moon", "B_Pluto_Wounds_A_Moon",
+        # Saturn-Moon
+        "A_Saturn_Suppresses_B_Moon", "B_Saturn_Suppresses_A_Moon",
+        # Saturn-Venus
+        "A_Saturn_Binds_B_Venus", "B_Saturn_Binds_A_Venus",
+        # 12th House
+        "A_Illuminates_B_Shadow", "B_Illuminates_A_Shadow", "Mutual_Shadow_Integration",
+        # Vertex
+        "A_Sun_Conjunct_Vertex", "A_Moon_Conjunct_Vertex", "A_Venus_Conjunct_Vertex",
+        "B_Sun_Conjunct_Vertex", "B_Moon_Conjunct_Vertex", "B_Venus_Conjunct_Vertex",
+        # Lilith
+        "A_Venus_Conjunct_Lilith", "A_Mars_Conjunct_Lilith",
+        "B_Venus_Conjunct_Lilith", "B_Mars_Conjunct_Lilith",
+        # South Node
+        "A_Sun_Conjunct_SouthNode", "A_Moon_Conjunct_SouthNode",
+        "A_Venus_Conjunct_SouthNode", "A_Mars_Conjunct_SouthNode",
+        "B_Sun_Conjunct_SouthNode", "B_Moon_Conjunct_SouthNode",
+        "B_Venus_Conjunct_SouthNode", "B_Mars_Conjunct_SouthNode",
+        # North Node
+        "A_Sun_Conjunct_NorthNode", "A_Moon_Conjunct_NorthNode",
+        "A_Venus_Conjunct_NorthNode", "A_Mars_Conjunct_NorthNode",
+        "B_Sun_Conjunct_NorthNode", "B_Moon_Conjunct_NorthNode",
+        "B_Venus_Conjunct_NorthNode", "B_Mars_Conjunct_NorthNode",
+        # Descendant
+        "A_Sun_Conjunct_Descendant", "A_Moon_Conjunct_Descendant", "A_Venus_Conjunct_Descendant",
+        "B_Sun_Conjunct_Descendant", "B_Moon_Conjunct_Descendant", "B_Venus_Conjunct_Descendant",
+        # ASC Magnetism
+        "A_Mars_Activates_B_Ascendant", "A_Venus_Matches_B_Ascendant",
+        "B_Mars_Activates_A_Ascendant", "B_Venus_Matches_A_Ascendant",
+    ]
+    missing = [t for t in known_shadow_tags if t not in _PSYCH_TAG_ZH]
+    assert missing == [], f"Shadow tags without translations: {missing}"

@@ -32,6 +32,27 @@ def _harmony(a, b, orb=5.0):
     return d <= orb or abs(d - 120.0) <= orb
 
 
+def _asc_aspect_strength(planet_deg, asc_deg, mode: str, orb: float) -> float:
+    """Return [0, 1] aspect strength between a planet and an Ascendant degree.
+
+    mode="tension"  checks conjunction / square (90°) / opposition (180°).
+    mode="harmony"  checks conjunction / trine (120°).
+    Returns 0.0 when either value is None or no aspect falls within orb.
+    Strength decays linearly: 0° from centre → 1.0; exactly at orb → 0.0.
+    """
+    d = _dist(planet_deg, asc_deg)
+    if d is None:
+        return 0.0
+    if mode == "tension":
+        diffs = [d, abs(d - 90.0), abs(d - 180.0)]
+    else:
+        diffs = [d, abs(d - 120.0)]
+    in_orb = [x for x in diffs if x <= orb]
+    if not in_orb:
+        return 0.0
+    return 1.0 - (min(in_orb) / orb)
+
+
 # Orb for Chiron wound triggers (conjunction or opposition only)
 _CHIRON_ORB = 5.0
 
@@ -295,6 +316,35 @@ def compute_shadow_and_wound(chart_a, chart_b):
                 result["partner_mod"] += 20.0
                 result["soul_mod"] += 10.0
                 result["shadow_tags"].append(f"B_{p_name}_Conjunct_Descendant")
+
+    # ── Ascendant Magnetism (上升點磁場共鳴) ─────────────────────────────────
+    # Mars × ASC  — tension aspects (conjunction/square/opposition), orb 5°
+    # Venus × ASC — harmony aspects (conjunction/trine), orb 5°
+    # Only emits a tag + lust boost when aspect strength ≥ 0.75 (≤ 1.25° from centre).
+    # Bidirectional: A→B and B→A checked independently.
+    _ASC_ORB = 5.0
+    _ASC_THRESHOLD = 0.75
+
+    mars_a  = chart_a.get("mars_degree")
+    venus_a = chart_a.get("venus_degree")
+    mars_b  = chart_b.get("mars_degree")
+    venus_b = chart_b.get("venus_degree")
+
+    if _asc_aspect_strength(mars_a, asc_b, "tension", _ASC_ORB) >= _ASC_THRESHOLD:
+        result["lust_mod"] += 5.0
+        result["shadow_tags"].append("A_Mars_Activates_B_Ascendant")
+
+    if _asc_aspect_strength(mars_b, asc_a, "tension", _ASC_ORB) >= _ASC_THRESHOLD:
+        result["lust_mod"] += 5.0
+        result["shadow_tags"].append("B_Mars_Activates_A_Ascendant")
+
+    if _asc_aspect_strength(venus_a, asc_b, "harmony", _ASC_ORB) >= _ASC_THRESHOLD:
+        result["lust_mod"] += 3.0
+        result["shadow_tags"].append("A_Venus_Matches_B_Ascendant")
+
+    if _asc_aspect_strength(venus_b, asc_a, "harmony", _ASC_ORB) >= _ASC_THRESHOLD:
+        result["lust_mod"] += 3.0
+        result["shadow_tags"].append("B_Venus_Matches_A_Ascendant")
 
     return result
 

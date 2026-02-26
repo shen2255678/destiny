@@ -832,3 +832,64 @@ def test_fearful_avoidant_same_as_fearful():
     r_direct = compute_attachment_dynamics("fearful", "avoidant")
     assert r_hyphen["trap_tag"] == r_direct["trap_tag"]
     assert r_hyphen["high_voltage"] == r_direct["high_voltage"]
+
+
+# ── Ascendant Magnetism triggers ──────────────────────────────────────────────
+
+def test_mars_a_activates_asc_b_conjunction():
+    """A's Mars conjunct B's ASC (1°) → A_Mars_Activates_B_Ascendant + lust_mod +5."""
+    a = {"mars_degree": 100.0}
+    b = {"ascendant_degree": 101.0}   # diff=1°, strength=0.80 >= 0.75
+    r = compute_shadow_and_wound(a, b)
+    assert "A_Mars_Activates_B_Ascendant" in r["shadow_tags"]
+    assert r["lust_mod"] >= 5.0
+
+
+def test_mars_a_activates_asc_b_square():
+    """A's Mars square B's ASC (91°) → triggers tension aspect."""
+    a = {"mars_degree": 100.0}
+    b = {"ascendant_degree": 191.0}   # |91-90|=1°, strength=0.80
+    r = compute_shadow_and_wound(a, b)
+    assert "A_Mars_Activates_B_Ascendant" in r["shadow_tags"]
+
+
+def test_mars_a_no_tag_at_exact_orb_boundary():
+    """A's Mars exactly 5° from B's ASC → strength=0.0 < threshold → no tag."""
+    a = {"mars_degree": 100.0}
+    b = {"ascendant_degree": 105.0}   # diff=5°, strength=1-(5/5)=0.0
+    r = compute_shadow_and_wound(a, b)
+    assert "A_Mars_Activates_B_Ascendant" not in r["shadow_tags"]
+
+
+def test_venus_a_matches_asc_b_conjunction():
+    """A's Venus conjunct B's ASC (0.5°) → A_Venus_Matches_B_Ascendant + lust_mod +3."""
+    a = {"venus_degree": 200.0}
+    b = {"ascendant_degree": 200.5}   # strength=0.90
+    r = compute_shadow_and_wound(a, b)
+    assert "A_Venus_Matches_B_Ascendant" in r["shadow_tags"]
+    assert r["lust_mod"] >= 3.0
+
+
+def test_venus_b_matches_asc_a_trine():
+    """B's Venus trine A's ASC (119°) → B_Venus_Matches_A_Ascendant."""
+    a = {"ascendant_degree": 169.0}
+    b = {"venus_degree": 50.0}        # |119-120|=1°, strength=0.80
+    r = compute_shadow_and_wound(a, b)
+    assert "B_Venus_Matches_A_Ascendant" in r["shadow_tags"]
+
+
+def test_asc_magnetism_bidirectional_independent():
+    """Both A_Mars→B_ASC and B_Venus→A_ASC fire simultaneously."""
+    a = {"mars_degree": 100.0, "ascendant_degree": 300.0}
+    b = {"ascendant_degree": 101.0, "venus_degree": 299.5}
+    r = compute_shadow_and_wound(a, b)
+    assert "A_Mars_Activates_B_Ascendant" in r["shadow_tags"]
+    assert "B_Venus_Matches_A_Ascendant" in r["shadow_tags"]
+    assert r["lust_mod"] >= 8.0   # 5.0 + 3.0
+
+
+def test_asc_magnetism_missing_degrees_no_crash():
+    """No degrees provided → no tags, no crash."""
+    r = compute_shadow_and_wound({}, {})
+    assert "A_Mars_Activates_B_Ascendant" not in r["shadow_tags"]
+    assert "B_Mars_Activates_A_Ascendant" not in r["shadow_tags"]
