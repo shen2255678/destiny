@@ -152,6 +152,19 @@ export function PromptPreviewPanel({
     }
   }
 
+  // Pre-built prompts from enriched DTO (only present in new records)
+  const prebuiltPrompts = (r.prompts as Record<string, string> | undefined) ?? null;
+  const PROMPT_LABELS: Record<string, string> = {
+    synastry: "合盤洞察 (Synastry)",
+    ideal_a:  `${nameA} 理想伴侶 (Ideal A)`,
+    ideal_b:  `${nameB} 理想伴侶 (Ideal B)`,
+    profile_a: `${nameA} 靈魂面具 (Profile A)`,
+    profile_b: `${nameB} 靈魂面具 (Profile B)`,
+  };
+  const PROMPT_KEYS = ["synastry", "ideal_a", "ideal_b", "profile_a", "profile_b"];
+  const availablePromptKeys = PROMPT_KEYS.filter((k) => prebuiltPrompts?.[k]);
+  const [activePromptKey, setActivePromptKey] = useState<string>("");
+
   // Extract fields from reportJson
   const psychTagsRaw = (r.psychological_tags as string[]) ?? [];
   const psychTriggersRaw = (r.psychological_triggers as string[]) ?? [];
@@ -195,6 +208,75 @@ export function PromptPreviewPanel({
 
       {open ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 12 }}>
+
+          {/* ── Section 0: Pre-built Prompts (enriched DTO only) ── */}
+          <div style={{ ...glass, padding: "20px 24px" }}>
+            <p style={sectionHead}>§0 預建 Prompt（新版報告限定）</p>
+            {availablePromptKeys.length > 0 ? (
+              <>
+                <p style={{ fontSize: 12, color: "#8c7089", marginBottom: 12 }}>
+                  這些是 Pipeline 預算好存在報告中的 Prompt，可直接複製送給 LLM。
+                </p>
+                {/* Tab buttons */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  {availablePromptKeys.map((k) => (
+                    <button
+                      key={k}
+                      onClick={() => setActivePromptKey(activePromptKey === k ? "" : k)}
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        border: activePromptKey === k
+                          ? "1px solid #b86e7d"
+                          : "1px solid rgba(200,160,170,0.4)",
+                        background: activePromptKey === k
+                          ? "rgba(184,110,125,0.15)"
+                          : "transparent",
+                        color: activePromptKey === k ? "#b86e7d" : "#8c7089",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {PROMPT_LABELS[k] ?? k}
+                    </button>
+                  ))}
+                </div>
+                {activePromptKey && prebuiltPrompts?.[activePromptKey] ? (
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: "#8c7089" }}>
+                        {prebuiltPrompts[activePromptKey].length} 字元
+                      </span>
+                    </div>
+                    <textarea
+                      readOnly
+                      value={prebuiltPrompts[activePromptKey]}
+                      rows={14}
+                      style={{
+                        width: "100%",
+                        background: "rgba(255,255,255,0.6)",
+                        border: "1px solid rgba(255,255,255,0.8)",
+                        borderRadius: 10,
+                        padding: "10px 14px",
+                        fontSize: 11,
+                        fontFamily: "'Courier New', monospace",
+                        color: "#5c4059",
+                        lineHeight: 1.6,
+                        resize: "vertical",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p style={{ fontSize: 12, color: "#aaa" }}>
+                此為舊版報告，不含預建 Prompt。重新跑一次合盤即可獲得。
+              </p>
+            )}
+          </div>
 
           {/* ── Section 1: Algorithm Data ── */}
           <div style={{ ...glass, padding: "20px 24px" }}>
