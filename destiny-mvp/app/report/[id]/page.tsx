@@ -30,7 +30,7 @@ export default async function ReportPage({
   // --- Field mapping: API uses different names than what TarotCard expects ---
   const quadrantMap: Record<string, string> = {
     soulmate: "靈魂伴侶",
-    lover: "激情愛人",
+    lover: "命定雙生",
     partner: "命定正緣",
     colleague: "靈魂知己",
   };
