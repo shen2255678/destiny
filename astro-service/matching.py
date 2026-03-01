@@ -915,10 +915,10 @@ def compute_tracks(
     passion: mars × 0.30 + venus × 0.30 + passion_extremity × 0.10 + bazi_clash × 0.30
     partner: moon × 0.35 + juno × 0.35 + bazi_generation × 0.30
              (+ saturn_cross × 0.10 additive bonus when saturn signs present)
-    soul:    chiron × 0.40 + karmic_triggers × 0.40 + useful_god_complement × 0.20
+    soul:    karmic_triggers × 0.60 + useful_god_complement × 0.40
              (+0.10 bonus if frame_break)
+             [Chiron removed — handled exclusively by shadow_engine orb checks. See L-12/L-2.]
     When juno absent:  moon×0.55 + bazi_generation×0.45
-    When chiron absent: karmic×0.60 + useful_god×0.40
 
     Emotional capacity penalty (applied to partner track before zwds_mods):
       Both users < 40: partner × 0.7  (mutual emotional drain)
