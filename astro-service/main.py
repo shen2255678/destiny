@@ -393,6 +393,50 @@ def preview_ideal_match_prompt(req: PreviewIdealMatchRequest):
     return {"prompt": prompt}
 
 
+# ── DestinyPipeline: /compute-enriched ───────────────────────────────────────
+
+class EnrichedPersonInput(BaseModel):
+    birth_date: str
+    birth_time: Optional[str] = None   # "HH:MM" | "morning" | "afternoon" | "evening" | None
+    gender: str = "M"
+    lat: float = 25.033
+    lng: float = 121.565
+
+
+class EnrichedRequest(BaseModel):
+    person_a: EnrichedPersonInput
+    person_b: Optional[EnrichedPersonInput] = None
+
+
+@app.post("/compute-enriched")
+def compute_enriched(req: EnrichedRequest):
+    """One-shot enriched pipeline: charts + match + profiles + prompts → safe DTO.
+
+    Single person (person_b omitted): returns ideal-match + profile prompts.
+    Synastry (person_b provided): adds scores, tags_zh, and synastry prompt.
+
+    Returns enriched DTO per docs/plans/2026-03-01-destiny-pipeline-design.md.
+    """
+    from destiny_pipeline import DestinyPipeline, BirthInput
+
+    a = BirthInput(req.person_a.birth_date, req.person_a.birth_time,
+                   req.person_a.gender, req.person_a.lat, req.person_a.lng)
+    b = None
+    if req.person_b is not None:
+        b = BirthInput(req.person_b.birth_date, req.person_b.birth_time,
+                       req.person_b.gender, req.person_b.lat, req.person_b.lng)
+
+    try:
+        pipeline = DestinyPipeline(a, b)
+        pipeline.compute_charts()
+        if b is not None:
+            pipeline.compute_match()
+        pipeline.extract_profiles().build_prompts()
+        return pipeline.to_enriched_dto()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ── Sprint 4/8: Ideal Partner Profile Extraction ─────────────────────────────
 
 @app.post("/extract-ideal-profile")
