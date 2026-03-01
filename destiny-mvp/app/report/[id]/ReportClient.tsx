@@ -3,6 +3,22 @@
 import dynamic from "next/dynamic";
 import { useState, useCallback } from "react";
 
+const SIGN_ZH: Record<string, string> = {
+  Aries: "牡羊座", Taurus: "金牛座", Gemini: "雙子座", Cancer: "巨蟹座",
+  Leo: "獅子座", Virgo: "處女座", Libra: "天秤座", Scorpio: "天蠍座",
+  Sagittarius: "射手座", Capricorn: "摩羯座", Aquarius: "水瓶座", Pisces: "雙魚座",
+};
+const ATT_ZH: Record<string, string> = {
+  secure: "安全依戀型", anxious: "焦慮依戀型", avoidant: "迴避依戀型", fearful: "恐懼依戀型",
+};
+const BAZI_ZH: Record<string, string> = {
+  Wood: "木", Fire: "火", Earth: "土", Metal: "金", Water: "水",
+};
+function zh(val: string | undefined, map: Record<string, string>): string {
+  if (!val) return "—";
+  return map[val] ?? val;
+}
+
 // Dynamic import avoids SSR issues with framer-motion
 const TarotCard = dynamic(
   () => import("@/components/TarotCard").then((m) => m.TarotCard),
@@ -14,6 +30,10 @@ interface TrackScores {
   passion?: number;
   partner?: number;
   soul?: number;
+}
+
+interface ChartData {
+  [key: string]: string;
 }
 
 interface ReportClientProps {
@@ -28,6 +48,8 @@ interface ReportClientProps {
   shadowTags: string[];
   toxicTraps: string[];
   reportText: string;
+  chartA?: ChartData;
+  chartB?: ChartData;
 }
 
 export function ReportClient({
@@ -42,8 +64,11 @@ export function ReportClient({
   shadowTags,
   toxicTraps,
   reportText,
+  chartA,
+  chartB,
 }: ReportClientProps) {
   const [copied, setCopied] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
 
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -145,6 +170,94 @@ export function ReportClient({
           back={{ shadow: shadowTags, toxicTraps, reportText }}
         />
         <p style={{ color: "#8c7089", fontSize: 11 }}>點擊卡片翻面 → 查看陰暗面分析</p>
+      </div>
+
+      {/* Collapsible individual chart section */}
+      <div style={{ marginTop: 28 }}>
+        <button
+          onClick={() => setChartOpen((v) => !v)}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "rgba(255,255,255,0.3)",
+            border: "1px solid rgba(255,255,255,0.55)",
+            borderRadius: chartOpen ? "16px 16px 0 0" : 16,
+            padding: "12px 18px",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#8c7089",
+            cursor: "pointer",
+            backdropFilter: "blur(8px)",
+            transition: "border-radius 0.2s",
+          }}
+        >
+          <span>✦ 查看完整命盤資料</span>
+          <span style={{ fontSize: 16, transition: "transform 0.25s", display: "inline-block", transform: chartOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
+            ▾
+          </span>
+        </button>
+
+        {chartOpen && (
+          <div style={{
+            background: "rgba(255,255,255,0.22)",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(255,255,255,0.45)",
+            borderTop: "none",
+            borderRadius: "0 0 16px 16px",
+            padding: "16px 18px",
+          }}>
+            {(!chartA && !chartB) ? (
+              <p style={{ fontSize: 11, color: "#c4a0aa", textAlign: "center", margin: 0 }}>
+                重新跑一次匹配後可見（舊紀錄不含此資料）
+              </p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                {[
+                  { name: nameA, chart: chartA },
+                  { name: nameB, chart: chartB },
+                ].map(({ name, chart }) => (
+                  <div key={name}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#b86e7d", marginBottom: 8, letterSpacing: "0.05em" }}>
+                      {name} 命盤
+                    </div>
+                    {chart ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        {[
+                          { label: "☀ 太陽", key: "sun_sign" },
+                          { label: "☽ 月亮", key: "moon_sign" },
+                          { label: "↑ 上升", key: "ascendant_sign" },
+                          { label: "♀ 金星", key: "venus_sign" },
+                          { label: "♂ 火星", key: "mars_sign" },
+                          { label: "☿ 水星", key: "mercury_sign" },
+                          { label: "♄ 土星", key: "saturn_sign" },
+                        ].map(({ label, key }) => (
+                          <div key={key} style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                            <span style={{ color: "#8c7089" }}>{label}</span>
+                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart[key], SIGN_ZH)}</span>
+                          </div>
+                        ))}
+                        <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(180,130,150,0.15)", display: "flex", flexDirection: "column", gap: 5 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                            <span style={{ color: "#8c7089" }}>🔥 八字元素</span>
+                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart["bazi_element"], BAZI_ZH)}</span>
+                          </div>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                            <span style={{ color: "#8c7089" }}>🧠 依戀類型</span>
+                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart["attachment_style"], ATT_ZH)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 11, color: "#c4a0aa", margin: 0 }}>資料不可用</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

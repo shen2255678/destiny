@@ -83,6 +83,9 @@ export default async function ReportPage({
   const reportText =
     reportLines.join("\n") || "演算法解析完成，啟用 LLM 模式可獲得深度報告。";
 
+  const chartA = (r.user_a_chart as Record<string, string>) ?? undefined;
+  const chartB = (r.user_b_chart as Record<string, string>) ?? undefined;
+
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px" }}>
       <ReportClient
@@ -97,6 +100,8 @@ export default async function ReportPage({
         shadowTags={shadowTags}
         toxicTraps={toxicTraps}
         reportText={reportText}
+        chartA={Object.keys(chartA ?? {}).length > 0 ? chartA : undefined}
+        chartB={Object.keys(chartB ?? {}).length > 0 ? chartB : undefined}
       />
       <PromptPreviewPanel
         reportJson={r}
