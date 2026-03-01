@@ -292,6 +292,10 @@ class DestinyPipeline:
 
         Excludes: *_degree fields, natal_aspects, raw chart dicts.
         Includes: sign names, Chinese tags, scores, prompts.
+
+        Backward-compat: also flattens critical match fields at the top
+        level so existing consumers (ReportPage, PromptPreviewPanel,
+        /preview-prompt, /generate-match-report) work unchanged.
         """
         dto: dict = {
             "mode": self._mode,
@@ -301,6 +305,32 @@ class DestinyPipeline:
         if self._mode == "synastry" and self._match:
             dto["scores"] = self._build_scores()
             dto["tags_zh"] = self._build_tags_zh()
+
+            # ── backward-compat flat fields ──────────────────────────────
+            # Consumers that read r.quadrant / r.lust_score / etc. directly
+            # (ReportPage, PromptPreviewPanel, /preview-prompt) continue to work.
+            _COMPAT = [
+                "lust_score", "soul_score", "harmony_score", "karmic_tension",
+                "quadrant", "primary_track", "spiciness_level", "high_voltage",
+                "tracks", "labels", "power", "resonance_badges",
+                "psychological_tags", "psychological_triggers",
+                "bazi_relation", "useful_god_complement",
+                "element_profile_a", "element_profile_b",
+                "defense_mechanisms", "layered_analysis", "zwds",
+            ]
+            for k in _COMPAT:
+                if k in self._match:
+                    dto[k] = self._match[k]
+
+            # user_a_chart / user_b_chart — used by PromptPreviewPanel chart display
+            _ECHO = [
+                "sun_sign", "moon_sign", "venus_sign", "mars_sign",
+                "mercury_sign", "jupiter_sign", "saturn_sign", "ascendant_sign",
+                "chiron_sign", "juno_sign", "bazi_element", "bazi_month_branch",
+                "bazi_day_branch", "attachment_style", "data_tier", "gender",
+            ]
+            dto["user_a_chart"] = {k: v for k in _ECHO if (v := self._flat_for_match(self._a, self._chart_a).get(k)) is not None}
+            dto["user_b_chart"] = {k: v for k in _ECHO if (v := self._flat_for_match(self._b, self._chart_b).get(k)) is not None}
 
         dto["person_a_summary"] = self._person_summary(
             self._a, self._chart_a, self._zwds_a, self._avatar_a

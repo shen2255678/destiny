@@ -25,12 +25,6 @@ const DEFAULT_B: BirthData = {
   gender: "F",
 };
 
-// Default RPV values — can be extended to a full form later
-const DEFAULT_RPV = {
-  rpv_conflict: "argue",
-  rpv_power: "follow",
-  rpv_energy: "home",
-};
 
 interface SavedProfile {
   id: string;
@@ -47,29 +41,22 @@ interface SavedProfile {
 
 function ProfilePicker({
   profiles,
-  slot,
-  cached,
   onSelect,
-  onClear,
 }: {
   profiles: SavedProfile[];
-  slot: "A" | "B";
-  cached: boolean;
   onSelect: (p: SavedProfile) => void;
-  onClear: () => void;
 }) {
   if (profiles.length === 0) return null;
   return (
-    <div style={{ marginBottom: 10, display: "flex", gap: 8, alignItems: "center" }}>
+    <div style={{ marginBottom: 10 }}>
       <select
         defaultValue=""
         onChange={(e) => {
           const p = profiles.find((x) => x.id === e.target.value);
           if (p) onSelect(p);
-          else onClear();
         }}
         style={{
-          flex: 1, padding: "6px 10px", borderRadius: 10,
+          width: "100%", padding: "6px 10px", borderRadius: 10,
           border: "1px solid rgba(255,255,255,0.6)",
           background: "rgba(255,255,255,0.5)",
           fontSize: 12, color: "#5c4059", cursor: "pointer",
@@ -80,9 +67,6 @@ function ProfilePicker({
           <option key={p.id} value={p.id}>{p.display_name}</option>
         ))}
       </select>
-      {cached && (
-        <span style={{ fontSize: 10, color: "#34d399", fontWeight: 600 }}>✓ 快取</span>
-      )}
     </div>
   );
 }
@@ -95,8 +79,6 @@ export default function LoungePage() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [profiles, setProfiles] = useState<SavedProfile[]>([]);
-  const [cachedChartA, setCachedChartA] = useState<Record<string, unknown> | null>(null);
-  const [cachedChartB, setCachedChartB] = useState<Record<string, unknown> | null>(null);
   const [saving, setSaving] = useState<null | "A" | "B">(null);
   const [saveLabel, setSaveLabel] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
@@ -111,102 +93,49 @@ export default function LoungePage() {
   async function runMatch() {
     setLoading(true);
     setError("");
-    setStatus("⟳ 運算星盤中...");
+    setStatus("⟳ 解析命盤與命運共振中...");
 
     try {
-      // --- Step 1: Calculate charts in parallel (async-parallel best practice) ---
-      const buildChartPayload = (p: BirthData) => ({
-        birth_date: p.birth_date,
-        birth_time: p.birth_time || null,
-        lat: p.lat,
-        lng: p.lng,
-        data_tier: p.data_tier,
-      });
-
-      const [chartA, chartB] = await Promise.all([
-        cachedChartA
-          ? Promise.resolve(cachedChartA)
-          : fetch("/api/calculate-chart", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(buildChartPayload(a)),
-            }).then((r) => r.json() as Promise<Record<string, unknown>>),
-        cachedChartB
-          ? Promise.resolve(cachedChartB)
-          : fetch("/api/calculate-chart", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(buildChartPayload(b)),
-            }).then((r) => r.json() as Promise<Record<string, unknown>>),
-      ]);
-
-      if (chartA.error || chartB.error) {
-        throw new Error(
-          (chartA.error as string) ?? (chartB.error as string)
-        );
-      }
-
-      // --- Step 1.5: Enrich Tier 1 charts with ZWDS (non-blocking) ---
-      const addZwds = async (person: BirthData, chart: Record<string, unknown>) => {
-        if (chart.zwds || person.data_tier !== 1 || !person.birth_time) return chart;
-        try {
-          const [year, month, day] = person.birth_date.split("-").map(Number);
-          const r = await fetch("/api/compute-zwds-chart", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              birth_year: year, birth_month: month, birth_day: day,
-              birth_time: person.birth_time, gender: person.gender,
-            }),
-          });
-          if (!r.ok) return chart;
-          const z = await r.json() as Record<string, unknown>;
-          if (z.chart) return { ...chart, zwds: z.chart };
-        } catch { /* non-blocking */ }
-        return chart;
-      };
-
-      setStatus("⟳ 計算紫微斗數...");
-      const [enrichedA, enrichedB] = await Promise.all([
-        addZwds(a, chartA),
-        addZwds(b, chartB),
-      ]);
-
-      setStatus("⟳ 解析命運共振...");
-
-      // --- Step 2: Compute synastry match ---
-      const matchRes = await fetch("/api/compute-match", {
+      // Single enriched call: charts + ZWDS + match + profiles + prompts
+      const enrichedRes = await fetch("/api/compute-enriched", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_a: {
-            ...enrichedA,
+          person_a: {
+            birth_date: a.birth_date,
+            birth_time: a.birth_time || null,
             gender: a.gender,
-            data_tier: a.data_tier,
-            ...DEFAULT_RPV,
+            lat: a.lat,
+            lng: a.lng,
           },
-          user_b: {
-            ...enrichedB,
+          person_b: {
+            birth_date: b.birth_date,
+            birth_time: b.birth_time || null,
             gender: b.gender,
-            data_tier: b.data_tier,
-            ...DEFAULT_RPV,
+            lat: b.lat,
+            lng: b.lng,
           },
         }),
       });
 
-      const matchData = (await matchRes.json()) as Record<string, unknown>;
-      if (matchData.error) throw new Error(matchData.error as string);
+      const dto = (await enrichedRes.json()) as Record<string, unknown>;
+      if (dto.error) throw new Error(dto.error as string);
+      if (!enrichedRes.ok) throw new Error(`astro-service ${enrichedRes.status}`);
 
       setStatus("⟳ 儲存報告...");
 
-      // --- Step 3: Save to Supabase ---
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // Extract scores from enriched DTO
+      const scores = (dto.scores as Record<string, unknown>) ?? {};
+      const lust = Math.round((scores.lust as number) ?? 50);
+      const soul = Math.round((scores.soul as number) ?? 50);
+      const harmony = Math.round((scores.harmony as number) ?? (lust + soul) / 2);
+      const tracks = (scores.tracks as Record<string, unknown>) ?? {};
+      const tagsZh = (dto.tags_zh as Record<string, unknown>) ?? {};
+      const labels = (tagsZh.labels as string[]) ?? (dto.labels as string[]) ?? [];
 
-      const lust = Math.round((matchData.lust_score as number) ?? 50);
-      const soul = Math.round((matchData.soul_score as number) ?? 50);
+      // Save to Supabase
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
 
       const { data: match, error: dbErr } = await supabase
         .from("mvp_matches")
@@ -214,12 +143,12 @@ export default function LoungePage() {
           user_id: user!.id,
           name_a: a.name,
           name_b: b.name,
-          harmony_score: Math.round((lust + soul) / 2),
+          harmony_score: harmony,
           lust_score: lust,
           soul_score: soul,
-          tracks: (matchData.tracks as Record<string, unknown>) ?? {},
-          labels: (matchData.labels as string[]) ?? [],
-          report_json: matchData,
+          tracks,
+          labels,
+          report_json: dto,
         })
         .select("id")
         .single();
@@ -273,8 +202,6 @@ export default function LoungePage() {
         <div>
           <ProfilePicker
             profiles={profiles}
-            slot="A"
-            cached={!!cachedChartA}
             onSelect={(p) => {
               setA({
                 name: p.display_name,
@@ -285,14 +212,12 @@ export default function LoungePage() {
                 data_tier: p.data_tier,
                 gender: p.gender,
               });
-              setCachedChartA(p.natal_cache);
             }}
-            onClear={() => setCachedChartA(null)}
           />
           <BirthInput
             label="A"
             value={a}
-            onChange={(v) => { setA(v); setCachedChartA(null); }}
+            onChange={setA}
           />
           <div style={{ marginTop: 8, textAlign: "right" }}>
             {saving === "A" ? (
@@ -349,8 +274,6 @@ export default function LoungePage() {
         <div>
           <ProfilePicker
             profiles={profiles}
-            slot="B"
-            cached={!!cachedChartB}
             onSelect={(p) => {
               setB({
                 name: p.display_name,
@@ -361,14 +284,12 @@ export default function LoungePage() {
                 data_tier: p.data_tier,
                 gender: p.gender,
               });
-              setCachedChartB(p.natal_cache);
             }}
-            onClear={() => setCachedChartB(null)}
           />
           <BirthInput
             label="B"
             value={b}
-            onChange={(v) => { setB(v); setCachedChartB(null); }}
+            onChange={setB}
           />
           <div style={{ marginTop: 8, textAlign: "right" }}>
             {saving === "B" ? (
