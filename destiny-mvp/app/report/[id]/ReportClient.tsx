@@ -33,7 +33,7 @@ interface TrackScores {
 }
 
 interface ChartData {
-  [key: string]: string;
+  [key: string]: unknown;
 }
 
 interface ReportClientProps {
@@ -78,6 +78,7 @@ export function ReportClient({
     const name = slot === "A" ? nameA : nameB;
     if (!chart) {
       setSaveMsg("❌ 無命盤資料（請重新跑一次匹配）");
+      setSavingSlot(null);
       return;
     }
     setSaveMsg("儲存中...");

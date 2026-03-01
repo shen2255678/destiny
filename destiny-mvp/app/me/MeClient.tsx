@@ -24,6 +24,8 @@ interface Profile {
   display_name: string;
   birth_date: string;
   birth_time: string | null;
+  lat: number | null;
+  lng: number | null;
   data_tier: number;
   gender: string;
   yin_yang: string;
@@ -55,13 +57,17 @@ export function MeClient({
   const c = (profile?.natal_cache ?? {}) as Record<string, unknown>;
 
   async function toggleYinYang(val: "yin" | "yang") {
+    const prev = yinYang;
     setYinYang(val);
     if (profile) {
-      await fetch(`/api/profiles/${profile.id}`, {
+      const res = await fetch(`/api/profiles/${profile.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ yin_yang: val }),
       });
+      if (!res.ok) {
+        setYinYang(prev);
+      }
     }
   }
 

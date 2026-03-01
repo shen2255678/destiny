@@ -27,19 +27,15 @@ export default async function MePage() {
   }> = [];
 
   if (profile) {
-    const { data: allMatches } = await supabase
+    const name = profile.display_name;
+    const { data: matchData } = await supabase
       .from("mvp_matches")
       .select("id, name_a, name_b, harmony_score, lust_score, soul_score, created_at")
       .eq("user_id", user.id)
+      .or(`name_a.ilike.%${name}%,name_b.ilike.%${name}%`)
       .order("created_at", { ascending: false })
       .limit(20);
-
-    const nameLower = profile.display_name.toLowerCase();
-    matches = (allMatches ?? []).filter(
-      (m) =>
-        m.name_a?.toLowerCase().includes(nameLower) ||
-        m.name_b?.toLowerCase().includes(nameLower)
-    );
+    matches = matchData ?? [];
   }
 
   return <MeClient profile={profile} matches={matches} />;
