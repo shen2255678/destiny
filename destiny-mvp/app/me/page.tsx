@@ -27,12 +27,13 @@ export default async function MePage() {
   }> = [];
 
   if (profile) {
-    const name = profile.display_name;
+    // Strip PostgREST filter metacharacters from name to prevent filter injection
+    const safeName = profile.display_name.replace(/[(),]/g, "");
     const { data: matchData } = await supabase
       .from("mvp_matches")
       .select("id, name_a, name_b, harmony_score, lust_score, soul_score, created_at")
       .eq("user_id", user.id)
-      .or(`name_a.ilike.%${name}%,name_b.ilike.%${name}%`)
+      .or(`name_a.ilike.%${safeName}%,name_b.ilike.%${safeName}%`)
       .order("created_at", { ascending: false })
       .limit(20);
     matches = matchData ?? [];

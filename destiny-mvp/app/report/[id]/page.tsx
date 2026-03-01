@@ -83,8 +83,8 @@ export default async function ReportPage({
   const reportText =
     reportLines.join("\n") || "演算法解析完成，啟用 LLM 模式可獲得深度報告。";
 
-  const chartA = (r.user_a_chart as Record<string, string>) ?? undefined;
-  const chartB = (r.user_b_chart as Record<string, string>) ?? undefined;
+  const chartA = (r.user_a_chart as Record<string, unknown>) ?? undefined;
+  const chartB = (r.user_b_chart as Record<string, unknown>) ?? undefined;
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: "32px 24px" }}>

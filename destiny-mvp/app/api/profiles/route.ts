@@ -51,14 +51,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!body.label || !body.birth_date) {
-    return NextResponse.json({ error: "label and birth_date are required" }, { status: 400 });
+  if (!body.label || body.label.length > 50 || !body.birth_date) {
+    return NextResponse.json({ error: "label (1–50 chars) and birth_date are required" }, { status: 400 });
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.birth_date)) {
+    return NextResponse.json({ error: "birth_date must be YYYY-MM-DD" }, { status: 400 });
   }
   if (!["M", "F"].includes(body.gender)) {
     return NextResponse.json({ error: "Invalid gender: must be M or F" }, { status: 400 });
   }
   if (!([1, 2, 3] as number[]).includes(body.data_tier)) {
     return NextResponse.json({ error: "Invalid data_tier: must be 1, 2, or 3" }, { status: 400 });
+  }
+  if (
+    typeof body.lat !== "number" || body.lat < -90 || body.lat > 90 ||
+    typeof body.lng !== "number" || body.lng < -180 || body.lng > 180
+  ) {
+    return NextResponse.json({ error: "Invalid lat/lng values" }, { status: 400 });
   }
 
   // Calculate chart (non-blocking on failure)
