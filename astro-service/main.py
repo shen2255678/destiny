@@ -379,6 +379,20 @@ def generate_ideal_match(req: IdealMatchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class PreviewIdealMatchRequest(BaseModel):
+    chart_data: dict
+
+
+@app.post("/preview-ideal-match-prompt")
+def preview_ideal_match_prompt(req: PreviewIdealMatchRequest):
+    """Return the ideal match prompt — no LLM call.
+
+    Returns: { prompt: str }
+    """
+    prompt = get_ideal_match_prompt(req.chart_data)
+    return {"prompt": prompt}
+
+
 # ── Sprint 4/8: Ideal Partner Profile Extraction ─────────────────────────────
 
 @app.post("/extract-ideal-profile")

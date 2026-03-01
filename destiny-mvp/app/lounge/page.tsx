@@ -146,6 +146,32 @@ export default function LoungePage() {
         );
       }
 
+      // --- Step 1.5: Enrich Tier 1 charts with ZWDS (non-blocking) ---
+      const addZwds = async (person: BirthData, chart: Record<string, unknown>) => {
+        if (chart.zwds || person.data_tier !== 1 || !person.birth_time) return chart;
+        try {
+          const [year, month, day] = person.birth_date.split("-").map(Number);
+          const r = await fetch("/api/compute-zwds-chart", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              birth_year: year, birth_month: month, birth_day: day,
+              birth_time: person.birth_time, gender: person.gender,
+            }),
+          });
+          if (!r.ok) return chart;
+          const z = await r.json() as Record<string, unknown>;
+          if (z.chart) return { ...chart, zwds: z.chart };
+        } catch { /* non-blocking */ }
+        return chart;
+      };
+
+      setStatus("⟳ 計算紫微斗數...");
+      const [enrichedA, enrichedB] = await Promise.all([
+        addZwds(a, chartA),
+        addZwds(b, chartB),
+      ]);
+
       setStatus("⟳ 解析命運共振...");
 
       // --- Step 2: Compute synastry match ---
@@ -154,13 +180,13 @@ export default function LoungePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_a: {
-            ...chartA,
+            ...enrichedA,
             gender: a.gender,
             data_tier: a.data_tier,
             ...DEFAULT_RPV,
           },
           user_b: {
-            ...chartB,
+            ...enrichedB,
             gender: b.gender,
             data_tier: b.data_tier,
             ...DEFAULT_RPV,

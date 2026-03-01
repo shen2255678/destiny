@@ -272,7 +272,7 @@ def main():
         print(f"  伴侶宮(下降) {wp.get('house7_sign')}  北交 {wp.get('north_node_sign')}  南交 {wp.get('south_node_sign')}")
         print(f"\n【八字速覽】")
         print(f"  日主 {bazi.get('day_master')} ({bazi.get('day_master_element')})")
-        pillars = bazi.get("pillars", {})
+        pillars = bazi.get("four_pillars", {})
         print(f"  四柱 {pillars.get('year','')} {pillars.get('month','')} {pillars.get('day','')} {pillars.get('hour','')}")
         print(f"\n【紫微速覽】")
         print(f"  命宮  {', '.join(ming.get('main_stars', []) or ['無主星'])}")

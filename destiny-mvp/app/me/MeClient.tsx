@@ -139,8 +139,31 @@ export function MeClient({
     (profile?.yin_yang as "yin" | "yang") ?? "yang"
   );
   const [rawOpen, setRawOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [promptText, setPromptText] = useState("");
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptError, setPromptError] = useState("");
 
   const c = (profile?.natal_cache ?? {}) as Record<string, unknown>;
+
+  async function loadIdealMatchPrompt() {
+    setPromptLoading(true);
+    setPromptError("");
+    try {
+      const res = await fetch("/api/preview-ideal-match-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chart_data: c }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setPromptText(data.prompt);
+    } catch (e) {
+      setPromptError(e instanceof Error ? e.message : "error");
+    } finally {
+      setPromptLoading(false);
+    }
+  }
 
   async function toggleYinYang(val: "yin" | "yang") {
     const prev = yinYang;
@@ -430,6 +453,73 @@ export function MeClient({
           )}
         </div>
       )}
+
+      {/* Ideal match prompt preview (collapsible) */}
+      <div style={{ marginBottom: 24 }}>
+        <button
+          onClick={() => setPromptOpen((v) => !v)}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.55)",
+            borderRadius: promptOpen ? "16px 16px 0 0" : 16, padding: "12px 18px",
+            fontSize: 13, fontWeight: 600, color: "#8c7089", cursor: "pointer",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <span>📋 理想伴侶 Prompt 預覽</span>
+          <span style={{ transform: promptOpen ? "rotate(180deg)" : "rotate(0deg)", display: "inline-block", transition: "transform 0.25s" }}>▾</span>
+        </button>
+        {promptOpen && (
+          <div style={{
+            background: "rgba(255,255,255,0.22)", border: "1px solid rgba(255,255,255,0.45)",
+            borderTop: "none", borderRadius: "0 0 16px 16px", padding: "16px 18px",
+          }}>
+            {!promptText && !promptLoading && (
+              <button
+                onClick={loadIdealMatchPrompt}
+                style={{
+                  background: "linear-gradient(135deg, #d98695 0%, #b86e7d 100%)",
+                  color: "#fff", border: "none", padding: "8px 20px",
+                  borderRadius: 999, fontSize: 12, cursor: "pointer",
+                }}
+              >
+                載入 Prompt
+              </button>
+            )}
+            {promptLoading && <p style={{ fontSize: 12, color: "#8c7089" }}>⟳ 載入中...</p>}
+            {promptError && <p style={{ fontSize: 12, color: "#c0392b" }}>✕ {promptError}</p>}
+            {promptText && (
+              <>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "#8c7089" }}>{promptText.length} 字元</span>
+                  <button
+                    onClick={loadIdealMatchPrompt}
+                    style={{
+                      background: "none", border: "1px solid rgba(217,134,149,0.3)",
+                      color: "#d98695", padding: "2px 10px", borderRadius: 999,
+                      fontSize: 11, cursor: "pointer",
+                    }}
+                  >
+                    重新載入
+                  </button>
+                </div>
+                <textarea
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  rows={16}
+                  style={{
+                    width: "100%", background: "rgba(255,255,255,0.6)",
+                    border: "1px solid rgba(255,255,255,0.8)", borderRadius: 10,
+                    padding: "10px 14px", fontSize: 11,
+                    fontFamily: "'Courier New', monospace",
+                    color: "#5c4059", lineHeight: 1.6, resize: "vertical", outline: "none",
+                  }}
+                />
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Raw data preview (collapsible) */}
       <div style={{ marginBottom: 24 }}>
