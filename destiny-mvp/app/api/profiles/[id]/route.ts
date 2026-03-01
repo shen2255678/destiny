@@ -22,6 +22,9 @@ export async function PATCH(
     return NextResponse.json({ error: "yin_yang must be 'yin' or 'yang'" }, { status: 400 });
   }
 
+  if (body.yin_yang === undefined) {
+    return NextResponse.json({ error: "At least one field (yin_yang) is required" }, { status: 400 });
+  }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.yin_yang !== undefined) updates.yin_yang = body.yin_yang;
 
@@ -33,8 +36,12 @@ export async function PATCH(
     .select("id, yin_yang")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (error) {
+    if (error.code === "PGRST116") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json(data);
 }
 
