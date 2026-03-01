@@ -303,7 +303,7 @@ def compute_karmic_triggers(user_a: dict, user_b: dict) -> float:
                         person_inner.get(f"{inner}_sign"),
                         "tension",
                     )
-                if aspect >= 0.85:
+                if aspect >= 0.70:   # L-8: lowered from 0.85 — 0.85 required ~1.5° orb, too strict; 0.70 catches ~4° aspects
                     score += aspect
                     triggers += 1
 

@@ -1771,6 +1771,29 @@ class TestComputeKarmicTriggers:
             f"Degree-level (25° apart, void) should return baseline 0.50, got {result_deg:.3f}"
         )
 
+    def test_karmic_triggers_fire_at_moderate_aspect_strength(self):
+        """Karmic trigger with ~0.80 aspect strength should be counted after L-8 fix.
+
+        Previously required >= 0.85 (only ~1.5° orb for conjunction with orb=8°);
+        now >= 0.70 (catches aspects up to ~4.5° off-exact).
+
+        pluto_degree=15.0 vs moon_degree=17.0: distance=2°, conjunction,
+        strength = 0.2 + (1.0-0.2) * (1.0 - 2/8) = 0.2 + 0.6 = 0.80.
+        0.80 < 0.85 (old threshold: NO trigger) but 0.80 >= 0.70 (new: trigger).
+
+        All other outer/inner fields are absent so sign-level fallback returns
+        compute_sign_aspect(None, None) = 0.65 — below both thresholds.
+        """
+        # Only pluto(A) and moon(B) are set; all other outer/inner fields absent
+        user_a = {"pluto_degree": 15.0}
+        user_b = {"moon_degree": 17.0}
+        result = compute_karmic_triggers(user_a, user_b)
+        # With old 0.85 threshold: 0.80 < 0.85 → no trigger → baseline 0.50
+        # With new 0.70 threshold: 0.80 >= 0.70 → trigger fires → result > 0.50
+        assert result > 0.50, (
+            f"Pluto-Moon at 2° gap (strength 0.80) should trigger with 0.70 threshold, got {result:.3f}"
+        )
+
 
 class TestKarmicInLustScore:
     """Verify that lust score no longer uses same-generation pluto×pluto comparison."""
