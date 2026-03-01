@@ -89,6 +89,32 @@ export async function POST(req: NextRequest) {
     // astro-service down — save profile without chart cache
   }
 
+  // Compute ZWDS chart and merge into natal_cache (Tier 1 + birth_time only, non-blocking)
+  if (natal_cache !== null && body.data_tier === 1 && body.birth_time) {
+    try {
+      const [year, month, day] = body.birth_date.split("-").map(Number);
+      const zwdsRes = await fetch(`${ASTRO}/compute-zwds-chart`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          birth_year: year,
+          birth_month: month,
+          birth_day: day,
+          birth_time: body.birth_time,
+          gender: body.gender,
+        }),
+      });
+      if (zwdsRes.ok) {
+        const zwdsData = await zwdsRes.json();
+        if (zwdsData.chart) {
+          natal_cache = { ...natal_cache, zwds: zwdsData.chart };
+        }
+      }
+    } catch {
+      // zwds computation failed — keep natal_cache without zwds
+    }
+  }
+
   const { data, error } = await supabase
     .from("soul_cards")
     .insert({
