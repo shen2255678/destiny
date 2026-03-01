@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { BirthInput, type BirthData } from "@/components/BirthInput";
 import { createClient } from "@/lib/supabase/client";
@@ -32,6 +32,19 @@ const DEFAULT_RPV = {
   rpv_energy: "home",
 };
 
+interface SavedProfile {
+  id: string;
+  display_name: string;
+  birth_date: string;
+  birth_time: string | null;
+  lat: number;
+  lng: number;
+  data_tier: 1 | 2 | 3;
+  gender: "M" | "F";
+  yin_yang: string;
+  natal_cache: Record<string, unknown> | null;
+}
+
 export default function LoungePage() {
   const router = useRouter();
   const [a, setA] = useState<BirthData>(DEFAULT_A);
@@ -39,6 +52,59 @@ export default function LoungePage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [profiles, setProfiles] = useState<SavedProfile[]>([]);
+  const [cachedChartA, setCachedChartA] = useState<Record<string, unknown> | null>(null);
+  const [cachedChartB, setCachedChartB] = useState<Record<string, unknown> | null>(null);
+  const [saving, setSaving] = useState<null | "A" | "B">(null);
+  const [saveLabel, setSaveLabel] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
+
+  useEffect(() => {
+    fetch("/api/profiles")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setProfiles(data); })
+      .catch(() => {});
+  }, []);
+
+  function ProfilePicker({
+    slot,
+    cached,
+    onSelect,
+    onClear,
+  }: {
+    slot: "A" | "B";
+    cached: boolean;
+    onSelect: (p: SavedProfile) => void;
+    onClear: () => void;
+  }) {
+    if (profiles.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 10, display: "flex", gap: 8, alignItems: "center" }}>
+        <select
+          defaultValue=""
+          onChange={(e) => {
+            const p = profiles.find((x) => x.id === e.target.value);
+            if (p) onSelect(p);
+            else onClear();
+          }}
+          style={{
+            flex: 1, padding: "6px 10px", borderRadius: 10,
+            border: "1px solid rgba(255,255,255,0.6)",
+            background: "rgba(255,255,255,0.5)",
+            fontSize: 12, color: "#5c4059", cursor: "pointer",
+          }}
+        >
+          <option value="">── 從已儲存命盤選取 ──</option>
+          {profiles.map((p) => (
+            <option key={p.id} value={p.id}>{p.display_name}</option>
+          ))}
+        </select>
+        {cached && (
+          <span style={{ fontSize: 10, color: "#34d399", fontWeight: 600 }}>✓ 快取</span>
+        )}
+      </div>
+    );
+  }
 
   async function runMatch() {
     setLoading((prev) => !prev || true);
@@ -55,22 +121,21 @@ export default function LoungePage() {
         data_tier: p.data_tier,
       });
 
-      const [resA, resB] = await Promise.all([
-        fetch("/api/calculate-chart", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(buildChartPayload(a)),
-        }),
-        fetch("/api/calculate-chart", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(buildChartPayload(b)),
-        }),
-      ]);
-
       const [chartA, chartB] = await Promise.all([
-        resA.json() as Promise<Record<string, unknown>>,
-        resB.json() as Promise<Record<string, unknown>>,
+        cachedChartA
+          ? Promise.resolve(cachedChartA)
+          : fetch("/api/calculate-chart", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(buildChartPayload(a)),
+            }).then((r) => r.json() as Promise<Record<string, unknown>>),
+        cachedChartB
+          ? Promise.resolve(cachedChartB)
+          : fetch("/api/calculate-chart", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(buildChartPayload(b)),
+            }).then((r) => r.json() as Promise<Record<string, unknown>>),
       ]);
 
       if (chartA.error || chartB.error) {
@@ -176,9 +241,162 @@ export default function LoungePage() {
           marginBottom: 28,
         }}
       >
-        <BirthInput label="A" value={a} onChange={setA} />
-        <BirthInput label="B" value={b} onChange={setB} />
+        {/* Person A */}
+        <div>
+          <ProfilePicker
+            slot="A"
+            cached={!!cachedChartA}
+            onSelect={(p) => {
+              setA({
+                name: p.display_name,
+                birth_date: p.birth_date,
+                birth_time: p.birth_time?.slice(0, 5) ?? "",
+                lat: p.lat,
+                lng: p.lng,
+                data_tier: p.data_tier,
+                gender: p.gender,
+              });
+              setCachedChartA(p.natal_cache);
+            }}
+            onClear={() => setCachedChartA(null)}
+          />
+          <BirthInput
+            label="A"
+            value={a}
+            onChange={(v) => { setA(v); setCachedChartA(null); }}
+          />
+          <div style={{ marginTop: 8, textAlign: "right" }}>
+            {saving === "A" ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                <input
+                  value={saveLabel}
+                  onChange={(e) => setSaveLabel(e.target.value)}
+                  placeholder="幫這個命盤取個名字"
+                  style={{
+                    padding: "5px 10px", borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.6)",
+                    background: "rgba(255,255,255,0.5)",
+                    fontSize: 12, color: "#5c4059", width: 160,
+                  }}
+                />
+                <button
+                  onClick={async () => {
+                    setSaveStatus("儲存中...");
+                    const res = await fetch("/api/profiles", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        label: saveLabel || a.name,
+                        birth_date: a.birth_date,
+                        birth_time: a.birth_time || undefined,
+                        lat: a.lat, lng: a.lng,
+                        data_tier: a.data_tier, gender: a.gender,
+                      }),
+                    });
+                    if (res.status === 403) { setSaveStatus("❌ 免費方案限 1 張，升級解鎖更多"); setSaving(null); return; }
+                    if (!res.ok) { setSaveStatus("❌ 儲存失敗"); setSaving(null); return; }
+                    const saved = await res.json() as SavedProfile;
+                    setProfiles((prev) => [saved, ...prev]);
+                    setSaving(null); setSaveLabel(""); setSaveStatus("✓ 已儲存");
+                    setTimeout(() => setSaveStatus(""), 3000);
+                  }}
+                  style={{ padding: "5px 12px", borderRadius: 8, background: "#d98695", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}
+                >確認</button>
+                <button
+                  onClick={() => { setSaving(null); setSaveLabel(""); }}
+                  style={{ padding: "5px 10px", borderRadius: 8, background: "transparent", border: "1px solid rgba(200,160,170,0.4)", fontSize: 12, color: "#8c7089", cursor: "pointer" }}
+                >取消</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSaving("A")}
+                style={{ fontSize: 11, color: "#8c7089", background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}
+              >💾 儲存此命盤</button>
+            )}
+          </div>
+        </div>
+
+        {/* Person B */}
+        <div>
+          <ProfilePicker
+            slot="B"
+            cached={!!cachedChartB}
+            onSelect={(p) => {
+              setB({
+                name: p.display_name,
+                birth_date: p.birth_date,
+                birth_time: p.birth_time?.slice(0, 5) ?? "",
+                lat: p.lat,
+                lng: p.lng,
+                data_tier: p.data_tier,
+                gender: p.gender,
+              });
+              setCachedChartB(p.natal_cache);
+            }}
+            onClear={() => setCachedChartB(null)}
+          />
+          <BirthInput
+            label="B"
+            value={b}
+            onChange={(v) => { setB(v); setCachedChartB(null); }}
+          />
+          <div style={{ marginTop: 8, textAlign: "right" }}>
+            {saving === "B" ? (
+              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                <input
+                  value={saveLabel}
+                  onChange={(e) => setSaveLabel(e.target.value)}
+                  placeholder="幫這個命盤取個名字"
+                  style={{
+                    padding: "5px 10px", borderRadius: 8,
+                    border: "1px solid rgba(255,255,255,0.6)",
+                    background: "rgba(255,255,255,0.5)",
+                    fontSize: 12, color: "#5c4059", width: 160,
+                  }}
+                />
+                <button
+                  onClick={async () => {
+                    setSaveStatus("儲存中...");
+                    const res = await fetch("/api/profiles", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        label: saveLabel || b.name,
+                        birth_date: b.birth_date,
+                        birth_time: b.birth_time || undefined,
+                        lat: b.lat, lng: b.lng,
+                        data_tier: b.data_tier, gender: b.gender,
+                      }),
+                    });
+                    if (res.status === 403) { setSaveStatus("❌ 免費方案限 1 張，升級解鎖更多"); setSaving(null); return; }
+                    if (!res.ok) { setSaveStatus("❌ 儲存失敗"); setSaving(null); return; }
+                    const saved = await res.json() as SavedProfile;
+                    setProfiles((prev) => [saved, ...prev]);
+                    setSaving(null); setSaveLabel(""); setSaveStatus("✓ 已儲存");
+                    setTimeout(() => setSaveStatus(""), 3000);
+                  }}
+                  style={{ padding: "5px 12px", borderRadius: 8, background: "#d98695", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}
+                >確認</button>
+                <button
+                  onClick={() => { setSaving(null); setSaveLabel(""); }}
+                  style={{ padding: "5px 10px", borderRadius: 8, background: "transparent", border: "1px solid rgba(200,160,170,0.4)", fontSize: 12, color: "#8c7089", cursor: "pointer" }}
+                >取消</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSaving("B")}
+                style={{ fontSize: 11, color: "#8c7089", background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}
+              >💾 儲存此命盤</button>
+            )}
+          </div>
+        </div>
       </div>
+
+      {saveStatus && (
+        <p style={{ fontSize: 12, color: saveStatus.startsWith("✓") ? "#34d399" : "#c0392b", marginBottom: 8 }}>
+          {saveStatus}
+        </p>
+      )}
 
       {/* Error display */}
       {error ? (
