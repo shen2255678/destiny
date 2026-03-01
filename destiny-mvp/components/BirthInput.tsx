@@ -286,14 +286,32 @@ export function BirthInput({ label, value, onChange }: BirthInputProps) {
         />
       </Field>
 
-      {/* 3. Birth time */}
-      <Field label="出生時間" note="留空 = Tier 3（僅日期，Bronze 精度）">
-        <TextInput
-          type="time"
-          value={value.birth_time}
-          onChange={handleTimeChange}
-        />
-      </Field>
+      {/* 3. Birth time — hidden for Tier 3 */}
+      {value.data_tier === 3 ? (
+        <Field label="出生時間">
+          <div
+            style={{
+              ...baseInputStyle,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#8c7089',
+              fontSize: 12,
+              cursor: 'default',
+            }}
+          >
+            ☽ Bronze Tier — 不計算出生時間
+          </div>
+        </Field>
+      ) : (
+        <Field label="出生時間" note="留空 = Tier 3（僅日期，Bronze 精度）">
+          <TextInput
+            type="time"
+            value={value.birth_time}
+            onChange={handleTimeChange}
+          />
+        </Field>
+      )}
 
       {/* 4. Lat / Lng grid */}
       <div
@@ -328,7 +346,10 @@ export function BirthInput({ label, value, onChange }: BirthInputProps) {
         </div>
         <SelectInput
           value={value.data_tier}
-          onChange={(v) => update('data_tier', Number(v) as 1 | 2 | 3)}
+          onChange={(v) => {
+            const tier = Number(v) as 1 | 2 | 3
+            onChange(tier === 3 ? { ...value, data_tier: tier, birth_time: '' } : { ...value, data_tier: tier })
+          }}
           options={[
             { label: 'Tier 1 — Gold（精確時間）', value: 1 },
             { label: 'Tier 2 — Silver（約略時間）', value: 2 },

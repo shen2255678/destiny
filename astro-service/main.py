@@ -281,6 +281,30 @@ def generate_profile_card(req: ProfileCardRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class PreviewPromptRequest(BaseModel):
+    match_data: dict
+    person_a_name: str = "A"
+    person_b_name: str = "B"
+    mode: str = "auto"
+
+
+@app.post("/preview-prompt")
+def preview_prompt(req: PreviewPromptRequest):
+    """Return the prompt that would be sent to LLM — no LLM call.
+
+    Used by the MVP developer panel so users can inspect and tweak
+    the prompt before triggering an actual LLM call.
+    Returns: { prompt: str, effective_mode: str }
+    """
+    from prompt_manager import _pick_mode
+    prompt = get_simple_report_prompt(
+        req.match_data, mode=req.mode,
+        person_a=req.person_a_name, person_b=req.person_b_name,
+    )
+    effective_mode = _pick_mode(req.match_data, req.mode)
+    return {"prompt": prompt, "effective_mode": effective_mode}
+
+
 class MatchReportRequest(BaseModel):
     match_data: dict
     person_a_name: str = "A"

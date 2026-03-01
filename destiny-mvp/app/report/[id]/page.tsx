@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { ReportClient } from "./ReportClient";
+import { PromptPreviewPanel } from "@/components/PromptPreviewPanel";
 
 export default async function ReportPage({
   params,
@@ -95,6 +96,11 @@ export default async function ReportPage({
         shadowTags={shadowTags}
         toxicTraps={toxicTraps}
         reportText={reportText}
+      />
+      <PromptPreviewPanel
+        reportJson={r}
+        nameA={match.name_a ?? "A"}
+        nameB={match.name_b ?? "B"}
       />
     </main>
   );
