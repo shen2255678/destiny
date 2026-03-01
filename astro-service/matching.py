@@ -216,11 +216,17 @@ def _resolve_aspect(
 ) -> float:
     """Use exact degrees if both available; fall back to sign-level aspect.
 
+    When exact degrees yield void-of-aspect (0.5), preserve sign-level
+    background at 80% weight so Tier 1 users are never penalised vs Tier 3.
+
     Used by compute_lust_score and any future function that accepts both
     exact planet_degrees and sign-level fallback inputs.
     """
     if deg_x is not None and deg_y is not None:
-        return compute_exact_aspect(deg_x, deg_y, mode)
+        exact = compute_exact_aspect(deg_x, deg_y, mode)
+        if exact == 0.5:  # void of aspect — preserve sign background at 80%
+            return round(compute_sign_aspect(sign_x, sign_y, mode) * 0.8, 2)
+        return exact
     return compute_sign_aspect(sign_x, sign_y, mode)
 
 
@@ -260,7 +266,7 @@ def compute_exact_aspect(deg_a: float, deg_b: float, mode: str = "harmony") -> f
             max_score = harm_max if mode == "harmony" else tens_max
             strength_ratio = 1.0 - (diff / orb)
             return round(0.2 + (max_score - 0.2) * strength_ratio, 2)
-    return 0.1  # void of aspect
+    return 0.5  # void of aspect — neutral, not a penalty
 
 
 def compute_karmic_triggers(user_a: dict, user_b: dict) -> float:

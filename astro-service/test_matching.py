@@ -1612,8 +1612,9 @@ class TestComputeExactAspect:
         assert compute_exact_aspect(0.0, 87.0, "tension") == pytest.approx(0.64)
 
     def test_just_outside_orb(self):
-        """100° (10° from square, 10° from trine) → void of aspect = 0.1"""
-        assert compute_exact_aspect(0.0, 100.0, "tension") == pytest.approx(0.1)
+        """100° (10° from square, 10° from trine) → void of aspect = 0.5 (neutral).
+        Bug-1 fix: void-of-aspect now returns 0.5 instead of the old penalty 0.1."""
+        assert compute_exact_aspect(0.0, 100.0, "tension") == pytest.approx(0.5)
 
     def test_cross_sign_conjunction(self):
         """29° Aries (29.0) and 1° Taurus (31.0) → 2° apart → conjunction with linear decay.
@@ -3247,3 +3248,26 @@ class TestElementProfileSurface:
         result = compute_match_v2(self._user(), self._user())
         assert "element_profile_a" in result
         assert result["element_profile_a"] is None
+
+
+# ── Bug-1: void-of-aspect neutrality ─────────────────────────
+
+from matching import compute_exact_aspect, _resolve_aspect
+
+
+class TestVoidOfAspectNeutrality:
+    def test_exact_aspect_void_returns_neutral_not_penalty(self):
+        """Void-of-aspect should return 0.5 (neutral), not 0.1 (penalty).
+        Tier 1 users must never score lower than Tier 3 for the same planet pair."""
+        # 9° apart — just outside the 8° conjunction orb
+        score = compute_exact_aspect(10.0, 19.0, "harmony")
+        assert score == 0.5, f"Void-of-aspect should be 0.5 neutral, got {score}"
+
+    def test_resolve_aspect_void_falls_back_to_sign(self):
+        """When exact degrees yield void-of-aspect, _resolve_aspect should
+        blend with sign-level score at 80% weight, not return bare 0.5."""
+        # Aries-Leo is a trine (harmony ~0.85 sign-level); 9° apart = void of exact aspect
+        score = _resolve_aspect(10.0, "Aries", 19.0, "Leo", "harmony")
+        # Expected: sign_score * 0.8 ≈ 0.68
+        assert score > 0.5, f"Should preserve sign background, got {score}"
+        assert score < 1.0

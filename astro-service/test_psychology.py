@@ -312,12 +312,33 @@ class TestDispositorChain:
         assert result["status"] == "mutual_reception"
         assert set(result["mutual_reception"]) == {"Venus", "Mars"}
 
-    def test_mixed_loop_terminates(self):
-        """3+ planets with no resolution → mixed_loop, no infinite loop."""
-        # Sun in Capricorn → Saturn; Saturn in Aries → Mars; Mars in Libra → Venus...
-        chart = self._chart(sun="capricorn", saturn="aries", mars="libra", venus="gemini")
-        result = find_dispositor_chain(chart, "Sun")
+    def test_find_dispositor_chain_genuine_loop_returns_mixed_loop(self):
+        """A truly cyclic chain (A→B→C→A) must return mixed_loop."""
+        # Venus in Aries → Mars; Mars in Gemini → Mercury; Mercury in Taurus → Venus (cycle)
+        chart = self._chart(venus="aries", mars="gemini", mercury="taurus")
+        result = find_dispositor_chain(chart, "Venus")
         assert result["status"] == "mixed_loop"
+        assert result["final_dispositor"] is None
+
+    def test_find_dispositor_chain_long_chain_finds_boss(self):
+        """A chain of 5 planets with valid resolution must NOT be cut off at 3.
+        Bug-2 fix: remove len(visited) >= 3.
+        Chain: Sun(Aries)→Mars(Capricorn)→Saturn(Libra)→Venus(Pisces)→Neptune(Pisces=self-rule)
+        At step 4, len(visited)==3 and the old code returns mixed_loop prematurely."""
+        chart = self._chart(
+            sun="aries",       # ruled by Mars
+            mars="capricorn",  # ruled by Saturn
+            saturn="libra",    # ruled by Venus
+            venus="pisces",    # ruled by Neptune
+            neptune="pisces",  # Neptune rules Pisces → Final Dispositor
+        )
+        result = find_dispositor_chain(chart, "Sun")
+        assert result["status"] == "final_dispositor", (
+            f"Expected final_dispositor but got {result['status']} — "
+            f"Bug-2: len(visited)>=3 guard cuts chain prematurely"
+        )
+        assert result["final_dispositor"] == "Neptune"
+        assert len(result["chain"]) >= 4
 
     def test_incomplete_when_sign_missing(self):
         """Moon sign is None (Tier 3) → incomplete immediately."""

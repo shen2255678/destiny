@@ -416,7 +416,7 @@ def find_dispositor_chain(western_chart: dict, start_planet: str) -> dict:
     Termination conditions:
       1. Final Dispositor — planet falls in a sign it rules (self-ruling).
       2. Mutual Reception — planet A is in a sign ruled by B, and B is in a sign ruled by A.
-      3. Mixed Loop       — visited set grows to 3 unique planets with no resolution.
+      3. Mixed Loop       — ruler already in visited set (genuine cycle detected).
       4. Incomplete       — a required sign is missing from the chart (e.g. Tier 3 Moon).
 
     Returns:
@@ -467,8 +467,10 @@ def find_dispositor_chain(western_chart: dict, start_planet: str) -> dict:
                             "mutual_reception": [current, ruler],
                             "status": "mutual_reception"}
 
-        # Termination 3: Loop guard (max 3 unique planets before giving up)
-        if ruler in visited or len(visited) >= 3:
+        # Termination 3: Loop guard — only terminate on a genuine cycle
+        # (ruler already visited). Removing the len(visited) >= 3 cap allows
+        # chains of 4-5 planets (common with modern rulerships) to resolve.
+        if ruler in visited:
             return {"chain": chain, "final_dispositor": None,
                     "mutual_reception": [], "status": "mixed_loop"}
 
