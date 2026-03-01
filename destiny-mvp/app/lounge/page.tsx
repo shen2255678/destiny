@@ -86,13 +86,13 @@ export default function LoungePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          person_a: {
+          user_a: {
             ...chartA,
             gender: a.gender,
             data_tier: a.data_tier,
             ...DEFAULT_RPV,
           },
-          person_b: {
+          user_b: {
             ...chartB,
             gender: b.gender,
             data_tier: b.data_tier,
