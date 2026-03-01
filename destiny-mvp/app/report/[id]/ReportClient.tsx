@@ -276,17 +276,17 @@ export function ReportClient({
                         ].map(({ label, key }) => (
                           <div key={key} style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                             <span style={{ color: "#8c7089" }}>{label}</span>
-                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart[key], SIGN_ZH)}</span>
+                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart[key] as string, SIGN_ZH)}</span>
                           </div>
                         ))}
                         <div style={{ marginTop: 4, paddingTop: 4, borderTop: "1px solid rgba(180,130,150,0.15)", display: "flex", flexDirection: "column", gap: 5 }}>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                             <span style={{ color: "#8c7089" }}>🔥 八字元素</span>
-                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart["bazi_element"], BAZI_ZH)}</span>
+                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart["bazi_element"] as string, BAZI_ZH)}</span>
                           </div>
                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                             <span style={{ color: "#8c7089" }}>🧠 依戀類型</span>
-                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart["attachment_style"], ATT_ZH)}</span>
+                            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(chart["attachment_style"] as string, ATT_ZH)}</span>
                           </div>
                         </div>
                       </div>
