@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useState, useCallback } from "react";
 
 // Dynamic import avoids SSR issues with framer-motion
 const TarotCard = dynamic(
@@ -42,6 +43,14 @@ export function ReportClient({
   toxicTraps,
   reportText,
 }: ReportClientProps) {
+  const [copied, setCopied] = useState(false);
+
+  const copyLink = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
   const scoreItems = [
     { label: "綜合評分", value: harmonyScore, color: "#b86e7d", hint: "整體相容性總分，由費洛蒙與靈魂共鳴加權計算" },
     { label: "費洛蒙值", value: lustScore, color: "#d98695", hint: "生理吸引力與慾望張力——越高代表越有肉體化學反應" },
@@ -53,13 +62,37 @@ export function ReportClient({
 
   return (
     <>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#5c4059", letterSpacing: "0.08em", marginBottom: 6 }}>
-          ✦ 命運解析報告
-        </h1>
-        <p style={{ color: "#8c7089", fontSize: 13 }}>
-          {nameA} × {nameB}
-        </p>
+      <div style={{ marginBottom: 28, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#5c4059", letterSpacing: "0.08em", marginBottom: 6 }}>
+            ✦ 命運解析報告
+          </h1>
+          <p style={{ color: "#8c7089", fontSize: 13 }}>
+            {nameA} × {nameB}
+          </p>
+        </div>
+        <button
+          onClick={copyLink}
+          title="複製報告連結"
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: copied ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.4)",
+            border: copied ? "1px solid rgba(52,211,153,0.5)" : "1px solid rgba(255,255,255,0.6)",
+            borderRadius: 999,
+            padding: "7px 14px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: copied ? "#059669" : "#8c7089",
+            cursor: "pointer",
+            backdropFilter: "blur(8px)",
+            transition: "all 0.2s",
+          }}
+        >
+          {copied ? "✓ 已複製" : "⎘ 複製連結"}
+        </button>
       </div>
 
       {/* Score grid */}
