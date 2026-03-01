@@ -43,12 +43,12 @@ export function ReportClient({
   reportText,
 }: ReportClientProps) {
   const scoreItems = [
-    { label: "Harmony", value: harmonyScore, color: "#b86e7d" },
-    { label: "VibeScore", value: lustScore, color: "#d98695" },
-    { label: "ChemScore", value: soulScore, color: "#a8e6cf" },
-    { label: "Friend", value: tracks.friend ?? 0, color: "#818cf8" },
-    { label: "Passion", value: tracks.passion ?? 0, color: "#f472b6" },
-    { label: "Partner", value: tracks.partner ?? 0, color: "#34d399" },
+    { label: "綜合評分", value: harmonyScore, color: "#b86e7d", hint: "整體相容性總分，由費洛蒙與靈魂共鳴加權計算" },
+    { label: "費洛蒙值", value: lustScore, color: "#d98695", hint: "生理吸引力與慾望張力——越高代表越有肉體化學反應" },
+    { label: "靈魂共鳴", value: soulScore, color: "#a8e6cf", hint: "精神深度與靈魂契合度——越高代表越有宿命感與深層連結" },
+    { label: "朋友軌", value: tracks.friend ?? 0, color: "#818cf8", hint: "思維默契與溝通共振——適合智識交流與創意合作的連結" },
+    { label: "激情軌", value: tracks.passion ?? 0, color: "#f472b6", hint: "致命吸引力與慾望強度——高分是費洛蒙陷阱，也可能是危險荷爾蒙" },
+    { label: "伴侶軌", value: tracks.partner ?? 0, color: "#34d399", hint: "日常生活互補與現實相處能力——越高越能走入長期穩定關係" },
   ];
 
   return (
@@ -74,13 +74,17 @@ export function ReportClient({
         boxShadow: "0 8px 32px rgba(217,134,149,0.1)",
       }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, textAlign: "center" }}>
-          {scoreItems.map(({ label, value, color }) => (
-            <div key={label}>
-              <div style={{ fontSize: 10, color: "#8c7089", marginBottom: 6 }}>{label}</div>
+          {scoreItems.map(({ label, value, color, hint }) => (
+            <div key={label} title={hint} style={{ cursor: "help", position: "relative" }}>
+              <div style={{ fontSize: 10, color: "#8c7089", marginBottom: 4 }}>{label}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color }}>{Math.round(value)}</div>
+              <div style={{ fontSize: 9, color: "#c4a0aa", marginTop: 3 }}>ℹ</div>
             </div>
           ))}
         </div>
+        <p style={{ fontSize: 10, color: "#c4a0aa", textAlign: "center", marginTop: 12, marginBottom: 0 }}>
+          將滑鼠移到數字上可查看說明
+        </p>
       </div>
 
       {/* Labels */}

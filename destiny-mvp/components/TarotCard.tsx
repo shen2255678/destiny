@@ -318,57 +318,75 @@ function BackFace({ back }: { back: TarotCardBack }) {
         />
       </div>
 
-      {/* Shadow tags */}
-      <div style={{ marginBottom: '4px' }}>
-        <span
-          style={{
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.14em',
-            color: '#a78bfa',
-            textTransform: 'uppercase',
-          }}
-        >
-          暗影標籤
-        </span>
-      </div>
-      <div style={{ marginBottom: '14px', display: 'flex', flexWrap: 'wrap' }}>
-        {back.shadow.map((tag) => (
-          <PillTag
-            key={tag}
-            label={tag}
-            bg="rgba(124,58,237,0.18)"
-            color="#c084fc"
-            border="rgba(124,58,237,0.50)"
-          />
-        ))}
-      </div>
+      {/* Shadow tags — rendered as sentences, not pills */}
+      {back.shadow.length > 0 ? (
+        <>
+          <div style={{ marginBottom: '6px' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                color: '#a78bfa',
+                textTransform: 'uppercase',
+              }}
+            >
+              暗影動態
+            </span>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            {back.shadow.map((line, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  gap: '7px',
+                  marginBottom: '6px',
+                  alignItems: 'flex-start',
+                }}
+              >
+                <span style={{ color: '#7c3aed', fontSize: '10px', paddingTop: '2px', flexShrink: 0 }}>◆</span>
+                <span style={{ fontSize: '11px', color: '#c4b5fd', lineHeight: 1.55 }}>{line}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
 
-      {/* Toxic trap tags */}
-      <div style={{ marginBottom: '4px' }}>
-        <span
-          style={{
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.14em',
-            color: '#f87171',
-            textTransform: 'uppercase',
-          }}
-        >
-          毒性陷阱
-        </span>
-      </div>
-      <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap' }}>
-        {back.toxicTraps.map((tag) => (
-          <PillTag
-            key={tag}
-            label={tag}
-            bg="rgba(239,68,68,0.12)"
-            color="#f87171"
-            border="rgba(239,68,68,0.40)"
-          />
-        ))}
-      </div>
+      {/* Toxic trap tags — keep as pills (shorter labels) */}
+      {back.toxicTraps.length > 0 ? (
+        <>
+          <div style={{ marginBottom: '4px' }}>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                color: '#f87171',
+                textTransform: 'uppercase',
+              }}
+            >
+              心理陷阱
+            </span>
+          </div>
+          <div style={{ marginBottom: '14px' }}>
+            {back.toxicTraps.map((tag, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  gap: '7px',
+                  marginBottom: '6px',
+                  alignItems: 'flex-start',
+                }}
+              >
+                <span style={{ color: '#ef4444', fontSize: '10px', paddingTop: '2px', flexShrink: 0 }}>⚠</span>
+                <span style={{ fontSize: '11px', color: '#fca5a5', lineHeight: 1.55 }}>{tag}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {/* Report panel */}
       <div

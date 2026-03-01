@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { ReportClient } from "./ReportClient";
 import { PromptPreviewPanel } from "@/components/PromptPreviewPanel";
+import { translateShadowTag, translatePsychTrigger } from "@/lib/shadowTagsZh";
 
 export default async function ReportPage({
   params,
@@ -46,11 +47,11 @@ export default async function ReportPage({
     [quadrantMap[quadrant], spicyMap[spiciness]].filter(Boolean).join(" · ") ||
     "神秘原型";
 
-  // psychological_tags = shadow tags from shadow_engine (no LLM needed)
-  const shadowTags = (r.psychological_tags as string[]) ?? [];
+  // psychological_tags = shadow tags from shadow_engine — translate to Chinese sentences
+  const shadowTags = ((r.psychological_tags as string[]) ?? []).map(translateShadowTag);
 
-  // psychological_triggers = named dynamics like "attachment_trap: anxious_avoidant"
-  const toxicTraps = (r.psychological_triggers as string[]) ?? [];
+  // psychological_triggers = named dynamics — translate to Chinese
+  const toxicTraps = ((r.psychological_triggers as string[]) ?? []).map(translatePsychTrigger);
 
   // resonance_badges = special badges like "命理雙重認證"
   const resonanceBadges = (r.resonance_badges as string[]) ?? [];
