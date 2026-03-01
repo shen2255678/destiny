@@ -25,6 +25,20 @@ const ELEMENT_ZH: Record<string, string> = {
 const ATT_DOM_ZH: Record<string, string> = {
   strong: "強勢", weak: "弱勢", balanced: "均衡",
 };
+const QUADRANT_LABEL: Record<string, string> = {
+  soulmate:  "靈魂伴侶象限",
+  lover:     "命定雙生象限",
+  partner:   "正緣伴侶象限",
+  colleague: "知心好友象限",
+};
+function classifyQuadrant(lust: number | null, soul: number | null): string | null {
+  if (lust == null || soul == null) return null;
+  const t = 60;
+  if (lust >= t && soul >= t) return "soulmate";
+  if (lust >= t)              return "lover";
+  if (soul >= t)              return "partner";
+  return "colleague";
+}
 const ZWDS_PALACE_ZH: Record<string, string> = {
   ming: "命宮", spouse: "夫妻宮", karma: "福德宮", wealth: "財帛宮",
   career: "官祿宮", health: "疾厄宮", travel: "遷移宮", friends: "交友宮",
@@ -571,6 +585,7 @@ export function MeClient({
             {matches.map((m) => {
               const nameLower = profile.display_name.toLowerCase();
               const other = m.name_a?.toLowerCase().includes(nameLower) ? m.name_b : m.name_a;
+              const quadrant = classifyQuadrant(m.lust_score, m.soul_score);
               return (
                 <Link
                   key={m.id}
@@ -590,9 +605,16 @@ export function MeClient({
                       {new Date(m.created_at).toLocaleDateString("zh-TW")}
                     </span>
                   </div>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: "#b86e7d" }}>
-                    ♥ {m.harmony_score ?? "—"}
-                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                    {quadrant && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#9b59b6" }}>
+                        {QUADRANT_LABEL[quadrant]}
+                      </span>
+                    )}
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#b86e7d" }}>
+                      ♥ {m.harmony_score ?? "—"}
+                    </span>
+                  </div>
                 </Link>
               );
             })}
