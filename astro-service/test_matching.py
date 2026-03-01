@@ -3090,18 +3090,34 @@ class TestKarmicTensionAndBadges:
             "Badge B must NOT fire without ZWDS SOULMATE confirmation"
         )
 
-    def test_harmony_score_alias(self):
-        """harmony_score is always equal to soul_score (frontend compatibility alias).
+    def test_harmony_score_is_weighted_blend(self):
+        """harmony_score must be lust*0.4 + soul*0.6, not a soul alias.
 
-        Verified across multiple user configurations to ensure the alias is
-        consistently maintained regardless of shadow mods or BaZi element.
+        Previously harmony_score == soul_score (always), making the 綜合評分
+        meaningless. Fixed to weighted blend so it reflects both axes.
+
+        Note: harmony_score uses pre-rounding internal floats, so comparison
+        against the already-rounded lust_score/soul_score needs abs=0.15 tolerance.
+        Key properties verified:
+        1. harmony_score != soul_score (no longer a pure soul alias)
+        2. harmony_score ≈ lust*0.4 + soul*0.6 within rounding tolerance
         """
         a = self._base_user(bazi_element="wood")
         b = self._base_user(bazi_element="fire", moon_sign="capricorn")
         result = compute_match_v2(a, b)
-        assert result["harmony_score"] == result["soul_score"], (
-            f"harmony_score ({result['harmony_score']}) must equal "
-            f"soul_score ({result['soul_score']})"
+        lust = result["lust_score"]
+        soul = result["soul_score"]
+        harmony = result["harmony_score"]
+        # Must no longer be a pure soul alias
+        assert harmony != soul, (
+            f"harmony_score ({harmony}) must differ from soul_score ({soul}); "
+            "the soul-alias bug has returned"
+        )
+        # Must be a weighted blend within rounding tolerance
+        expected = round(lust * 0.4 + soul * 0.6, 1)
+        assert harmony == pytest.approx(expected, abs=0.15), (
+            f"harmony_score={harmony} should be lust*0.4+soul*0.6≈{expected}, "
+            f"not soul={soul}"
         )
 
 

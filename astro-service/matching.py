@@ -1450,7 +1450,7 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     return {
         "lust_score":              round(lust, 1),
         "soul_score":              round(soul, 1),
-        "harmony_score":           round(soul, 1),
+        "harmony_score":           round(lust * 0.4 + soul * 0.6, 1),
         "karmic_tension":          round(karmic_tension, 1),
         "resonance_badges":        resonance_badges,
         "power":                   power,
