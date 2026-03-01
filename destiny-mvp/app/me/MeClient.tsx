@@ -19,7 +19,8 @@ const BAZI_ZH: Record<string, string> = {
   fire: "火", water: "水", wood: "木", metal: "金", earth: "土",
 };
 const ELEMENT_ZH: Record<string, string> = {
-  Fire: "火", Water: "水", Wood: "木", Metal: "金", Earth: "土",
+  Fire: "火", Water: "水", Wood: "木", Metal: "金", Earth: "土", Air: "風",
+  fire: "火", water: "水", wood: "木", metal: "金", earth: "土", air: "風",
 };
 const ATT_DOM_ZH: Record<string, string> = {
   strong: "強勢", weak: "弱勢", balanced: "均衡",
@@ -320,14 +321,18 @@ export function MeClient({
 
         {/* Base info */}
         <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(180,130,150,0.15)", display: "flex", flexDirection: "column", gap: 5 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
-            <span style={{ color: "#8c7089" }}>🔥 八字主元素</span>
-            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(c.bazi_element as string, BAZI_ZH)}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
-            <span style={{ color: "#8c7089" }}>🧠 依戀類型</span>
-            <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(c.attachment_style as string, ATT_ZH)}</span>
-          </div>
+          {!!bazi.day_master_element && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+              <span style={{ color: "#8c7089" }}>🔥 八字主元素</span>
+              <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(bazi.day_master_element as string, BAZI_ZH)}</span>
+            </div>
+          )}
+          {!!c.attachment_style && (
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+              <span style={{ color: "#8c7089" }}>🧠 依戀類型</span>
+              <span style={{ color: "#5c4059", fontWeight: 600 }}>{zh(c.attachment_style as string, ATT_ZH)}</span>
+            </div>
+          )}
           {c.emotional_capacity !== undefined && (
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
               <span style={{ color: "#8c7089" }}>💗 情緒容量</span>
