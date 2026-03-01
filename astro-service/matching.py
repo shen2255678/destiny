@@ -1363,6 +1363,14 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     except Exception:
         pass
 
+    # L-1: Cap shadow modifiers before applying — prevents overflow from multiple simultaneous triggers
+    # soul: max +40 (meaningful boost), min -30 (repulsion visible but not fatal)
+    # lust: max +40, min -30 (same rationale)
+    # partner: max +25 (narrower — partner track is more delicate), min -20
+    soul_adj    = max(min(soul_adj,    40.0), -30.0)
+    lust_adj    = max(min(lust_adj,    40.0), -30.0)
+    partner_adj = max(min(partner_adj, 25.0), -20.0)
+
     # Apply modifiers — clamp each track to [0, 100]
     if soul_adj != 0.0:
         tracks["soul"] = _clamp(tracks["soul"] + soul_adj)
