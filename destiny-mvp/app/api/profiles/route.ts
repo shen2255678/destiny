@@ -25,16 +25,17 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Free tier check
-  const { count } = await supabase
+  const { count, error: countError } = await supabase
     .from("soul_cards")
     .select("id", { count: "exact", head: true })
     .eq("owner_id", user.id);
 
+  if (countError) return NextResponse.json({ error: "Failed to verify account limits" }, { status: 500 });
   if ((count ?? 0) >= 1) {
     return NextResponse.json({ error: "upgrade_required" }, { status: 403 });
   }
 
-  const body = await req.json() as {
+  let body: {
     label: string;
     birth_date: string;
     birth_time?: string;
@@ -44,6 +45,21 @@ export async function POST(req: NextRequest) {
     gender: "M" | "F";
     yin_yang?: "yin" | "yang";
   };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body.label || !body.birth_date) {
+    return NextResponse.json({ error: "label and birth_date are required" }, { status: 400 });
+  }
+  if (!["M", "F"].includes(body.gender)) {
+    return NextResponse.json({ error: "Invalid gender: must be M or F" }, { status: 400 });
+  }
+  if (!([1, 2, 3] as number[]).includes(body.data_tier)) {
+    return NextResponse.json({ error: "Invalid data_tier: must be 1, 2, or 3" }, { status: 400 });
+  }
 
   // Calculate chart (non-blocking on failure)
   let natal_cache: Record<string, unknown> | null = null;
