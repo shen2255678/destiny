@@ -206,7 +206,7 @@ export function MeClient({
 
   // Extract nested structures
   const bazi = (c.bazi ?? {}) as Record<string, unknown>;
-  const fourPillars = (bazi.four_pillars ?? {}) as Record<string, string>;
+  const fourPillars = (bazi.four_pillars ?? {}) as Record<string, { full?: string; stem?: string; branch?: string } | string>;
   const elementProfile = (c.element_profile ?? {}) as Record<string, unknown>;
   const dominant = (elementProfile.dominant ?? []) as string[];
   const deficiency = (elementProfile.deficiency ?? []) as string[];
@@ -353,7 +353,9 @@ export function MeClient({
                     {p === "year" ? "年" : p === "month" ? "月" : p === "day" ? "日" : "時"}
                   </div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#5c4059" }}>
-                    {(fourPillars[p] as string) || "—"}
+                    {(typeof fourPillars[p] === "object"
+                      ? (fourPillars[p] as { full?: string }).full
+                      : (fourPillars[p] as string)) || "—"}
                   </div>
                 </div>
               ))}

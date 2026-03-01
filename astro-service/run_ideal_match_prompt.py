@@ -273,7 +273,9 @@ def main():
         print(f"\n【八字速覽】")
         print(f"  日主 {bazi.get('day_master')} ({bazi.get('day_master_element')})")
         pillars = bazi.get("four_pillars", {})
-        print(f"  四柱 {pillars.get('year','')} {pillars.get('month','')} {pillars.get('day','')} {pillars.get('hour','')}")
+        def _pstr(p) -> str:
+            return p.get("full", "") if isinstance(p, dict) else str(p or "")
+        print(f"  四柱 {_pstr(pillars.get('year'))} {_pstr(pillars.get('month'))} {_pstr(pillars.get('day'))} {_pstr(pillars.get('hour'))}")
         print(f"\n【紫微速覽】")
         print(f"  命宮  {', '.join(ming.get('main_stars', []) or ['無主星'])}")
         print(f"  夫妻宮 {', '.join(spouse.get('main_stars', []) or ['空宮'])}  煞星={spouse.get('malevolent_stars', [])}")
