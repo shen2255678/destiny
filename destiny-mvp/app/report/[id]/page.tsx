@@ -102,6 +102,7 @@ export default async function ReportPage({
         reportText={reportText}
         chartA={Object.keys(chartA ?? {}).length > 0 ? chartA : undefined}
         chartB={Object.keys(chartB ?? {}).length > 0 ? chartB : undefined}
+        quadrant={quadrant}
       />
       <PromptPreviewPanel
         reportJson={r}

@@ -19,11 +19,85 @@ function zh(val: string | undefined, map: Record<string, string>): string {
   return map[val] ?? val;
 }
 
+const QUADRANT_LABEL: Record<string, string> = {
+  soulmate:  "靈魂伴侶象限",
+  lover:     "命定雙生象限",
+  partner:   "正緣伴侶象限",
+  colleague: "知心好友象限",
+};
+
 // Dynamic import avoids SSR issues with framer-motion
 const TarotCard = dynamic(
   () => import("@/components/TarotCard").then((m) => m.TarotCard),
   { ssr: false }
 );
+
+/** Dual-axis quadrant plot — inline SVG, no deps */
+function QuadrantPlot({ lust, soul }: { lust: number; soul: number }) {
+  const W = 200, H = 200, PAD = 28;
+  const inner = W - PAD * 2;
+
+  const toX = (v: number) => PAD + (v / 100) * inner;
+  const toY = (v: number) => PAD + ((100 - v) / 100) * inner;
+
+  const dotX = toX(lust);
+  const dotY = toY(soul);
+
+  const labels = [
+    { x: PAD + inner * 0.25, y: PAD + inner * 0.25, text: "靈魂伴侶", color: "#9b59b6" },
+    { x: PAD + inner * 0.75, y: PAD + inner * 0.25, text: "命定雙生", color: "#e74c3c" },
+    { x: PAD + inner * 0.25, y: PAD + inner * 0.75, text: "知心好友", color: "#3498db" },
+    { x: PAD + inner * 0.75, y: PAD + inner * 0.75, text: "激情愛人", color: "#e67e22" },
+  ];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: 220 }}>
+      <rect x={PAD} y={PAD} width={inner} height={inner} fill="#1a0f1e" rx={4} />
+      <line x1={W / 2} y1={PAD} x2={W / 2} y2={W - PAD} stroke="#5c4059" strokeWidth={1} strokeDasharray="3,3" />
+      <line x1={PAD} y1={H / 2} x2={W - PAD} y2={H / 2} stroke="#5c4059" strokeWidth={1} strokeDasharray="3,3" />
+      {labels.map((l) => (
+        <text key={l.text} x={l.x} y={l.y} textAnchor="middle" dominantBaseline="middle"
+          fontSize={8} fill={l.color} opacity={0.6} fontFamily="sans-serif">
+          {l.text}
+        </text>
+      ))}
+      <line x1={PAD} y1={W - PAD} x2={W - PAD} y2={W - PAD} stroke="#8c7089" strokeWidth={1} />
+      <line x1={PAD} y1={PAD} x2={PAD} y2={W - PAD} stroke="#8c7089" strokeWidth={1} />
+      <text x={W / 2} y={W - 6} textAnchor="middle" fontSize={8} fill="#8c7089" fontFamily="sans-serif">肉體費洛蒙</text>
+      <text x={8} y={H / 2} textAnchor="middle" fontSize={8} fill="#8c7089" fontFamily="sans-serif"
+        transform={`rotate(-90, 8, ${H / 2})`}>靈魂共鳴</text>
+      <circle cx={dotX} cy={dotY} r={7} fill="#c084fc" opacity={0.9} />
+      <circle cx={dotX} cy={dotY} r={7} fill="none" stroke="#e9d5ff" strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+/** Horizontal track bars replacing raw track numbers */
+function TrackBars({ tracks }: { tracks: Record<string, number> }) {
+  const items = [
+    { key: "friend",  label: "朋友緣",    color: "#60a5fa" },
+    { key: "passion", label: "激情張力",   color: "#f87171" },
+    { key: "partner", label: "正緣伴侶",   color: "#a78bfa" },
+    { key: "soul",    label: "業力靈魂",   color: "#34d399" },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
+      {items.map(({ key, label, color }) => {
+        const val = Math.round(tracks[key] ?? 0);
+        return (
+          <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 10, color: "#8c7089", width: 52, flexShrink: 0 }}>{label}</span>
+            <div style={{ flex: 1, height: 6, background: "#2d1f35", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ width: `${val}%`, height: "100%", background: color, borderRadius: 3,
+                transition: "width 0.6s ease" }} />
+            </div>
+            <span style={{ fontSize: 10, color: "#c084fc", width: 24, textAlign: "right" }}>{val}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 interface TrackScores {
   friend?: number;
@@ -50,6 +124,7 @@ interface ReportClientProps {
   reportText: string;
   chartA?: ChartData;
   chartB?: ChartData;
+  quadrant?: string;
 }
 
 export function ReportClient({
@@ -66,6 +141,7 @@ export function ReportClient({
   reportText,
   chartA,
   chartB,
+  quadrant,
 }: ReportClientProps) {
   const [copied, setCopied] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
@@ -117,14 +193,14 @@ export function ReportClient({
       setTimeout(() => setCopied(false), 2000);
     });
   }, []);
-  const scoreItems = [
-    { label: "綜合評分", value: harmonyScore, color: "#b86e7d", hint: "整體相容性總分，由費洛蒙與靈魂共鳴加權計算" },
-    { label: "費洛蒙值", value: lustScore, color: "#d98695", hint: "生理吸引力與慾望張力——越高代表越有肉體化學反應" },
-    { label: "靈魂共鳴", value: soulScore, color: "#a8e6cf", hint: "精神深度與靈魂契合度——越高代表越有宿命感與深層連結" },
-    { label: "朋友軌", value: tracks.friend ?? 0, color: "#818cf8", hint: "思維默契與溝通共振——適合智識交流與創意合作的連結" },
-    { label: "激情軌", value: tracks.passion ?? 0, color: "#f472b6", hint: "致命吸引力與慾望強度——高分是費洛蒙陷阱，也可能是危險荷爾蒙" },
-    { label: "伴侶軌", value: tracks.partner ?? 0, color: "#34d399", hint: "日常生活互補與現實相處能力——越高越能走入長期穩定關係" },
-  ];
+
+  // Normalised tracks for TrackBars (needs Record<string, number>)
+  const tracksNorm: Record<string, number> = {
+    friend:  tracks.friend  ?? 0,
+    passion: tracks.passion ?? 0,
+    partner: tracks.partner ?? 0,
+    soul:    tracks.soul    ?? 0,
+  };
 
   return (
     <>
@@ -161,7 +237,7 @@ export function ReportClient({
         </button>
       </div>
 
-      {/* Score grid */}
+      {/* Quadrant + Track Bars card */}
       <div style={{
         background: "rgba(255,255,255,0.35)",
         backdropFilter: "blur(12px)",
@@ -172,18 +248,30 @@ export function ReportClient({
         marginBottom: 32,
         boxShadow: "0 8px 32px rgba(217,134,149,0.1)",
       }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, textAlign: "center" }}>
-          {scoreItems.map(({ label, value, color, hint }) => (
-            <div key={label} title={hint} style={{ cursor: "help", position: "relative" }}>
-              <div style={{ fontSize: 10, color: "#8c7089", marginBottom: 4 }}>{label}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color }}>{Math.round(value)}</div>
-              <div style={{ fontSize: 9, color: "#c4a0aa", marginTop: 3 }}>ℹ</div>
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+          {/* Quadrant plot */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <QuadrantPlot lust={lustScore} soul={soulScore} />
+            <div style={{ fontSize: 11, color: "#8c7089", textAlign: "center" }}>
+              綜合契合指數{" "}
+              <span style={{ color: "#c084fc", fontWeight: 700 }}>{Math.round(harmonyScore)}</span>
+              {quadrant && QUADRANT_LABEL[quadrant] ? (
+                <>
+                  {" · "}
+                  <span style={{ color: "#e9d5ff" }}>{QUADRANT_LABEL[quadrant]}</span>
+                </>
+              ) : null}
             </div>
-          ))}
+          </div>
+
+          {/* Track bars */}
+          <div style={{ flex: 1, minWidth: 180, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ fontSize: 11, color: "#8c7089", marginBottom: 10, fontWeight: 600, letterSpacing: "0.05em" }}>
+              四軌共振分析
+            </div>
+            <TrackBars tracks={tracksNorm} />
+          </div>
         </div>
-        <p style={{ fontSize: 10, color: "#c4a0aa", textAlign: "center", marginTop: 12, marginBottom: 0 }}>
-          將滑鼠移到數字上可查看說明
-        </p>
       </div>
 
       {/* Labels */}
