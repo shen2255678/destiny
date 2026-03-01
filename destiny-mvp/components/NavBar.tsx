@@ -63,6 +63,23 @@ export function NavBar() {
         </span>
       </Link>
 
+      <Link
+        href="/me"
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          color: pathname === "/me" ? "#b86e7d" : "#8c7089",
+          textDecoration: "none",
+          padding: "6px 14px",
+          borderRadius: 999,
+          background: pathname === "/me" ? "rgba(217,134,149,0.12)" : "transparent",
+          border: pathname === "/me" ? "1px solid rgba(217,134,149,0.3)" : "1px solid transparent",
+          transition: "all 0.2s",
+        }}
+      >
+        ✦ 我的命盤
+      </Link>
+
       <button
         onClick={handleLogout}
         style={{
