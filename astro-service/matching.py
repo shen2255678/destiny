@@ -104,9 +104,9 @@ WEIGHTS = {
     "track_partner_nojuno_moon":     0.55,
     "track_partner_nojuno_bazi":     0.45,
     "track_partner_saturn_cross":    0.10,   # A's Saturn × B's Moon cross-aspect bonus (bidirectional avg)
-    "track_soul_chiron":             0.40,
-    "track_soul_karmic":             0.40,
-    "track_soul_useful_god":         0.20,
+    # track_soul_chiron / track_soul_karmic / track_soul_useful_god removed (L-12 + L-2 fix):
+    # Chiron is now handled exclusively by shadow_engine orb-based checks; sign-level Chiron
+    # created false conjunction boosts for same-generation age-peers.
     "track_soul_nochiron_karmic":    0.60,
     "track_soul_nochiron_useful_god": 0.40,
 
@@ -971,11 +971,6 @@ def compute_tracks(
     h8_a, h8_b = user_a.get("house8_sign"), user_b.get("house8_sign")
     house8 = _resolve_aspect(user_a.get("house8_degree"), h8_a,
                              user_b.get("house8_degree"), h8_b, "tension") if (h8_a and h8_b) else 0.0
-    chiron_a, chiron_b = user_a.get("chiron_sign"), user_b.get("chiron_sign")
-    chiron_present = bool(chiron_a and chiron_b)
-    chiron = _resolve_aspect(user_a.get("chiron_degree"), chiron_a,
-                             user_b.get("chiron_degree"), chiron_b, "tension") if chiron_present else 0.0
-
     elem_a = user_a.get("bazi_element")
     elem_b = user_b.get("bazi_element")
     bazi_harmony = bazi_clash = bazi_generation = False
@@ -1021,14 +1016,11 @@ def compute_tracks(
         saturn_cross = (sat_a_moon_b + sat_b_moon_a) / 2.0
         partner += saturn_cross * WEIGHTS["track_partner_saturn_cross"]
 
-    if chiron_present:
-        soul_track = (chiron               * WEIGHTS["track_soul_chiron"] +
-                      karmic               * WEIGHTS["track_soul_karmic"] +
-                      useful_god_complement * WEIGHTS["track_soul_useful_god"])
-    else:
-        # Redistribute chiron's 0.40 weight: karmic gets 0.60, useful_god gets 0.40
-        soul_track = (karmic               * WEIGHTS["track_soul_nochiron_karmic"] +
-                      useful_god_complement * WEIGHTS["track_soul_nochiron_useful_god"])
+    # L-12: Chiron removed from soul_track — prevents double-counting with shadow_engine.
+    # L-2:  Chiron is generational (7 yrs/sign) — sign-level fallback creates false positives for age-peers.
+    # Shadow engine handles Chiron wound triggers via orb-based degree checks.
+    soul_track = (karmic               * WEIGHTS["track_soul_nochiron_karmic"] +
+                  useful_god_complement * WEIGHTS["track_soul_nochiron_useful_god"])
 
     if power["frame_break"]:
         soul_track += 0.10

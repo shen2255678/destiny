@@ -1358,21 +1358,56 @@ class TestTracksNullHandling:
         expected_soul = (karmic_v * 0.60 + 0.0 * 0.40) * 100
         assert tracks["soul"] == pytest.approx(expected_soul, abs=0.5)
 
-    def test_soul_track_with_chiron_uses_original_weights(self):
-        """When chiron_sign is present, soul track uses original weights:
-        chiron*0.40 + karmic*0.40 + useful_god*0.20.
+    def test_soul_track_chiron_present_still_uses_nochiron_formula(self):
+        """L-12 + L-2 fix: Even when chiron_sign is present, soul_track must use
+        the no-Chiron formula (karmic*0.60 + useful_god*0.40).
 
-        karmic = compute_karmic_triggers(a, b) replaces old pluto×pluto comparison.
+        Chiron is generational (7 yrs/sign) so same-age users share Chiron sign,
+        causing false conjunction boosts. Shadow engine handles Chiron wound triggers
+        via orb-based degree checks — so using Chiron here also double-counts.
         """
         a = self._base_user(pluto_sign="scorpio", chiron_sign="aries")
         b = self._base_user(pluto_sign="scorpio", chiron_sign="aries")
         power = self._power_no_frame_break()
 
         tracks = compute_tracks(a, b, power, useful_god_complement=0.5)
-        chiron_v = compute_sign_aspect("aries", "aries", "tension")  # 1.00
         karmic_v = compute_karmic_triggers(a, b)
-        expected_soul = (chiron_v * 0.40 + karmic_v * 0.40 + 0.5 * 0.20) * 100
+        # Always use no-Chiron formula regardless of chiron_sign presence
+        expected_soul = (karmic_v * 0.60 + 0.5 * 0.40) * 100
         assert tracks["soul"] == pytest.approx(expected_soul, abs=0.5)
+
+
+class TestChironSameGenerationNoInflation:
+    """L-2 regression: same-year users (same Chiron sign) must not get inflated soul track."""
+
+    def _base_user(self, **kwargs):
+        defaults = {
+            "moon_sign": "cancer", "mercury_sign": "gemini",
+            "jupiter_sign": "sagittarius", "mars_sign": "aries",
+            "venus_sign": "taurus", "pluto_sign": "scorpio",
+            "saturn_sign": "capricorn",
+            "juno_sign": None, "chiron_sign": None,
+            "house8_sign": None, "bazi_element": None,
+            "rpv_power": None, "rpv_conflict": None,
+            "sun_sign": "aries", "ascendant_sign": None,
+            "house4_sign": None, "attachment_style": None,
+            "data_tier": 3,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_chiron_same_generation_no_inflation(self):
+        """Same-year users (same Chiron sign) should NOT get inflated soul track.
+        Chiron is generational; same-gen pairs must rely only on karmic + useful_god."""
+        from matching import compute_match_v2
+        user_a = self._base_user(chiron_sign="Aries", chiron_degree=10.0)
+        user_b = self._base_user(chiron_sign="Aries", chiron_degree=15.0)
+        result = compute_match_v2(user_a, user_b)
+        # Soul track should not be inflated by same-gen Chiron conjunction
+        # karmic + useful_god formula caps out at ~60-70 without shadow engine boosts
+        assert result["tracks"]["soul"] <= 75.0, (
+            f"Soul track {result['tracks']['soul']} inflated by same-gen Chiron"
+        )
 
 
 class TestEmotionalCapacityPartnerTrack:
@@ -2517,10 +2552,13 @@ class TestSoulScoreDegreeResolution:
 
 class TestTracksDegreeResolution:
     """Verify L-3 fix: compute_tracks uses _resolve_aspect (degree-level) for
-    mercury, jupiter×sun cross, moon, mars, venus, house8, chiron, saturn×moon.
+    mercury, jupiter×sun cross, moon, mars, venus, house8, saturn×moon.
 
     Tests use the 'false conjunction' scenario: same sign but 25° apart.
     Degree-level scores lower (void 0.10) than sign-level (conjunction 0.90).
+
+    Note: Chiron was removed from soul_track (L-12 + L-2 fix). Shadow engine
+    handles Chiron wound triggers via orb-based degree checks in shadow_engine.py.
     """
 
     def _power(self):
@@ -2626,19 +2664,22 @@ class TestTracksDegreeResolution:
             f"less than sign-level ({t_no_deg['friend']:.1f})"
         )
 
-    def test_chiron_false_conjunction_lowers_soul_track(self):
-        """Same chiron sign but 25° apart → soul track lower with degree data."""
-        a_no_deg   = self._base_user(chiron_sign="virgo", chiron_degree=None)
-        b_no_deg   = self._base_user(chiron_sign="virgo", chiron_degree=None)
-        a_with_deg = self._base_user(chiron_sign="virgo", chiron_degree=150.0)
-        b_with_deg = self._base_user(chiron_sign="virgo", chiron_degree=175.0)  # 25° apart, void
+    def test_chiron_does_not_affect_soul_track(self):
+        """L-12 + L-2 fix: Chiron sign/degree data must NOT affect soul_track at all.
+        Soul track is identical whether chiron_sign is present or absent, and regardless
+        of degree proximity (same-gen false-conjunction is no longer possible).
+        Shadow engine handles Chiron via orb-based degree checks independently."""
+        a_no_chiron  = self._base_user(chiron_sign=None,    chiron_degree=None)
+        b_no_chiron  = self._base_user(chiron_sign=None,    chiron_degree=None)
+        a_with_deg   = self._base_user(chiron_sign="virgo", chiron_degree=150.0)
+        b_with_deg   = self._base_user(chiron_sign="virgo", chiron_degree=175.0)  # same gen, 25° apart
 
-        t_no_deg   = compute_tracks(a_no_deg,   b_no_deg,   self._power(), 0.0)
-        t_with_deg = compute_tracks(a_with_deg, b_with_deg, self._power(), 0.0)
+        t_no_chiron  = compute_tracks(a_no_chiron, b_no_chiron, self._power(), 0.0)
+        t_with_chiron = compute_tracks(a_with_deg, b_with_deg,  self._power(), 0.0)
 
-        assert t_with_deg["soul"] < t_no_deg["soul"], (
-            f"Degree-level (void chiron) soul ({t_with_deg['soul']:.1f}) should be "
-            f"less than sign-level ({t_no_deg['soul']:.1f})"
+        assert t_with_chiron["soul"] == t_no_chiron["soul"], (
+            f"Chiron presence should not affect soul_track: "
+            f"with={t_with_chiron['soul']:.1f}, without={t_no_chiron['soul']:.1f}"
         )
 
 
