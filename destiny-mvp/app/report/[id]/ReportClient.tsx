@@ -69,6 +69,46 @@ export function ReportClient({
 }: ReportClientProps) {
   const [copied, setCopied] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
+  const [savingSlot, setSavingSlot] = useState<null | "A" | "B">(null);
+  const [saveLabel, setSaveLabel] = useState("");
+  const [saveMsg, setSaveMsg] = useState("");
+
+  async function saveProfile(slot: "A" | "B") {
+    const chart = slot === "A" ? chartA : chartB;
+    const name = slot === "A" ? nameA : nameB;
+    if (!chart) {
+      setSaveMsg("❌ 無命盤資料（請重新跑一次匹配）");
+      return;
+    }
+    setSaveMsg("儲存中...");
+    const res = await fetch("/api/profiles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        label: saveLabel || name,
+        birth_date: (chart["birth_date"] as string) ?? "1990-01-01",
+        birth_time: (chart["birth_time_exact"] as string) ?? undefined,
+        lat: (chart["lat"] as number) ?? 25.033,
+        lng: (chart["lng"] as number) ?? 121.565,
+        data_tier: (chart["data_tier"] as number) ?? 3,
+        gender: (chart["gender"] as string) ?? "M",
+      }),
+    });
+    if (res.status === 403) {
+      setSaveMsg("❌ 免費方案限 1 張命盤，升級解鎖更多");
+      setSavingSlot(null);
+      return;
+    }
+    if (!res.ok) {
+      setSaveMsg("❌ 儲存失敗");
+      setSavingSlot(null);
+      return;
+    }
+    setSaveMsg("✓ 已儲存到我的命盤");
+    setSavingSlot(null);
+    setSaveLabel("");
+    setTimeout(() => setSaveMsg(""), 4000);
+  }
 
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -257,6 +297,64 @@ export function ReportClient({
               </div>
             )}
           </div>
+        )}
+      </div>
+
+      {/* Save profile buttons */}
+      <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+        {savingSlot ? (
+          <div style={{
+            background: "rgba(255,255,255,0.35)", backdropFilter: "blur(12px)",
+            border: "1px solid rgba(255,255,255,0.6)", borderRadius: 16, padding: "16px 20px",
+          }}>
+            <p style={{ fontSize: 12, color: "#8c7089", marginBottom: 10 }}>
+              儲存 {savingSlot === "A" ? nameA : nameB} 的命盤：
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={saveLabel}
+                onChange={(e) => setSaveLabel(e.target.value)}
+                placeholder={savingSlot === "A" ? nameA : nameB}
+                style={{
+                  flex: 1, padding: "7px 12px", borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.6)", background: "rgba(255,255,255,0.5)",
+                  fontSize: 12, color: "#5c4059",
+                }}
+              />
+              <button
+                onClick={() => saveProfile(savingSlot)}
+                style={{ padding: "7px 18px", borderRadius: 10, background: "#d98695", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}
+              >
+                確認
+              </button>
+              <button
+                onClick={() => { setSavingSlot(null); setSaveLabel(""); setSaveMsg(""); }}
+                style={{ padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(200,160,170,0.4)", background: "transparent", fontSize: 12, color: "#8c7089", cursor: "pointer" }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              onClick={() => { setSavingSlot("A"); setSaveLabel(""); setSaveMsg(""); }}
+              style={{ flex: 1, padding: "10px", borderRadius: 12, background: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.6)", fontSize: 12, color: "#8c7089", cursor: "pointer", backdropFilter: "blur(8px)" }}
+            >
+              💾 儲存 {nameA} 的命盤
+            </button>
+            <button
+              onClick={() => { setSavingSlot("B"); setSaveLabel(""); setSaveMsg(""); }}
+              style={{ flex: 1, padding: "10px", borderRadius: 12, background: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.6)", fontSize: 12, color: "#8c7089", cursor: "pointer", backdropFilter: "blur(8px)" }}
+            >
+              💾 儲存 {nameB} 的命盤
+            </button>
+          </div>
+        )}
+        {saveMsg && (
+          <p style={{ fontSize: 12, color: saveMsg.startsWith("✓") ? "#34d399" : "#c0392b", textAlign: "center" }}>
+            {saveMsg}
+          </p>
         )}
       </div>
     </>
