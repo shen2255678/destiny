@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { translateShadowTag, translatePsychTrigger } from "@/lib/shadowTagsZh";
 
 // ── types ──────────────────────────────────────────────────────────────────
 interface LlmReport {
@@ -152,11 +153,14 @@ export function PromptPreviewPanel({
   }
 
   // Extract fields from reportJson
-  const psychTags = (r.psychological_tags as string[]) ?? [];
-  const psychTriggers = (r.psychological_triggers as string[]) ?? [];
+  const psychTagsRaw = (r.psychological_tags as string[]) ?? [];
+  const psychTriggersRaw = (r.psychological_triggers as string[]) ?? [];
   const resonanceBadges = (r.resonance_badges as string[]) ?? [];
   const tracks = (r.tracks as Record<string, number>) ?? {};
   const power = (r.power as Record<string, unknown>) ?? {};
+  // Individual chart data (available for matches made after the echo fix)
+  const chartA = (r.user_a_chart as Record<string, string>) ?? {};
+  const chartB = (r.user_b_chart as Record<string, string>) ?? {};
 
   return (
     <div style={{ marginTop: 40 }}>
@@ -226,12 +230,14 @@ export function PromptPreviewPanel({
             />
 
             <DataRow
-              label="Psychological Tags（陰影標籤）"
+              label="暗影標籤"
               value={
-                psychTags.length > 0 ? (
+                psychTagsRaw.length > 0 ? (
                   <span>
-                    {psychTags.map((t) => (
-                      <span key={t} style={pill("#b86e7d")}>{t}</span>
+                    {psychTagsRaw.map((t) => (
+                      <span key={t} style={pill("#b86e7d")} title={t}>
+                        {translateShadowTag(t)}
+                      </span>
                     ))}
                   </span>
                 ) : (
@@ -241,12 +247,14 @@ export function PromptPreviewPanel({
             />
 
             <DataRow
-              label="Psychological Triggers（心理觸發）"
+              label="心理觸發"
               value={
-                psychTriggers.length > 0 ? (
+                psychTriggersRaw.length > 0 ? (
                   <span>
-                    {psychTriggers.map((t) => (
-                      <span key={t} style={pill("#7c3aed")}>{t}</span>
+                    {psychTriggersRaw.map((t) => (
+                      <span key={t} style={pill("#7c3aed")} title={t}>
+                        {translatePsychTrigger(t)}
+                      </span>
                     ))}
                   </span>
                 ) : (
@@ -256,7 +264,7 @@ export function PromptPreviewPanel({
             />
 
             <DataRow
-              label="Resonance Badges（命理認證）"
+              label="命理認證"
               value={
                 resonanceBadges.length > 0 ? (
                   <span>
@@ -269,6 +277,36 @@ export function PromptPreviewPanel({
                 )
               }
             />
+
+            {(Object.keys(chartA).length > 0 || Object.keys(chartB).length > 0) ? (
+              <>
+                <DataRow
+                  label={`${nameA} 命盤`}
+                  value={
+                    <span style={{ fontSize: 11, lineHeight: 1.7 }}>
+                      ☀ {chartA.sun_sign || "—"} · 月 {chartA.moon_sign || "—"} · 升 {chartA.ascendant_sign || "—"}<br />
+                      ♀ {chartA.venus_sign || "—"} · ♂ {chartA.mars_sign || "—"} · ♄ {chartA.saturn_sign || "—"}<br />
+                      八字: {chartA.bazi_element || "—"} · 依戀: {chartA.attachment_style || "—"}
+                    </span>
+                  }
+                />
+                <DataRow
+                  label={`${nameB} 命盤`}
+                  value={
+                    <span style={{ fontSize: 11, lineHeight: 1.7 }}>
+                      ☀ {chartB.sun_sign || "—"} · 月 {chartB.moon_sign || "—"} · 升 {chartB.ascendant_sign || "—"}<br />
+                      ♀ {chartB.venus_sign || "—"} · ♂ {chartB.mars_sign || "—"} · ♄ {chartB.saturn_sign || "—"}<br />
+                      八字: {chartB.bazi_element || "—"} · 依戀: {chartB.attachment_style || "—"}
+                    </span>
+                  }
+                />
+              </>
+            ) : (
+              <DataRow
+                label="個人命盤"
+                value={<span style={{ color: "#aaa", fontSize: 11 }}>重新跑一次匹配後可見（舊紀錄不含此資料）</span>}
+              />
+            )}
           </div>
 
           {/* ── Section 2: Prompt Preview ── */}

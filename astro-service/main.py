@@ -151,6 +151,19 @@ def compute_match(req: MatchRequest):
     """
     try:
         result = compute_match_v2(req.user_a, req.user_b)
+
+        # Echo key chart fields for both persons into the result so they are
+        # stored in report_json and available for prompt preview / LLM context.
+        _ECHO_KEYS = [
+            "sun_sign", "moon_sign", "venus_sign", "mars_sign",
+            "mercury_sign", "jupiter_sign", "saturn_sign", "ascendant_sign",
+            "chiron_sign", "juno_sign",
+            "bazi_element", "bazi_month_branch", "bazi_day_branch",
+            "attachment_style", "data_tier", "gender",
+        ]
+        result["user_a_chart"] = {k: v for k in _ECHO_KEYS if (v := req.user_a.get(k)) is not None}
+        result["user_b_chart"] = {k: v for k in _ECHO_KEYS if (v := req.user_b.get(k)) is not None}
+
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -537,6 +537,30 @@ def get_simple_report_prompt(
             f"\n{person_b} 能量: {_element_summary(ep_b)}"
         )
 
+    # Individual chart data echoed by /compute-match → stored in report_json
+    chart_a = match_data.get("user_a_chart", {})
+    chart_b = match_data.get("user_b_chart", {})
+    _att_zh = {
+        "anxious": "焦慮依戀型", "avoidant": "迴避依戀型",
+        "fearful": "恐懼依戀型", "secure": "安全依戀型",
+    }
+    def _s(d, k): return d.get(k) or "—"
+
+    chart_block = ""
+    if chart_a or chart_b:
+        chart_block = f"""
+【個人命盤摘要】
+[{person_a}]
+太陽: {_s(chart_a,'sun_sign')} | 月亮: {_s(chart_a,'moon_sign')} | 上升: {_s(chart_a,'ascendant_sign')}
+金星: {_s(chart_a,'venus_sign')} | 火星: {_s(chart_a,'mars_sign')} | 土星: {_s(chart_a,'saturn_sign')} | 水星: {_s(chart_a,'mercury_sign')}
+八字日主五行: {_s(chart_a,'bazi_element')} | 依戀: {_att_zh.get(_s(chart_a,'attachment_style'), _s(chart_a,'attachment_style'))}
+
+[{person_b}]
+太陽: {_s(chart_b,'sun_sign')} | 月亮: {_s(chart_b,'moon_sign')} | 上升: {_s(chart_b,'ascendant_sign')}
+金星: {_s(chart_b,'venus_sign')} | 火星: {_s(chart_b,'mars_sign')} | 土星: {_s(chart_b,'saturn_sign')} | 水星: {_s(chart_b,'mercury_sign')}
+八字日主五行: {_s(chart_b,'bazi_element')} | 依戀: {_att_zh.get(_s(chart_b,'attachment_style'), _s(chart_b,'attachment_style'))}
+"""
+
     prompt = f"""{DESTINY_WORLDVIEW}
 
 {instruction}
@@ -551,10 +575,11 @@ ChemistryScore（靈魂深度）: {round(match_data.get('soul_score', 0), 1)}/10
 四軌: 朋友={round(tracks.get('friend', 0), 1)} 激情={round(tracks.get('passion', 0), 1)} 伴侶={round(tracks.get('partner', 0), 1)} 靈魂={round(tracks.get('soul', 0), 1)}
 主要連結類型: {match_data.get('primary_track', 'unknown')}
 四象限: {match_data.get('quadrant', 'unknown')}
+業力張力: {match_data.get('karmic_tension', 0)}
 權力動態: {person_a}={power.get('viewer_role', 'Equal')}，{person_b}={power.get('target_role', 'Equal')}，RPV={power.get('rpv', 0)}
 高壓警告 ⚡: {high_voltage}
-紫微斗數烈度: {zwds.get('spiciness_level', 'N/A')}
-
+紫微斗數烈度: {zwds.get('spiciness_level', match_data.get('spiciness_level', 'N/A'))}
+{chart_block}
 【心理動力學分析結果（請將以下標籤轉譯為白話情境，禁止直接輸出原始英文標籤）】
 {_translate_psych_tags(psych_tags)}
 {elem_context}
