@@ -45,6 +45,48 @@ interface SavedProfile {
   natal_cache: Record<string, unknown> | null;
 }
 
+function ProfilePicker({
+  profiles,
+  slot,
+  cached,
+  onSelect,
+  onClear,
+}: {
+  profiles: SavedProfile[];
+  slot: "A" | "B";
+  cached: boolean;
+  onSelect: (p: SavedProfile) => void;
+  onClear: () => void;
+}) {
+  if (profiles.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 10, display: "flex", gap: 8, alignItems: "center" }}>
+      <select
+        defaultValue=""
+        onChange={(e) => {
+          const p = profiles.find((x) => x.id === e.target.value);
+          if (p) onSelect(p);
+          else onClear();
+        }}
+        style={{
+          flex: 1, padding: "6px 10px", borderRadius: 10,
+          border: "1px solid rgba(255,255,255,0.6)",
+          background: "rgba(255,255,255,0.5)",
+          fontSize: 12, color: "#5c4059", cursor: "pointer",
+        }}
+      >
+        <option value="">── 從已儲存命盤選取 ──</option>
+        {profiles.map((p) => (
+          <option key={p.id} value={p.id}>{p.display_name}</option>
+        ))}
+      </select>
+      {cached && (
+        <span style={{ fontSize: 10, color: "#34d399", fontWeight: 600 }}>✓ 快取</span>
+      )}
+    </div>
+  );
+}
+
 export default function LoungePage() {
   const router = useRouter();
   const [a, setA] = useState<BirthData>(DEFAULT_A);
@@ -66,48 +108,8 @@ export default function LoungePage() {
       .catch(() => {});
   }, []);
 
-  function ProfilePicker({
-    slot,
-    cached,
-    onSelect,
-    onClear,
-  }: {
-    slot: "A" | "B";
-    cached: boolean;
-    onSelect: (p: SavedProfile) => void;
-    onClear: () => void;
-  }) {
-    if (profiles.length === 0) return null;
-    return (
-      <div style={{ marginBottom: 10, display: "flex", gap: 8, alignItems: "center" }}>
-        <select
-          defaultValue=""
-          onChange={(e) => {
-            const p = profiles.find((x) => x.id === e.target.value);
-            if (p) onSelect(p);
-            else onClear();
-          }}
-          style={{
-            flex: 1, padding: "6px 10px", borderRadius: 10,
-            border: "1px solid rgba(255,255,255,0.6)",
-            background: "rgba(255,255,255,0.5)",
-            fontSize: 12, color: "#5c4059", cursor: "pointer",
-          }}
-        >
-          <option value="">── 從已儲存命盤選取 ──</option>
-          {profiles.map((p) => (
-            <option key={p.id} value={p.id}>{p.display_name}</option>
-          ))}
-        </select>
-        {cached && (
-          <span style={{ fontSize: 10, color: "#34d399", fontWeight: 600 }}>✓ 快取</span>
-        )}
-      </div>
-    );
-  }
-
   async function runMatch() {
-    setLoading((prev) => !prev || true);
+    setLoading(true);
     setError("");
     setStatus("⟳ 運算星盤中...");
 
@@ -201,7 +203,7 @@ export default function LoungePage() {
       router.push(`/report/${match.id}`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error occurred");
-      setLoading((prev) => prev && false);
+      setLoading(false);
       setStatus("");
     }
   }
@@ -244,6 +246,7 @@ export default function LoungePage() {
         {/* Person A */}
         <div>
           <ProfilePicker
+            profiles={profiles}
             slot="A"
             cached={!!cachedChartA}
             onSelect={(p) => {
@@ -309,7 +312,7 @@ export default function LoungePage() {
               </div>
             ) : (
               <button
-                onClick={() => setSaving("A")}
+                onClick={() => { setSaving("A"); setSaveLabel(""); }}
                 style={{ fontSize: 11, color: "#8c7089", background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}
               >💾 儲存此命盤</button>
             )}
@@ -319,6 +322,7 @@ export default function LoungePage() {
         {/* Person B */}
         <div>
           <ProfilePicker
+            profiles={profiles}
             slot="B"
             cached={!!cachedChartB}
             onSelect={(p) => {
@@ -384,7 +388,7 @@ export default function LoungePage() {
               </div>
             ) : (
               <button
-                onClick={() => setSaving("B")}
+                onClick={() => { setSaving("B"); setSaveLabel(""); }}
                 style={{ fontSize: 11, color: "#8c7089", background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}
               >💾 儲存此命盤</button>
             )}
