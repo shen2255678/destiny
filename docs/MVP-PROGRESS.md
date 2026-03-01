@@ -1,6 +1,6 @@
 # DESTINY MVP — Progress Tracker
 
-**Last Updated:** 2026-02-25 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅ Algorithm v1.8 ✅ Algorithm v1.9 ✅ Algorithm v2.0 Code Review ✅ Ten Gods Engine ✅ Algorithm V3 Classical Astrology 📐 Planned)
+**Last Updated:** 2026-03-01 (Phase C ✅ Phase D ✅ Phase B.5 ✅ Phase G ✅ Phase H ✅ Phase I ✅ Algorithm Enhancement ✅ Algorithm v1.8 ✅ Algorithm v1.9 ✅ Algorithm v2.0 Code Review ✅ Ten Gods Engine ✅ Algorithm V3 Classical Astrology 📐 Planned **Algorithm v1.9.1 Bug Fixes ✅**)
 
 ---
 
@@ -259,6 +259,13 @@ CRON_SECRET=<secret>   # /api/matches/run 保護
 - ✅ L-10: lust_power soft cap (plateau=0.75, dfactor=0.60) 加入 `compute_lust_score`
 - ✅ L-11: anxious×avoidant lust spike (×1.15) 加入 `compute_lust_score`
 - ✅ ALGORITHM.md L-7: Saturn-Venus cross trigger 加入 `shadow_engine.py`（5° orb，soul +8, partner -10, lust -5，+7 tests）
+
+**Plan C Bug Fixes (2026-03-01, v1.9.1) — 6 fixes applied, 669 tests pass:**
+- ✅ Bug-1: `compute_exact_aspect` void-of-aspect 回傳 0.5（中性）而非 0.1，消除 Tier 1 評分懲罰
+- ✅ Bug-2: `find_dispositor_chain` 移除 `len(visited) >= 3` 上限，深鏈（4-5 行星）現可正確找到 Final Dispositor
+- ✅ L-1: Shadow modifier 累計上限加入（soul_adj ≤ 40, lust_adj ≤ 40, partner_adj ≤ 25）
+- ✅ L-2/L-12: Chiron 從 soul_track 公式移除，消除同期出生者假性高分與雙重計算
+- ✅ L-8: 業力觸發閾值從 0.85 降至 0.70，捕捉 3-4° 中度相位
 
 ---
 

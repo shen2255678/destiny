@@ -654,6 +654,19 @@ Response: 見「系統概覽」的輸出結構。
 
 ---
 
+## Bug Fixes (v1.9.1)
+
+Applied 2026-03-01:
+
+- [x] **Bug-1**: `compute_exact_aspect` void-of-aspect now returns `0.5` (neutral) instead of `0.1` — eliminates Tier 1 score penalty
+- [x] **Bug-2**: `find_dispositor_chain` `len(visited) >= 3` limit removed — deep chains (4-5 planets) now find Final Dispositor
+- [x] **L-1**: Shadow modifier caps added — `soul_adj ≤ 40`, `lust_adj ≤ 40`, `partner_adj ≤ 25` (prevents overflow from multiple simultaneous triggers)
+- [x] **L-2**: Chiron same-generation false positives resolved — by removing Chiron from soul_track
+- [x] **L-8**: Karmic trigger threshold lowered `0.85 → 0.70` — catches moderate 3-4° aspects
+- [x] **L-12**: Chiron double-count eliminated — removed from soul_track; shadow_engine handles Chiron wound triggers via orb-based degree checks
+
+---
+
 ### 其他固定注意事項
 
 - ZWDS 計算依賴 `lunardate` 套件，支援 1900–2100 年；範圍外回傳 `None`（非阻塞）。
