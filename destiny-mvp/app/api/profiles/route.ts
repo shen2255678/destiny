@@ -24,17 +24,6 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Free tier check
-  const { count, error: countError } = await supabase
-    .from("soul_cards")
-    .select("id", { count: "exact", head: true })
-    .eq("owner_id", user.id);
-
-  if (countError) return NextResponse.json({ error: "Failed to verify account limits" }, { status: 500 });
-  if ((count ?? 0) >= 1) {
-    return NextResponse.json({ error: "upgrade_required" }, { status: 403 });
-  }
-
   let body: {
     label: string;
     birth_date: string;
