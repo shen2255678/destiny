@@ -47,7 +47,7 @@ function QuadrantPlot({ lust, soul }: { lust: number; soul: number }) {
     { x: PAD + inner * 0.25, y: PAD + inner * 0.25, text: "靈魂伴侶", color: "#9b59b6" },
     { x: PAD + inner * 0.75, y: PAD + inner * 0.25, text: "命定雙生", color: "#e74c3c" },
     { x: PAD + inner * 0.25, y: PAD + inner * 0.75, text: "知心好友", color: "#3498db" },
-    { x: PAD + inner * 0.75, y: PAD + inner * 0.75, text: "激情愛人", color: "#e67e22" },
+    { x: PAD + inner * 0.75, y: PAD + inner * 0.75, text: "命定雙生", color: "#e67e22" },
   ];
 
   return (
