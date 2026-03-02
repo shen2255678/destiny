@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("soul_cards")
-    .select("id, display_name, birth_date, birth_time, lat, lng, data_tier, gender, yin_yang, natal_cache, profile_card_data, ideal_match_data, created_at")
+    .select("id, display_name, birth_date, birth_time, lat, lng, data_tier, gender, yin_yang, natal_cache, profile_card_data, ideal_match_data, avatar_icon, avatar_url, created_at")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     data_tier: 1 | 2 | 3;
     gender: "M" | "F";
     yin_yang?: "yin" | "yang";
+    avatar_icon?: string;
   };
   try {
     body = await req.json();
@@ -51,6 +52,9 @@ export async function POST(req: NextRequest) {
   }
   if (!([1, 2, 3] as number[]).includes(body.data_tier)) {
     return NextResponse.json({ error: "Invalid data_tier: must be 1, 2, or 3" }, { status: 400 });
+  }
+  if (body.avatar_icon !== undefined && (typeof body.avatar_icon !== "string" || body.avatar_icon.length > 8)) {
+    return NextResponse.json({ error: "avatar_icon must be a string ≤8 chars" }, { status: 400 });
   }
   if (
     typeof body.lat !== "number" || body.lat < -90 || body.lat > 90 ||
@@ -116,9 +120,10 @@ export async function POST(req: NextRequest) {
       data_tier: body.data_tier,
       gender: body.gender,
       yin_yang: body.yin_yang ?? "yang",
+      avatar_icon: body.avatar_icon ?? "✦",
       natal_cache,
     })
-    .select("id, display_name, birth_date, birth_time, lat, lng, data_tier, gender, yin_yang, natal_cache")
+    .select("id, display_name, birth_date, birth_time, lat, lng, data_tier, gender, yin_yang, natal_cache, avatar_icon")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
