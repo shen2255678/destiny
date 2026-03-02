@@ -248,6 +248,9 @@ export function MeClient({
     <main style={{ maxWidth: 640, margin: "0 auto", padding: "32px 24px" }}>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#5c4059", letterSpacing: "0.08em", marginBottom: 4 }}>
+          ✦ 我的命盤
+        </h1>
         {/* Avatar icon — click to edit */}
         <div
           style={{
@@ -268,9 +271,6 @@ export function MeClient({
         >
           {profile.avatar_icon ?? "✦"}
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#5c4059", letterSpacing: "0.08em", marginBottom: 4 }}>
-          ✦ 我的命盤
-        </h1>
         <p style={{ color: "#8c7089", fontSize: 13 }}>{profile.display_name} · Tier {profile.data_tier}</p>
       </div>
 
