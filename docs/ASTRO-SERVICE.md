@@ -400,16 +400,16 @@ astro-service/
 ├── main.py            # FastAPI server (port 8001) — 15 endpoints (含 2 新 production API)
 ├── chart.py           # Western astrology: planetary positions + natal aspects + Lilith/Vertex
 ├── bazi.py            # BaZi 八字四柱: Four Pillars + Five Elements + true solar time
-├── matching.py        # Compatibility scoring: lust/soul/tracks/power/quadrant (v2)
-├── shadow_engine.py   # Synastry modifiers: Chiron/Vertex/Lilith triggers + 12th house overlay + Lunar Nodes + DSC Overlay (v1.9)
+├── matching.py        # Compatibility scoring: lust/soul/tracks/power/quadrant (v2, v1.9.2: Pluto dom + Chiron degree-based + Juno degree-based)
+├── shadow_engine.py   # Synastry modifiers: Chiron/Vertex/Lilith/Saturn/Pluto triggers + 12th house overlay (Sun/Mars/Moon/Venus) + Lunar Nodes + DSC Overlay (v1.9.2)
 ├── psychology.py      # Psychology layer: SM dynamics + retrograde karma + element profile + Karmic Axis (v1.9)
 ├── zwds.py            # ZiWei DouShu bridge
 ├── prompt_manager.py  # LLM prompt templates (profile/match/archetype/ideal-match/synastry)
 ├── api_presenter.py   # 🆕 DTO 脫敏層 (format_safe_match_response / format_safe_onboard_response)
 ├── db_client.py       # 🆕 Supabase Python client (natal data + psychology + match cache)
 ├── test_chart.py      # pytest (109 tests)
-├── test_matching.py   # pytest (173 tests)
-├── test_shadow_engine.py # pytest (56 tests)
+├── test_matching.py   # pytest (263 tests)
+├── test_shadow_engine.py # pytest (109 tests)
 ├── test_zwds.py       # pytest (31 tests)
 ├── test_psychology.py # pytest (33 tests)
 ├── test_sandbox.py    # pytest (5 tests)
@@ -426,8 +426,8 @@ astro-service/
 cd astro-service
 pytest -v                       # 全部 446 個測試（Python）
 pytest test_chart.py -v         # 109 tests — 西洋占星 + 本命相位 + Lilith/Vertex + Lunar Nodes + House 7
-pytest test_matching.py -v      # 173 tests — 配對演算法
-pytest test_shadow_engine.py -v # 56 tests — 暗黑修正器 + Descendant Overlay
+pytest test_matching.py -v      # 263 tests — 配對演算法
+pytest test_shadow_engine.py -v # 109 tests — 暗黑修正器 + Saturn/Pluto triggers + Descendant Overlay
 pytest test_zwds.py -v          # 31 tests — 紫微斗數
 pytest test_psychology.py -v    # 33 tests — 心理標籤 + Karmic Axis
 pytest test_sandbox.py -v       # 5 tests — Sandbox endpoints
@@ -443,6 +443,6 @@ pytest test_prompt_manager.py -v # 15 tests — LLM Prompt 結構
 - 星座交界日期（Pisces/Aries, Leo/Virgo）
 - 全 12 星座可達性驗證
 - 配對演算法：lust/soul/tracks/power/quadrant 完整覆蓋
-- 暗黑修正器：Chiron/Vertex/Lilith/Lunar Nodes/Descendant synastry triggers
+- 暗黑修正器：Chiron/Vertex/Lilith/Saturn-Sun/Saturn-Mars/Pluto/Lunar Nodes/Descendant synastry triggers + 12th house (Sun/Mars/Moon/Venus)
 - 紫微斗數：12 宮命盤計算
 - 心理標籤：SM dynamics + retrograde karma + element profile + Karmic Axis（Sign+House）

@@ -244,8 +244,8 @@ mercury    = aspect(merc_a,    merc_b,    "harmony") × 0.20
 house4     = aspect(h4_a,      h4_b,      "harmony") × 0.15  (Tier 2/3 → 0.0)
 saturn     = aspect(sat_a,     sat_b,     "harmony") × 0.20
 attachment = ATTACHMENT_FIT[style_a][style_b]         × 0.20
-juno       = (aspect(juno_a, moon_b, "harmony") + aspect(juno_b, moon_a, "harmony")) / 2 × 0.20
-             (Cross-aspect：A 的婚神星 × B 的月亮，破除同期出生者的假性共振；缺月亮 → 跳過)
+juno       = (_resolve_aspect(juno_a, moon_b, "harmony") + _resolve_aspect(juno_b, moon_a, "harmony")) / 2 × 0.20
+             (Cross-aspect：使用 _resolve_aspect 度數優先；破除同期出生者的假性共振；缺月亮 → 跳過)
 
 if bazi 相生（a_generates_b 或 b_generates_a）: score × 1.20
 
@@ -266,7 +266,7 @@ result = clamp(score × 100, 0, 100)
 
 ## Step 4：權力動態
 
-### `compute_power_v2(user_a, user_b, chiron_triggered, ...)` → dict
+### `compute_power_v2(user_a, user_b, chiron_triggered, pluto_dom, ...)` → dict
 
 ```
 frame = 50
@@ -275,8 +275,10 @@ frame = 50
 
 frame_a = formula(user_a)
 frame_b = formula(user_b)
-if chiron_triggered: frame_b -= 15  # B 的框架穩定性被 A 動搖
-frame_a += zwds_rpv_modifier        # ZWDS 化権 ± 15（Tier 1 only）
+if chiron_triggered_ab: frame_b -= 15  # B 的框架穩定性被 A 動搖
+if pluto_dom_ab: frame_a += 20         # A 的冥王星壓制 B → A 天生 Dom（v1.9.2）
+if pluto_dom_ba: frame_b += 20         # B 的冥王星壓制 A → B 天生 Dom（v1.9.2）
+frame_a += zwds_rpv_modifier           # ZWDS 化権 ± 15（Tier 1 only）
 
 rpv = frame_a - frame_b
 ```
@@ -290,9 +292,17 @@ rpv = frame_a - frame_b
 ### Chiron 觸發檢查
 
 `_check_chiron_triggered(user_a, user_b)`：若 A 的 Mars 或 Pluto 對 B 的
-Chiron 形成硬相位（四分相 diff=3 或對分相 diff=6）→ `frame_break=True`。
+Chiron 形成硬相位 → `frame_break=True`。
 
-這代表 A 的慾望能量直接撞擊 B 的核心傷（Chiron）→ 靈魂震動觸發。
+**度數優先（v1.9.2）：** 當 `chiron_degree` 可用時，使用 5° orb 檢查合相/四分相/對分相。
+**星座 Fallback：** 無度數時回退至星座等分（四分相 diff=3、對分相 diff=6）。
+
+### Pluto 權力壓制（v1.9.2）
+
+`_check_pluto_domination(user_a, user_b)`：若 A 的冥王星對 B 的太陽/月亮/金星
+形成硬相位（合相/四分相/對分相，5° orb）→ A 在關係中擁有壓倒性心理支配力。
+
+觸發時 `frame_a += WEIGHTS["power_pluto_dom"]`（+20）。
 
 ---
 
@@ -462,8 +472,31 @@ A 的慾望行星（金/火）精準合相 B 的暗月莉莉絲 → 禁忌吸引
 
 ### 12 宮陰影疊加
 
-A 的太陽或火星落入 B 的第 12 宮 → soul_mod +20，high_voltage，Tag `A_Illuminates_B_Shadow`
-雙向疊加時額外 +40，Tag `Mutual_Shadow_Integration`
+A 的太陽、火星、月亮或金星落入 B 的第 12 宮 → soul_mod +20，high_voltage，
+Tag `A_Illuminates_B_Shadow`。雙向疊加時額外 +40，Tag `Mutual_Shadow_Integration`。
+
+> **v1.9.2 更新：** 加入月亮（情緒共鳴 / 不安全感）和金星（隱秘愛慕）觸發。
+> 月亮落 12 宮引發無法解釋的情緒連結；金星落 12 宮引發暗戀般的吸引力。
+
+### Saturn-Sun 權威壓制觸發（v1.9.2）
+
+A 的土星合相/四分相/對分相 B 的太陽（5° orb）→ 父權式框架壓制：
+
+| 觸發 | soul_mod | partner_mod | high_voltage | Tag |
+|---|---|---|---|---|
+| A Saturn ↔ B Sun | +5 | -5 | ❌ | `A_Saturn_Disciplines_B_Sun` |
+
+（B 對 A 鏡像同理，Tag 前綴 `B_`）
+
+### Saturn-Mars 行動壓制觸發（v1.9.2）
+
+A 的土星合相/四分相/對分相 B 的火星（5° orb）→ 慾望抑制與服從：
+
+| 觸發 | lust_mod | partner_mod | high_voltage | Tag |
+|---|---|---|---|---|
+| A Saturn ↔ B Mars | -10 | -5 | ❌ | `A_Saturn_Restricts_B_Mars` |
+
+（B 對 A 鏡像同理，Tag 前綴 `B_`）
 
 ### 南北交點觸發（_NODE_ORB = 3.0°，Algorithm v1.8）
 
@@ -664,6 +697,17 @@ Applied 2026-03-01:
 - [x] **L-2**: Chiron same-generation false positives resolved — by removing Chiron from soul_track
 - [x] **L-8**: Karmic trigger threshold lowered `0.85 → 0.70` — catches moderate 3-4° aspects
 - [x] **L-12**: Chiron double-count eliminated — removed from soul_track; shadow_engine handles Chiron wound triggers via orb-based degree checks
+
+## Engine Fixes (v1.9.2)
+
+Applied 2026-03-02:
+
+- [x] **Q-1**: `ASPECT_RULES` harmony/tension max 值對齊規格書 `HARMONY_ASPECTS` / `TENSION_ASPECTS` 表 — 修正 Tier 3 在部分相位上分數反超 Tier 1 的問題
+- [x] **Q-2**: Juno 跨人相位從 `compute_sign_aspect` 改為 `_resolve_aspect`（度數優先、星座 fallback）
+- [x] **Q-4**: `_check_chiron_triggered` 重構為度數優先（5° orb 合相/四分/對分），消除 30° 星座粒度的不精確性
+- [x] **C-1**: 冥王星權力壓制 `_check_pluto_domination` — A 的 Pluto hard-aspect B 的 Sun/Moon/Venus → RPV frame +20
+- [x] **C-2**: 12 宮陰影疊圖擴展為 Sun/Mars/Moon/Venus 四星觸發（原僅 Sun/Mars）
+- [x] **I-2**: Saturn-Sun（權威壓制）和 Saturn-Mars（行動壓制）合盤觸發器 + 中文標籤翻譯
 
 ---
 
