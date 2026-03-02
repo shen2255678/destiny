@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { translateShadowTag } from "@/lib/shadowTagsZh";
+import { SaveCardModal } from "@/components/SaveCardModal";
 
 // ── Translation maps ──────────────────────────────────────────────────────────
 
@@ -98,6 +99,7 @@ interface Profile {
   data_tier: number;
   gender: string;
   yin_yang: string;
+  avatar_icon?: string;
   natal_cache: Record<string, unknown> | null;
 }
 
@@ -153,6 +155,7 @@ export function MeClient({
   const [yinYang, setYinYang] = useState<"yin" | "yang">(
     (profile?.yin_yang as "yin" | "yang") ?? "yang"
   );
+  const [editingAvatar, setEditingAvatar] = useState(false);
   const [rawOpen, setRawOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptText, setPromptText] = useState("");
@@ -245,6 +248,26 @@ export function MeClient({
     <main style={{ maxWidth: 640, margin: "0 auto", padding: "32px 24px" }}>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
+        {/* Avatar icon — click to edit */}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, rgba(217,134,149,0.25), rgba(124,92,138,0.25))",
+            border: "2px solid rgba(217,134,149,0.4)",
+            fontSize: 26,
+            marginBottom: 8,
+            cursor: "pointer",
+          }}
+          onClick={() => setEditingAvatar(true)}
+          title="點擊更換圖示"
+        >
+          {profile.avatar_icon ?? "✦"}
+        </div>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: "#5c4059", letterSpacing: "0.08em", marginBottom: 4 }}>
           ✦ 我的命盤
         </h1>
@@ -631,6 +654,24 @@ export function MeClient({
           </div>
         )}
       </div>
+
+      {editingAvatar && profile && (
+        <SaveCardModal
+          person="A"
+          defaultName={profile.display_name}
+          onConfirm={async (label, avatarIcon) => {
+            const res = await fetch(`/api/profiles/${profile.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ avatar_icon: avatarIcon, display_name: label }),
+            });
+            if (!res.ok) throw new Error("更新失敗");
+            // Force a page reload to reflect changes
+            window.location.reload();
+          }}
+          onClose={() => setEditingAvatar(false)}
+        />
+      )}
     </main>
   );
 }

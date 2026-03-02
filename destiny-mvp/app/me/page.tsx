@@ -9,7 +9,7 @@ export default async function MePage() {
 
   const { data: profiles } = await supabase
     .from("soul_cards")
-    .select("id, display_name, birth_date, birth_time, lat, lng, data_tier, gender, yin_yang, natal_cache, created_at")
+    .select("id, display_name, birth_date, birth_time, lat, lng, data_tier, gender, yin_yang, natal_cache, avatar_icon, created_at")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1);
