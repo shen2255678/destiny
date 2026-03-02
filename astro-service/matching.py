@@ -1308,19 +1308,35 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     if branch_a and branch_b:
         useful_god_complement = compute_bazi_season_complement(branch_a, branch_b)
     elif user_a.get("birth_month") is not None and user_b.get("birth_month") is not None:
-        # Legacy fallback: approximate from Gregorian month
-        # Map Gregorian month to approximate branch string
-        # Coarse approximation: assigns the dominant branch for each Gregorian month.
-        # Births in the first ~4-7 days of Feb/May/Aug/Nov may straddle a solar term
-        # boundary and belong to the previous branch. Use bazi_month_branch for precision.
-        _MONTH_TO_BRANCH = {
-            1: "丑", 2: "寅", 3: "卯", 4: "辰", 5: "巳", 6: "午",
-            7: "未", 8: "申", 9: "酉", 10: "戌", 11: "亥", 12: "子"
-        }
-        fb_a = _MONTH_TO_BRANCH.get(int(user_a["birth_month"]))
-        fb_b = _MONTH_TO_BRANCH.get(int(user_b["birth_month"]))
-        if fb_a and fb_b:
-            useful_god_complement = compute_bazi_season_complement(fb_a, fb_b)
+        # Legacy fallback: approximate from Gregorian month + day.
+        # Solar terms switch between ~day 4 and ~day 8 of each month; the fixed
+        # cutoffs below are correct ≥ 95 % of the time.  Births within ± 1 day of
+        # a boundary may still be mis-classified — use bazi_month_branch from
+        # /calculate-chart for exact results.
+        def _approx_month_branch(month: int, day: int) -> str:
+            # (month) → (solar-term cutoff day, branch before cutoff, branch on/after)
+            _SPLITS = {
+                1:  (6,  "子", "丑"),   # 小寒  ≈ Jan 6
+                2:  (4,  "丑", "寅"),   # 立春  ≈ Feb 4
+                3:  (6,  "寅", "卯"),   # 驚蟄  ≈ Mar 6
+                4:  (5,  "卯", "辰"),   # 清明  ≈ Apr 5
+                5:  (6,  "辰", "巳"),   # 立夏  ≈ May 6
+                6:  (6,  "巳", "午"),   # 芒種  ≈ Jun 6
+                7:  (7,  "午", "未"),   # 小暑  ≈ Jul 7
+                8:  (7,  "未", "申"),   # 立秋  ≈ Aug 7
+                9:  (8,  "申", "酉"),   # 白露  ≈ Sep 8
+                10: (8,  "酉", "戌"),   # 寒露  ≈ Oct 8
+                11: (7,  "戌", "亥"),   # 立冬  ≈ Nov 7
+                12: (7,  "亥", "子"),   # 大雪  ≈ Dec 7
+            }
+            cutoff, before, after = _SPLITS[month]
+            return before if day < cutoff else after
+
+        day_a = int(user_a.get("birth_day") or 15)
+        day_b = int(user_b.get("birth_day") or 15)
+        fb_a = _approx_month_branch(int(user_a["birth_month"]), day_a)
+        fb_b = _approx_month_branch(int(user_b["birth_month"]), day_b)
+        useful_god_complement = compute_bazi_season_complement(fb_a, fb_b)
 
     # Chiron trigger (bidirectional)
     chiron_ab = _check_chiron_triggered(user_a, user_b)

@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 const ASTRO = process.env.ASTRO_SERVICE_URL ?? "http://localhost:8001";
 const CONCURRENCY = 5;
+const FETCH_TIMEOUT_MS = 5000;
+const RECOMPUTE_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
 interface NatalCache {
   western_chart?: Record<string, unknown>;
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
     .from("soul_cards")
     .select("id, natal_cache, owner_id")
     .eq("id", body.card_id)
-    .single();
+    .maybeSingle();
 
   if (!card || card.owner_id !== user.id)
     return NextResponse.json(
@@ -67,11 +69,26 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
 
-  // 4. Delete old cache for this card
+  // 4. Rate limit: reject if last recompute was within the cooldown window
   const service = createServiceClient();
+  const cooldownCutoff = new Date(Date.now() - RECOMPUTE_COOLDOWN_MS).toISOString();
+  const { count: recentCount } = await service
+    .from("ranking_cache")
+    .select("id", { count: "exact", head: true })
+    .eq("card_a_id", body.card_id)
+    .gte("computed_at", cooldownCutoff);
+
+  if (recentCount && recentCount > 0) {
+    return NextResponse.json(
+      { error: "Recompute on cooldown. Try again in 1 hour." },
+      { status: 429 }
+    );
+  }
+
+  // 5. Delete old cache for this card
   await service.from("ranking_cache").delete().eq("card_a_id", body.card_id);
 
-  // 5. Get all other yin cards with natal_cache
+  // 6. Get all other yin cards with natal_cache
   const { data: otherCards } = await service
     .from("soul_cards")
     .select("id, natal_cache")
@@ -83,7 +100,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "ok", computed: 0 });
   }
 
-  // 6. Batch compute
+  // 7. Batch compute
   const userAFlat = flattenNatalCache(card.natal_cache as NatalCache);
   const targets = otherCards.map(
     (c: { id: string; natal_cache: NatalCache }) => ({
@@ -107,14 +124,21 @@ export async function POST(req: NextRequest) {
     const batch = targets.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
       batch.map(async (t: { id: string; flat: Record<string, unknown> }) => {
-        const res = await fetch(`${ASTRO}/quick-score`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_a: userAFlat, user_b: t.flat }),
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return { card_b_id: t.id, ...data };
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+          const res = await fetch(`${ASTRO}/quick-score`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_a: userAFlat, user_b: t.flat }),
+            signal: controller.signal,
+          });
+          if (!res.ok) return null;
+          const data = await res.json();
+          return { card_b_id: t.id, ...data };
+        } finally {
+          clearTimeout(timer);
+        }
       })
     );
     for (const s of settled) {
@@ -122,7 +146,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 7. Insert results
+  // 8. Insert results
   if (results.length > 0) {
     const rows = results.map((s) => ({
       card_a_id: body.card_id,

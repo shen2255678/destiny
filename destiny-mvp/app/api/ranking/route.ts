@@ -29,6 +29,8 @@ function flattenNatalCache(nc: NatalCache): Record<string, unknown> {
   return flat;
 }
 
+const FETCH_TIMEOUT_MS = 5000;
+
 /** Call astro-service /quick-score with concurrency limit. */
 async function batchQuickScore(
   userA: Record<string, unknown>,
@@ -61,14 +63,21 @@ async function batchQuickScore(
     const batch = targets.slice(i, i + concurrency);
     const settled = await Promise.allSettled(
       batch.map(async (t) => {
-        const res = await fetch(`${ASTRO}/quick-score`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_a: userA, user_b: t.flat }),
-        });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return { card_b_id: t.id, ...data };
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+        try {
+          const res = await fetch(`${ASTRO}/quick-score`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_a: userA, user_b: t.flat }),
+            signal: controller.signal,
+          });
+          if (!res.ok) return null;
+          const data = await res.json();
+          return { card_b_id: t.id, ...data };
+        } finally {
+          clearTimeout(timer);
+        }
       })
     );
     for (const s of settled) {
@@ -104,7 +113,7 @@ export async function GET(req: NextRequest) {
     .from("soul_cards")
     .select("id, natal_cache, owner_id")
     .eq("id", cardId)
-    .single();
+    .maybeSingle();
 
   if (!card || card.owner_id !== user.id)
     return NextResponse.json(

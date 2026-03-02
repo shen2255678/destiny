@@ -825,17 +825,38 @@ class TestComputeMatchV2Integration:
 
     def test_useful_god_complement_fallback_birth_month(self):
         """Legacy fallback: birth_month=6 ↔ birth_month=12 → 1.0 (via 午/子 mapping)."""
-        a = self._user(birth_month=6)
-        b = self._user(birth_month=12)
+        a = self._user(birth_month=6)   # day defaults to 15 → after Jun 6 → 午
+        b = self._user(birth_month=12)  # day defaults to 15 → after Dec 7 → 子
         result = compute_match_v2(a, b)
         assert result["useful_god_complement"] == pytest.approx(1.0)
 
     def test_useful_god_complement_same_season_fallback(self):
         """Legacy fallback: same season months → useful_god_complement = 0.0."""
-        a = self._user(birth_month=6)
-        b = self._user(birth_month=7)
+        a = self._user(birth_month=6)   # day 15 → 午 (summer)
+        b = self._user(birth_month=7)   # day 15 → after Jul 7 → 未 (summer)
         result = compute_match_v2(a, b)
         assert result["useful_god_complement"] == pytest.approx(0.0)
+
+    def test_useful_god_complement_fallback_solar_term_boundary(self):
+        """Fallback respects solar term boundary across a season change.
+
+        August is the critical month: 立秋 ≈ Aug 7 transitions from
+        hot-summer 未 → cool-autumn 申.
+          Aug 4 (before cutoff) → 未 (hot)   ↔ 子 (cold) = perfect = 1.0
+          Aug 9 (after  cutoff) → 申 (cool)  ↔ 子 (cold) = partial  = 0.5
+
+        With the old whole-month mapping Aug always → 申,
+        so Aug 4 would wrongly score 0.5 instead of 1.0.
+        """
+        b_winter = self._user(birth_month=12, birth_day=15)  # Dec 15 → 子 (cold)
+        a_early  = self._user(birth_month=8, birth_day=4)    # before 立秋 → 未 (hot)
+        a_late   = self._user(birth_month=8, birth_day=9)    # after  立秋 → 申 (cool)
+        result_early = compute_match_v2(a_early, b_winter)   # 未(hot) ↔ 子(cold) → 1.0
+        result_late  = compute_match_v2(a_late,  b_winter)   # 申(cool)↔ 子(cold) → 0.5
+        assert result_early["useful_god_complement"] == pytest.approx(1.0), \
+            "Aug 4 should be 未 (hot summer), perfect complement with 子 (cold winter)"
+        assert result_late["useful_god_complement"] == pytest.approx(0.5), \
+            "Aug 9 should be 申 (cool autumn), only partial complement with 子 (cold winter)"
 
     def test_useful_god_complement_missing_month(self):
         """No birth_month and no bazi_month_branch → useful_god_complement = 0.0."""
