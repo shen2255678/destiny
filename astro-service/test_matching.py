@@ -13,6 +13,7 @@ from matching import (
     generate_tags,
     compute_match_score,
     compute_karmic_triggers,
+    compute_quick_score,
     HARMONY_ASPECTS,
     TENSION_ASPECTS,
 )
@@ -3529,3 +3530,57 @@ class TestPlutoDomination:
         # frame_a is boosted → rpv changes or viewer_role shifts
         assert (r_with["rpv"] != r_without["rpv"] or
                 r_with["viewer_role"] != r_without["viewer_role"])
+
+
+# ── compute_quick_score ──────────────────────────────────────
+
+class TestComputeQuickScore:
+    """Tests for the lightweight ranking endpoint scorer."""
+
+    def _make_pair(self):
+        a = {
+            "sun_sign": "aries", "moon_sign": "cancer", "venus_sign": "pisces",
+            "mars_sign": "scorpio", "saturn_sign": "capricorn", "ascendant_sign": "leo",
+            "mercury_sign": "aries", "jupiter_sign": "sagittarius",
+            "bazi_element": "fire", "bazi_month_branch": "寅",
+            "rpv_conflict": "argue", "rpv_power": "control", "rpv_energy": "out",
+        }
+        b = {
+            "sun_sign": "libra", "moon_sign": "taurus", "venus_sign": "scorpio",
+            "mars_sign": "leo", "saturn_sign": "aquarius", "ascendant_sign": "aquarius",
+            "mercury_sign": "virgo", "jupiter_sign": "gemini",
+            "bazi_element": "water", "bazi_month_branch": "申",
+            "rpv_conflict": "cold_war", "rpv_power": "follow", "rpv_energy": "home",
+        }
+        return a, b
+
+    def test_returns_required_keys(self):
+        a, b = self._make_pair()
+        r = compute_quick_score(a, b)
+        for key in ("harmony", "lust", "soul", "primary_track", "quadrant", "labels", "tracks"):
+            assert key in r, f"Missing key: {key}"
+
+    def test_scores_are_integers(self):
+        a, b = self._make_pair()
+        r = compute_quick_score(a, b)
+        assert isinstance(r["harmony"], int)
+        assert isinstance(r["lust"], int)
+        assert isinstance(r["soul"], int)
+
+    def test_scores_in_valid_range(self):
+        a, b = self._make_pair()
+        r = compute_quick_score(a, b)
+        for key in ("harmony", "lust", "soul"):
+            assert 0 <= r[key] <= 100, f"{key}={r[key]} out of range"
+
+    def test_tracks_has_four_keys(self):
+        a, b = self._make_pair()
+        r = compute_quick_score(a, b)
+        for t in ("friend", "passion", "partner", "soul"):
+            assert t in r["tracks"], f"Missing track: {t}"
+
+    def test_primary_track_matches_max_track(self):
+        a, b = self._make_pair()
+        r = compute_quick_score(a, b)
+        expected = max(r["tracks"], key=lambda k: r["tracks"][k])
+        assert r["primary_track"] == expected

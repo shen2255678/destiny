@@ -2,8 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { BirthInput, type BirthData } from "@/components/BirthInput";
 import { createClient } from "@/lib/supabase/client";
+
+const YinYangCollision = dynamic(
+  () => import("@/components/YinYangCollision"),
+  { ssr: false }
+);
 
 const DEFAULT_A: BirthData = {
   name: "Person A",
@@ -78,6 +84,8 @@ export default function LoungePage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [apiDone, setApiDone] = useState(false);
+  const [reportId, setReportId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<SavedProfile[]>([]);
   const [saving, setSaving] = useState<null | "A" | "B">(null);
   const [saveLabel, setSaveLabel] = useState("");
@@ -155,10 +163,13 @@ export default function LoungePage() {
 
       if (dbErr) throw new Error(dbErr.message);
 
-      router.push(`/report/${match.id}`);
+      setReportId(match.id);
+      setApiDone(true);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error occurred");
       setLoading(false);
+      setApiDone(false);
+      setReportId(null);
       setStatus("");
     }
   }
@@ -398,6 +409,19 @@ export default function LoungePage() {
           </span>
         ) : null}
       </div>
+
+      <YinYangCollision
+        active={loading}
+        resolved={apiDone}
+        onExitComplete={() => {
+          if (reportId) {
+            router.push(`/report/${reportId}`);
+          }
+          setLoading(false);
+          setApiDone(false);
+          setReportId(null);
+        }}
+      />
     </main>
   );
 }

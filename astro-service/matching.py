@@ -1553,3 +1553,62 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
         },
         "layered_analysis":        zwds_result.get("layered_analysis", {}) if zwds_result else {},
     }
+
+
+def compute_quick_score(user_a: dict, user_b: dict) -> dict:
+    """Lightweight scoring for the ranking page.
+
+    Calls core lust/soul/power/tracks but skips ZWDS bridge,
+    shadow_engine, attachment dynamics, resonance badges, and
+    psychological tags.  Target: ~50ms per call.
+    """
+    # BaZi relation
+    elem_a = user_a.get("bazi_element")
+    elem_b = user_b.get("bazi_element")
+    bazi_relation = "none"
+    if elem_a and elem_b:
+        rel = analyze_element_relation(elem_a, elem_b)
+        bazi_relation = rel["relation"]
+
+    # Seasonal useful-god complement
+    branch_a = user_a.get("bazi_month_branch")
+    branch_b = user_b.get("bazi_month_branch")
+    useful_god_complement = 0.0
+    if branch_a and branch_b:
+        useful_god_complement = compute_bazi_season_complement(branch_a, branch_b)
+
+    # Chiron / Pluto triggers (needed by power_v2)
+    chiron_ab = _check_chiron_triggered(user_a, user_b)
+    chiron_ba = _check_chiron_triggered(user_b, user_a)
+    pluto_dom_ab = _check_pluto_domination(user_a, user_b)
+    pluto_dom_ba = _check_pluto_domination(user_b, user_a)
+
+    power  = compute_power_v2(user_a, user_b, chiron_ab, chiron_ba, bazi_relation,
+                               pluto_dom_ab=pluto_dom_ab, pluto_dom_ba=pluto_dom_ba)
+    lust   = compute_lust_score(user_a, user_b)
+    soul   = compute_soul_score(user_a, user_b)
+    tracks = compute_tracks(user_a, user_b, power, useful_god_complement)
+
+    # BaZi day-branch modifiers
+    day_branch_a = user_a.get("bazi_day_branch")
+    day_branch_b = user_b.get("bazi_day_branch")
+    if day_branch_a and day_branch_b:
+        day_branch_relation = check_branch_relations(day_branch_a, day_branch_b)
+        apply_bazi_branch_modifiers(tracks, day_branch_relation)
+
+    primary_track = max(tracks, key=lambda k: tracks[k])
+    quadrant      = classify_quadrant(lust, soul)
+    label         = TRACK_LABELS.get(primary_track, primary_track)
+    harmony       = round(lust * 0.4 + soul * 0.6, 1)
+
+    return {
+        "harmony":       round(harmony),
+        "lust":          round(lust),
+        "soul":          round(soul),
+        "primary_track": primary_track,
+        "quadrant":      quadrant,
+        "labels":        [label],
+        "tracks": {
+            k: round(v) for k, v in tracks.items()
+        },
+    }

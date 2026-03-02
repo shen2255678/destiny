@@ -11,6 +11,7 @@ const SIGN_ZH: Record<string, string> = {
 const ATT_ZH: Record<string, string> = {
   secure: "安全依戀型", anxious: "焦慮依戀型", avoidant: "迴避依戀型", fearful: "恐懼依戀型",
 };
+
 const BAZI_ZH: Record<string, string> = {
   Wood: "木", Fire: "火", Earth: "土", Metal: "金", Water: "水",
 };

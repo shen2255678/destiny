@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from chart import calculate_chart
 from bazi import analyze_element_relation
-from matching import compute_match_score, compute_match_v2
+from matching import compute_match_score, compute_match_v2, compute_quick_score
 from zwds import compute_zwds_chart
 from prompt_manager import get_match_report_prompt, get_simple_report_prompt, get_profile_prompt, get_ideal_match_prompt, build_synastry_report_prompt
 from api_presenter import format_safe_match_response, format_safe_onboard_response
@@ -165,6 +165,21 @@ def compute_match(req: MatchRequest):
         result["user_b_chart"] = {k: v for k in _ECHO_KEYS if (v := req.user_b.get(k)) is not None}
 
         return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/quick-score")
+def quick_score(req: MatchRequest):
+    """Lightweight scoring for the ranking page.
+
+    Same input shape as /compute-match but skips ZWDS, shadow engine,
+    attachment dynamics, and psychological tags.  ~10x faster.
+
+    Returns: harmony, lust, soul, primary_track, quadrant, labels, tracks
+    """
+    try:
+        return compute_quick_score(req.user_a, req.user_b)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
