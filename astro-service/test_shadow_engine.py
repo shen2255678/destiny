@@ -825,6 +825,143 @@ def test_fearful_avoidant_alias_gives_chaotic_oscillation():
     assert r["high_voltage"] is True
 
 
+# ── 12th House Moon/Venus overlay (C-2 fix) ──────────────────────────────────
+
+class Test12thHouseMoonVenus:
+    """Fix C-2: 12th house overlay now checks Moon and Venus in addition to Sun/Mars."""
+
+    def test_moon_in_12th_triggers(self):
+        """A's Moon falling in B's 12th house should trigger shadow overlay."""
+        a = {"moon_degree": 200.0}
+        b = {"house12_degree": 195.0, "ascendant_degree": 225.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Illuminates_B_Shadow" in r["shadow_tags"]
+        assert r["soul_mod"] >= 20.0
+
+    def test_venus_in_12th_triggers(self):
+        """A's Venus falling in B's 12th house should trigger shadow overlay."""
+        a = {"venus_degree": 200.0}
+        b = {"house12_degree": 195.0, "ascendant_degree": 225.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Illuminates_B_Shadow" in r["shadow_tags"]
+
+    def test_moon_in_12th_reverse(self):
+        """B's Moon in A's 12th house triggers B_Illuminates_A_Shadow."""
+        a = {"house12_degree": 195.0, "ascendant_degree": 225.0}
+        b = {"moon_degree": 200.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "B_Illuminates_A_Shadow" in r["shadow_tags"]
+
+    def test_no_trigger_outside_12th(self):
+        """Moon at 100° should NOT be in 12th house (195°-225°)."""
+        a = {"moon_degree": 100.0}
+        b = {"house12_degree": 195.0, "ascendant_degree": 225.0}
+        r = compute_shadow_and_wound(a, b)
+        shadow_tags = [t for t in r["shadow_tags"] if "Shadow" in t]
+        assert shadow_tags == []
+
+
+# ── Saturn-Sun triggers (I-2 fix) ────────────────────────────────────────────
+
+class TestSaturnSunTrigger:
+    """Fix I-2a: Saturn-Sun authority suppression trigger."""
+
+    def test_conjunction_a_saturn_b_sun(self):
+        """Saturn conjunct Sun within 5° → triggers discipline tag."""
+        a = {"saturn_degree": 50.0}
+        b = {"sun_degree": 52.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Saturn_Disciplines_B_Sun" in r["shadow_tags"]
+        assert r["soul_mod"] == pytest.approx(5.0)
+        assert r["partner_mod"] == pytest.approx(-5.0)
+
+    def test_square_a_saturn_b_sun(self):
+        """Saturn square Sun (90° ± 5°) → triggers."""
+        a = {"saturn_degree": 10.0}
+        b = {"sun_degree": 100.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Saturn_Disciplines_B_Sun" in r["shadow_tags"]
+
+    def test_opposition_a_saturn_b_sun(self):
+        """Saturn opposition Sun (180° ± 5°) → triggers."""
+        a = {"saturn_degree": 10.0}
+        b = {"sun_degree": 190.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Saturn_Disciplines_B_Sun" in r["shadow_tags"]
+
+    def test_bidirectional_b_saturn_a_sun(self):
+        """B's Saturn conjunct A's Sun → B_Saturn_Disciplines_A_Sun."""
+        a = {"sun_degree": 50.0}
+        b = {"saturn_degree": 52.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "B_Saturn_Disciplines_A_Sun" in r["shadow_tags"]
+
+    def test_outside_orb_no_trigger(self):
+        """Saturn 10° from Sun → outside 5° orb, no trigger."""
+        a = {"saturn_degree": 50.0}
+        b = {"sun_degree": 60.0}
+        r = compute_shadow_and_wound(a, b)
+        sun_tags = [t for t in r["shadow_tags"] if "Disciplines" in t and "Sun" in t]
+        assert sun_tags == []
+
+    def test_missing_saturn_no_trigger(self):
+        a = {}
+        b = {"sun_degree": 50.0}
+        r = compute_shadow_and_wound(a, b)
+        sun_tags = [t for t in r["shadow_tags"] if "Disciplines" in t]
+        assert sun_tags == []
+
+
+# ── Saturn-Mars triggers (I-2 fix) ───────────────────────────────────────────
+
+class TestSaturnMarsTrigger:
+    """Fix I-2b: Saturn-Mars action suppression trigger."""
+
+    def test_conjunction_a_saturn_b_mars(self):
+        """Saturn conjunct Mars within 5° → triggers restriction tag."""
+        a = {"saturn_degree": 50.0}
+        b = {"mars_degree": 52.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Saturn_Restricts_B_Mars" in r["shadow_tags"]
+        assert r["lust_mod"] == pytest.approx(-10.0)
+        assert r["partner_mod"] == pytest.approx(-5.0)
+
+    def test_square_a_saturn_b_mars(self):
+        """Saturn square Mars (90° ± 5°) → triggers."""
+        a = {"saturn_degree": 10.0}
+        b = {"mars_degree": 100.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Saturn_Restricts_B_Mars" in r["shadow_tags"]
+
+    def test_opposition_a_saturn_b_mars(self):
+        """Saturn opposition Mars (180° ± 5°) → triggers."""
+        a = {"saturn_degree": 10.0}
+        b = {"mars_degree": 190.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "A_Saturn_Restricts_B_Mars" in r["shadow_tags"]
+
+    def test_bidirectional_b_saturn_a_mars(self):
+        """B's Saturn conjunct A's Mars → B_Saturn_Restricts_A_Mars."""
+        a = {"mars_degree": 50.0}
+        b = {"saturn_degree": 52.0}
+        r = compute_shadow_and_wound(a, b)
+        assert "B_Saturn_Restricts_A_Mars" in r["shadow_tags"]
+
+    def test_outside_orb_no_trigger(self):
+        a = {"saturn_degree": 50.0}
+        b = {"mars_degree": 60.0}
+        r = compute_shadow_and_wound(a, b)
+        mars_tags = [t for t in r["shadow_tags"] if "Restricts" in t and "Mars" in t]
+        assert mars_tags == []
+
+    def test_missing_saturn_no_trigger(self):
+        a = {}
+        b = {"mars_degree": 50.0}
+        r = compute_shadow_and_wound(a, b)
+        mars_tags = [t for t in r["shadow_tags"] if "Restricts" in t]
+        assert mars_tags == []
+
+
 def test_fearful_avoidant_same_as_fearful():
     """'fearful-avoidant' and 'fearful' must produce identical results."""
     from shadow_engine import compute_attachment_dynamics

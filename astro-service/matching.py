@@ -114,6 +114,7 @@ WEIGHTS = {
     "power_conflict":          0.35,
     "power_power":             0.40,
     "power_energy":            0.25,
+    "power_pluto_dom":         20,      # Pluto hard-aspect → frame +20
 
     # ── compute_glitch_score ─── ✅ wired ────────────────────────────────────
     "glitch_mars":             0.25,
@@ -153,11 +154,11 @@ MINOR_ASPECT_SCORE = 0.10
 # Exact-degree aspect rules: (center_deg, orb, harmony_max, tension_max)
 # Used by compute_exact_aspect for linear orb decay scoring.
 ASPECT_RULES = [
-    (0,   8,  1.0, 1.0),   # conjunction:  full fusion
-    (60,  6,  0.8, 0.3),   # sextile:      easy flow
-    (90,  8,  0.2, 0.9),   # square:       friction / tension
-    (120, 8,  1.0, 0.2),   # trine:        natural harmony
-    (180, 8,  0.4, 1.0),   # opposition:   fatal attraction
+    (0,   8,  0.90, 1.00),  # conjunction:  harmony=0.90, tension=1.00 (spec-aligned)
+    (60,  6,  0.75, 0.50),  # sextile:     harmony=0.75, tension=0.50 (spec-aligned)
+    (90,  8,  0.40, 0.90),  # square:      harmony=0.40, tension=0.90 (spec-aligned)
+    (120, 8,  0.85, 0.60),  # trine:       harmony=0.85, tension=0.60 (spec-aligned)
+    (180, 8,  0.60, 0.85),  # opposition:  harmony=0.60, tension=0.85 (spec-aligned)
 ]
 
 # Deterministic tag pools per match type
@@ -238,6 +239,14 @@ def get_shortest_distance(deg_a: float, deg_b: float) -> float:
     return min(diff, 360.0 - diff)
 
 
+def _is_hard_aspect(deg_a, deg_b, orb=5.0):
+    """Check if two degrees form a hard aspect (conjunction/square/opposition) within orb."""
+    if deg_a is None or deg_b is None:
+        return False
+    dist = get_shortest_distance(deg_a, deg_b)
+    return dist <= orb or abs(dist - 90.0) <= orb or abs(dist - 180.0) <= orb
+
+
 def compute_exact_aspect(deg_a: float, deg_b: float, mode: str = "harmony") -> float:
     """Orb-based exact degree aspect score with linear decay (0.0-1.0).
 
@@ -245,17 +254,17 @@ def compute_exact_aspect(deg_a: float, deg_b: float, mode: str = "harmony") -> f
       strength_ratio = 1.0 - (diff / orb)
       final_score    = 0.2 + (max_score - 0.2) * strength_ratio
 
-    A 0° conjunction scores 1.0; a 7° conjunction scores ~0.30 (harmony mode).
+    A 0° conjunction scores 0.90 (harmony mode); a 7° conjunction scores ~0.29.
 
-    Aspect table (center_deg, orb, harmony_max, tension_max):
-      conjunction  (0°,   orb 8°): harmony=1.0  tension=1.0
-      sextile     (60°,  orb 6°): harmony=0.8  tension=0.3
-      square      (90°,  orb 8°): harmony=0.2  tension=0.9
-      trine      (120°,  orb 8°): harmony=1.0  tension=0.2
-      opposition (180°,  orb 8°): harmony=0.4  tension=1.0
+    Aspect table (center_deg, orb, harmony_max, tension_max) — aligned with spec:
+      conjunction  (0°,   orb 8°): harmony=0.90  tension=1.00
+      sextile     (60°,  orb 6°): harmony=0.75  tension=0.50
+      square      (90°,  orb 8°): harmony=0.40  tension=0.90
+      trine      (120°,  orb 8°): harmony=0.85  tension=0.60
+      opposition (180°,  orb 8°): harmony=0.60  tension=0.85
 
     Returns 0.5 (neutral) when either degree is None.
-    Returns 0.1 (void of aspect) when no major aspect is within orb.
+    Returns 0.5 (void of aspect) when no major aspect is within orb.
     """
     if deg_a is None or deg_b is None:
         return 0.5
@@ -773,8 +782,12 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
     moon_a = user_a.get("moon_sign")
     moon_b = user_b.get("moon_sign")
     if juno_a and juno_b and moon_a and moon_b:
-        juno_a_moon_b = compute_sign_aspect(juno_a, moon_b, "harmony")
-        juno_b_moon_a = compute_sign_aspect(juno_b, moon_a, "harmony")
+        juno_a_moon_b = _resolve_aspect(
+            user_a.get("juno_degree"), juno_a,
+            user_b.get("moon_degree"), moon_b, "harmony")
+        juno_b_moon_a = _resolve_aspect(
+            user_b.get("juno_degree"), juno_b,
+            user_a.get("moon_degree"), moon_a, "harmony")
         juno = (juno_a_moon_b + juno_b_moon_a) / 2.0
         score += juno * WEIGHTS["soul_juno"]
         total_weight += WEIGHTS["soul_juno"]
@@ -821,17 +834,29 @@ def compute_soul_score(user_a: dict, user_b: dict) -> float:
 
 
 def _check_chiron_triggered(user_a: dict, user_b: dict) -> bool:
-    """Check if A's Mars or Pluto forms a hard aspect (square/opposition) to B's Chiron.
+    """Check if A's Mars or Pluto forms a hard aspect to B's Chiron.
 
-    Uses sign-level approximation: square = 3 signs apart, opposition = 6 apart.
+    Prefers degree-based check (5° orb for conjunction/square/opposition)
+    when chiron_degree, mars_degree, pluto_degree are available.
+    Falls back to sign-level approximation (square=3, opposition=6).
     """
+    # Degree-based check (preferred — 5° orb, catches conj/square/opp)
+    chiron_b_deg = user_b.get("chiron_degree")
+    if chiron_b_deg is not None:
+        if _is_hard_aspect(user_a.get("mars_degree"), chiron_b_deg, 5.0):
+            return True
+        if _is_hard_aspect(user_a.get("pluto_degree"), chiron_b_deg, 5.0):
+            return True
+
+    # Sign-level fallback (square=3, opposition=6; omit conjunction to avoid
+    # generational Pluto same-sign false positives)
     chiron_b = user_b.get("chiron_sign")
     if not chiron_b or chiron_b not in SIGN_INDEX:
         return False
     mars_a  = user_a.get("mars_sign")
     pluto_a = user_a.get("pluto_sign")
 
-    def is_hard_aspect(sign_x: Optional[str]) -> bool:
+    def _is_hard_aspect_sign(sign_x: Optional[str]) -> bool:
         if not sign_x or sign_x not in SIGN_INDEX:
             return False
         dist = abs(SIGN_INDEX[sign_x] - SIGN_INDEX[chiron_b]) % 12
@@ -839,7 +864,39 @@ def _check_chiron_triggered(user_a: dict, user_b: dict) -> bool:
             dist = 12 - dist
         return dist in (3, 6)  # square or opposition
 
-    return is_hard_aspect(mars_a) or is_hard_aspect(pluto_a)
+    return _is_hard_aspect_sign(mars_a) or _is_hard_aspect_sign(pluto_a)
+
+
+def _check_pluto_domination(user_a: dict, user_b: dict) -> bool:
+    """Check if A's Pluto forms a hard aspect to B's Sun/Moon/Venus.
+
+    Degree-based (5° orb) preferred, sign-level fallback.
+    When triggered, A has psychological dominance over B (frame +20).
+    """
+    pluto_a_deg = user_a.get("pluto_degree")
+    targets_deg = [
+        user_b.get("sun_degree"),
+        user_b.get("moon_degree"),
+        user_b.get("venus_degree"),
+    ]
+    if pluto_a_deg is not None:
+        for t in targets_deg:
+            if _is_hard_aspect(pluto_a_deg, t, 5.0):
+                return True
+
+    # Sign-level fallback (conj/square/opposition = dist 0, 3, 6)
+    pluto_a_sign = user_a.get("pluto_sign")
+    if not pluto_a_sign or pluto_a_sign not in SIGN_INDEX:
+        return False
+    for key in ("sun_sign", "moon_sign", "venus_sign"):
+        sign = user_b.get(key)
+        if sign and sign in SIGN_INDEX:
+            dist = abs(SIGN_INDEX[pluto_a_sign] - SIGN_INDEX[sign]) % 12
+            if dist > 6:
+                dist = 12 - dist
+            if dist in (0, 3, 6):
+                return True
+    return False
 
 
 def compute_power_v2(
@@ -849,14 +906,19 @@ def compute_power_v2(
     chiron_triggered_ba: bool = False,
     bazi_relation: str = "none",
     zwds_rpv_modifier: int = 0,
+    pluto_dom_ab: bool = False,
+    pluto_dom_ba: bool = False,
 ) -> dict:
-    """Power D/s Frame calculation (v2.1).
+    """Power D/s Frame calculation (v2.2).
 
     RPV mapping: rpv_power control → +20, follow → -20
                  rpv_conflict cold_war → +10, argue → -10
     Chiron rule (bidirectional):
       A's Mars/Pluto hard-aspects B's Chiron → frame_B -= 15
       B's Mars/Pluto hard-aspects A's Chiron → frame_A -= 15
+    Pluto domination (bidirectional):
+      A's Pluto hard-aspects B's Sun/Moon/Venus → frame_A += 20
+      B's Pluto hard-aspects A's Sun/Moon/Venus → frame_B += 20
     BaZi restriction dynamics:
       a_restricts_b → frame_A += 15, frame_B -= 15 (A gains dominance)
       b_restricts_a → frame_A -= 15, frame_B += 15 (B gains dominance)
@@ -873,6 +935,13 @@ def compute_power_v2(
     if chiron_triggered_ba:
         frame_a -= 15
         frame_break = True
+
+    # Pluto domination: A's Pluto hard-aspects B's personal planets → A gains power
+    pluto_dom_amount = WEIGHTS["power_pluto_dom"]
+    if pluto_dom_ab:
+        frame_a += pluto_dom_amount
+    if pluto_dom_ba:
+        frame_b += pluto_dom_amount
 
     # BaZi restriction dynamics: the restrictor gains natural dominance
     if bazi_relation == "a_restricts_b":
@@ -955,8 +1024,12 @@ def compute_tracks(
     # Same-sign Juno is unreliable: people born in the same year often share Juno signs,
     # causing age-peers to get artificially high partner scores.
     if juno_present:
-        juno_a_moon_b = compute_sign_aspect(juno_a, moon_b, "harmony")
-        juno_b_moon_a = compute_sign_aspect(juno_b, moon_a, "harmony")
+        juno_a_moon_b = _resolve_aspect(
+            user_a.get("juno_degree"), juno_a,
+            user_b.get("moon_degree"), moon_b, "harmony")
+        juno_b_moon_a = _resolve_aspect(
+            user_b.get("juno_degree"), juno_b,
+            user_a.get("moon_degree"), moon_a, "harmony")
         juno = (juno_a_moon_b + juno_b_moon_a) / 2.0
     else:
         juno = 0.0
@@ -1253,6 +1326,10 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     chiron_ab = _check_chiron_triggered(user_a, user_b)
     chiron_ba = _check_chiron_triggered(user_b, user_a)
 
+    # Pluto domination (bidirectional)
+    pluto_dom_ab = _check_pluto_domination(user_a, user_b)
+    pluto_dom_ba = _check_pluto_domination(user_b, user_a)
+
     # ── ZWDS (紫微斗數) — Tier 1 only ──────────────────────────────────────
     zwds_result = None
     if _is_zwds_eligible(user_a) and _is_zwds_eligible(user_b):
@@ -1277,7 +1354,9 @@ def compute_match_v2(user_a: dict, user_b: dict) -> dict:
     zwds_rpv  = zwds_result["rpv_modifier"] if zwds_result else 0
 
     power  = compute_power_v2(user_a, user_b, chiron_ab, chiron_ba, bazi_relation,
-                               zwds_rpv_modifier=zwds_rpv)
+                               zwds_rpv_modifier=zwds_rpv,
+                               pluto_dom_ab=pluto_dom_ab,
+                               pluto_dom_ba=pluto_dom_ba)
     lust   = compute_lust_score(user_a, user_b)
     soul   = compute_soul_score(user_a, user_b)
     tracks = compute_tracks(user_a, user_b, power, useful_god_complement,

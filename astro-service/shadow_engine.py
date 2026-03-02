@@ -202,6 +202,44 @@ def compute_shadow_and_wound(chart_a, chart_b):
             result["lust_mod"]    -= 5.0
             result["shadow_tags"].append("B_Saturn_Binds_A_Venus")
 
+    # Saturn-Sun cross-aspect (權威壓制): Saturn conjunct/square/oppose Sun
+    # A's Saturn disciplines B's core identity → mentor/authority dynamic.
+    # soul_mod +5, partner_mod -5. Not high_voltage.
+    _SATURN_SUN_ORB = 5.0
+    sun_deg_a = chart_a.get("sun_degree")
+    sun_deg_b = chart_b.get("sun_degree")
+    if saturn_a is not None and sun_deg_b is not None:
+        d = _dist(saturn_a, sun_deg_b)
+        if d is not None and (d <= _SATURN_SUN_ORB or abs(d - 90.0) <= _SATURN_SUN_ORB or abs(d - 180.0) <= _SATURN_SUN_ORB):
+            result["soul_mod"]    += 5.0
+            result["partner_mod"] -= 5.0
+            result["shadow_tags"].append("A_Saturn_Disciplines_B_Sun")
+    if saturn_b is not None and sun_deg_a is not None:
+        d = _dist(saturn_b, sun_deg_a)
+        if d is not None and (d <= _SATURN_SUN_ORB or abs(d - 90.0) <= _SATURN_SUN_ORB or abs(d - 180.0) <= _SATURN_SUN_ORB):
+            result["soul_mod"]    += 5.0
+            result["partner_mod"] -= 5.0
+            result["shadow_tags"].append("B_Saturn_Disciplines_A_Sun")
+
+    # Saturn-Mars cross-aspect (行動壓制): Saturn conjunct/square/oppose Mars
+    # A's Saturn suppresses B's desire and initiative → frustration.
+    # lust_mod -10, partner_mod -5. Not high_voltage.
+    _SATURN_MARS_ORB = 5.0
+    mars_deg_a = chart_a.get("mars_degree")
+    mars_deg_b = chart_b.get("mars_degree")
+    if saturn_a is not None and mars_deg_b is not None:
+        d = _dist(saturn_a, mars_deg_b)
+        if d is not None and (d <= _SATURN_MARS_ORB or abs(d - 90.0) <= _SATURN_MARS_ORB or abs(d - 180.0) <= _SATURN_MARS_ORB):
+            result["lust_mod"]    -= 10.0
+            result["partner_mod"] -= 5.0
+            result["shadow_tags"].append("A_Saturn_Restricts_B_Mars")
+    if saturn_b is not None and mars_deg_a is not None:
+        d = _dist(saturn_b, mars_deg_a)
+        if d is not None and (d <= _SATURN_MARS_ORB or abs(d - 90.0) <= _SATURN_MARS_ORB or abs(d - 180.0) <= _SATURN_MARS_ORB):
+            result["lust_mod"]    -= 10.0
+            result["partner_mod"] -= 5.0
+            result["shadow_tags"].append("B_Saturn_Restricts_A_Mars")
+
     # Vertex triggers (命運之門): Sun/Moon/Venus conjunction only, soul_mod +25 each
     if vertex_b is not None:
         for p_name, p_key in _VERTEX_PLANETS:
@@ -234,13 +272,19 @@ def compute_shadow_and_wound(chart_a, chart_b):
                 result["high_voltage"] = True
                 result["shadow_tags"].append(f"B_{p_name}_Conjunct_Lilith")
 
-    a_in_b12 = _in_house(chart_a.get("sun_degree"), h12_b, asc_b) or _in_house(chart_a.get("mars_degree"), h12_b, asc_b)
+    a_in_b12 = (_in_house(chart_a.get("sun_degree"), h12_b, asc_b) or
+                _in_house(chart_a.get("mars_degree"), h12_b, asc_b) or
+                _in_house(chart_a.get("moon_degree"), h12_b, asc_b) or
+                _in_house(chart_a.get("venus_degree"), h12_b, asc_b))
     if a_in_b12:
         result["soul_mod"] += 20.0
         result["partner_mod"] -= 10.0
         result["high_voltage"] = True
         result["shadow_tags"].append("A_Illuminates_B_Shadow")
-    b_in_a12 = _in_house(chart_b.get("sun_degree"), h12_a, asc_a) or _in_house(chart_b.get("mars_degree"), h12_a, asc_a)
+    b_in_a12 = (_in_house(chart_b.get("sun_degree"), h12_a, asc_a) or
+                _in_house(chart_b.get("mars_degree"), h12_a, asc_a) or
+                _in_house(chart_b.get("moon_degree"), h12_a, asc_a) or
+                _in_house(chart_b.get("venus_degree"), h12_a, asc_a))
     if b_in_a12:
         result["soul_mod"] += 20.0
         result["partner_mod"] -= 10.0

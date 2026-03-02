@@ -166,10 +166,10 @@ class TestComputeKernelScore:
             "bazi_element": None,
         }
         score = compute_kernel_score(a, b)
-        assert score >= 0.85, (
-            f"Cross-sign conjunction kernel score {score:.3f} should be >= 0.85 "
+        assert score >= 0.80, (
+            f"Cross-sign conjunction kernel score {score:.3f} should be >= 0.80 "
             f"(sign-level gives ~0.70 due to aries/taurus semi-sextile; "
-            f"exact-degree gives ~0.91 as 2° conjunction)"
+            f"exact-degree gives ~0.83 as 2° conjunction with spec-aligned ASPECT_RULES)"
         )
 
 
@@ -479,7 +479,7 @@ class TestComputeLustScore:
             "rpv_power": "follow", "rpv_conflict": "argue", "rpv_energy": "home",
         }
         score = compute_lust_score(user_a, user_b)
-        assert score == pytest.approx(76.8, abs=1.0)
+        assert score == pytest.approx(72.9, abs=1.0)
 
     def test_lust_cross_beats_same_planet(self):
         """Cross-aspect pair (mars_a × venus_b opposition) scores higher than same-planet trine."""
@@ -1245,7 +1245,7 @@ class TestLustScoreDynamicWeighting:
           cross_mv: mars_a_deg=0.0 vs venus_b_deg=None → sign fallback aries×aries tension=1.00
           cross_vm: same                                → sign fallback aries×aries tension=1.00
           same_v:   venus_a_deg=None, venus_b_deg=None → sign fallback aries×aries harmony=0.90
-          same_m:   mars_a_deg=0.0, mars_b_deg=0.0    → exact conjunction harmony=1.00
+          same_m:   mars_a_deg=0.0, mars_b_deg=0.0    → exact conjunction harmony=0.90
           h8_ab:    h8_a_deg=0.0, mars_b_deg=0.0      → exact conjunction tension=1.00
           h8_ba:    h8_b_deg=0.0, mars_a_deg=0.0      → exact conjunction tension=1.00
         total_weight = 0.30+0.30+0.15+0.15+0.10+0.10+0.25+0.30 = 1.65
@@ -1260,7 +1260,7 @@ class TestLustScoreDynamicWeighting:
         cross_mv = compute_sign_aspect("aries", "aries", "tension")   # 1.00
         cross_vm = compute_sign_aspect("aries", "aries", "tension")   # 1.00
         same_v   = compute_sign_aspect("aries", "aries", "harmony")   # 0.90
-        same_m   = compute_exact_aspect(0.0, 0.0, "harmony")          # 1.00
+        same_m   = compute_exact_aspect(0.0, 0.0, "harmony")          # 0.90
         h8_ab    = compute_exact_aspect(0.0, 0.0, "tension")          # 1.00
         h8_ba    = compute_exact_aspect(0.0, 0.0, "tension")          # 1.00
         karmic_v = compute_karmic_triggers(a, b)
@@ -1615,31 +1615,31 @@ class TestGetShortestDistance:
 
 class TestComputeExactAspect:
     def test_conjunction_harmony(self):
-        """0° apart → conjunction = 1.0 in harmony mode"""
-        assert compute_exact_aspect(0.0, 0.0, "harmony") == pytest.approx(1.0)
+        """0° apart → conjunction = 0.90 in harmony mode (spec-aligned)"""
+        assert compute_exact_aspect(0.0, 0.0, "harmony") == pytest.approx(0.90)
 
     def test_conjunction_tension(self):
         assert compute_exact_aspect(0.0, 0.0, "tension") == pytest.approx(1.0)
 
     def test_trine_harmony(self):
-        """120° apart → trine = 1.0 in harmony mode (perfect center, linear decay)"""
-        assert compute_exact_aspect(0.0, 120.0, "harmony") == pytest.approx(1.0)
+        """120° apart → trine = 0.85 in harmony mode (spec-aligned)"""
+        assert compute_exact_aspect(0.0, 120.0, "harmony") == pytest.approx(0.85)
 
     def test_trine_tension(self):
-        """120° apart → trine = 0.2 in tension mode"""
-        assert compute_exact_aspect(0.0, 120.0, "tension") == pytest.approx(0.2)
+        """120° apart → trine = 0.60 in tension mode (spec-aligned)"""
+        assert compute_exact_aspect(0.0, 120.0, "tension") == pytest.approx(0.60)
 
     def test_square_tension(self):
         """90° apart → square = 0.9 in tension mode"""
         assert compute_exact_aspect(0.0, 90.0, "tension") == pytest.approx(0.9)
 
     def test_opposition_tension(self):
-        """180° apart → opposition = 1.0 in tension mode (tension_max raised to 1.0)"""
-        assert compute_exact_aspect(0.0, 180.0, "tension") == pytest.approx(1.0)
+        """180° apart → opposition = 0.85 in tension mode (spec-aligned)"""
+        assert compute_exact_aspect(0.0, 180.0, "tension") == pytest.approx(0.85)
 
     def test_sextile_harmony(self):
-        """60° apart → sextile = 0.8 in harmony mode"""
-        assert compute_exact_aspect(0.0, 60.0, "harmony") == pytest.approx(0.8)
+        """60° apart → sextile = 0.75 in harmony mode (spec-aligned)"""
+        assert compute_exact_aspect(0.0, 60.0, "harmony") == pytest.approx(0.75)
 
     def test_within_orb(self):
         """87° (3° from square center 90°) within 8° orb → linear decay applies.
@@ -1662,8 +1662,8 @@ class TestComputeExactAspect:
         assert compute_exact_aspect(0.0, None, "harmony") == pytest.approx(0.5)
 
     def test_wrap_around_opposition(self):
-        """10° and 190° → shortest dist 180° → perfect opposition in tension = 1.0"""
-        assert compute_exact_aspect(10.0, 190.0, "tension") == pytest.approx(1.0)
+        """10° and 190° → shortest dist 180° → perfect opposition in tension = 0.85"""
+        assert compute_exact_aspect(10.0, 190.0, "tension") == pytest.approx(0.85)
 
     def test_exact_aspect_linear_decay_conjunction(self):
         """Closer conjunction must score higher than wider conjunction."""
@@ -1671,7 +1671,7 @@ class TestComputeExactAspect:
         score_7deg    = compute_exact_aspect(0.0, 7.0,  "harmony")
         score_perfect = compute_exact_aspect(0.0, 0.0,  "harmony")
         assert score_1deg > score_7deg, f"{score_1deg} should > {score_7deg}"
-        assert score_perfect == pytest.approx(1.0, abs=0.01)
+        assert score_perfect == pytest.approx(0.90, abs=0.01)
 
     def test_exact_aspect_linear_decay_square_tension(self):
         """Square at center (90°) scores higher than square near orb edge."""
@@ -1681,9 +1681,9 @@ class TestComputeExactAspect:
         assert score_center == pytest.approx(0.9, abs=0.01)
 
     def test_exact_aspect_opposition_tension_max(self):
-        """Opposition in tension mode should return 1.0 (previously was 0.85)."""
+        """Opposition in tension mode should return 0.85 (spec-aligned)."""
         score = compute_exact_aspect(0.0, 180.0, "tension")
-        assert score == pytest.approx(1.0, abs=0.01)
+        assert score == pytest.approx(0.85, abs=0.01)
 
 
 class TestComputeKarmicTriggers:
@@ -2503,8 +2503,8 @@ class TestSoulScoreDegreeResolution:
 
     def test_moon_exact_trine_scores_higher_with_degrees(self):
         """Aries Moon × Leo Moon = sign-level trine (0.85).
-        Exact 120° (0° Aries vs 120° = 0° Leo) → perfect trine → 1.0.
-        Degree-level soul score is higher than sign-level when trine is exact.
+        Exact 120° (0° Aries vs 120° = 0° Leo) → perfect trine → 0.85 (spec-aligned).
+        With spec-aligned ASPECT_RULES, degree and sign converge at exact trine.
         """
         a_no_deg   = self._base_user(moon_sign="aries",  moon_degree=None)
         b_no_deg   = self._base_user(moon_sign="leo",    moon_degree=None)
@@ -2514,8 +2514,8 @@ class TestSoulScoreDegreeResolution:
         soul_no_deg   = compute_soul_score(a_no_deg,   b_no_deg)
         soul_with_deg = compute_soul_score(a_with_deg, b_with_deg)
 
-        assert soul_with_deg > soul_no_deg, (
-            f"Exact-trine degree ({soul_with_deg:.1f}) should beat sign-level trine "
+        assert soul_with_deg >= soul_no_deg, (
+            f"Exact-trine degree ({soul_with_deg:.1f}) should be >= sign-level trine "
             f"({soul_no_deg:.1f})"
         )
 
@@ -3410,3 +3410,122 @@ class TestShadowModifierCaps:
         # partner_adj cap
         assert min(40.0, 25.0) == 25.0, "partner_adj max cap at 25"
         assert max(-35.0, -20.0) == -20.0, "partner_adj min floor at -20"
+
+
+# ── _is_hard_aspect helper ─────────────────────────────────────
+
+from matching import _is_hard_aspect
+
+
+class TestIsHardAspect:
+    """Unit tests for the _is_hard_aspect helper (conjunction/square/opposition)."""
+
+    def test_conjunction_within_orb(self):
+        assert _is_hard_aspect(10.0, 13.0, 5.0) is True   # 3° apart
+
+    def test_square_within_orb(self):
+        assert _is_hard_aspect(10.0, 100.0, 5.0) is True  # 90° apart
+
+    def test_opposition_within_orb(self):
+        assert _is_hard_aspect(10.0, 190.0, 5.0) is True  # 180° apart
+
+    def test_trine_not_hard(self):
+        assert _is_hard_aspect(10.0, 130.0, 5.0) is False  # 120° = trine
+
+    def test_sextile_not_hard(self):
+        assert _is_hard_aspect(10.0, 70.0, 5.0) is False   # 60° = sextile
+
+    def test_none_returns_false(self):
+        assert _is_hard_aspect(None, 10.0, 5.0) is False
+        assert _is_hard_aspect(10.0, None, 5.0) is False
+
+    def test_outside_orb_returns_false(self):
+        assert _is_hard_aspect(10.0, 20.0, 5.0) is False   # 10° > 5° orb
+
+    def test_wrap_around_conjunction(self):
+        assert _is_hard_aspect(358.0, 2.0, 5.0) is True    # 4° across 0°
+
+
+# ── _check_chiron_triggered degree-based ────────────────────────
+
+class TestChironTriggeredDegreeBased:
+    """Tests for the refactored _check_chiron_triggered (degree-first, sign fallback)."""
+
+    def test_mars_conjunction_chiron_by_degree(self):
+        a = {"mars_degree": 50.0}
+        b = {"chiron_degree": 52.0}   # 2° apart
+        assert _check_chiron_triggered(a, b) is True
+
+    def test_mars_square_chiron_by_degree(self):
+        a = {"mars_degree": 10.0}
+        b = {"chiron_degree": 100.0}  # 90° apart
+        assert _check_chiron_triggered(a, b) is True
+
+    def test_pluto_opposition_chiron_by_degree(self):
+        a = {"pluto_degree": 10.0}
+        b = {"chiron_degree": 190.0}  # 180° apart
+        assert _check_chiron_triggered(a, b) is True
+
+    def test_no_trigger_trine(self):
+        a = {"mars_degree": 10.0}
+        b = {"chiron_degree": 130.0}  # 120° = trine, not hard
+        assert _check_chiron_triggered(a, b) is False
+
+    def test_sign_fallback_when_no_degree(self):
+        """Falls back to sign-level when chiron_degree is absent."""
+        a = {"mars_sign": "aries"}           # idx 0
+        b = {"chiron_sign": "cancer"}        # idx 3 → square
+        assert _check_chiron_triggered(a, b) is True
+
+    def test_sign_fallback_no_trigger(self):
+        a = {"mars_sign": "aries"}           # idx 0
+        b = {"chiron_sign": "taurus"}        # idx 1 → semi-sextile
+        assert _check_chiron_triggered(a, b) is False
+
+
+# ── _check_pluto_domination ─────────────────────────────────────
+
+from matching import _check_pluto_domination
+
+
+class TestPlutoDomination:
+    """Tests for the new Pluto power domination check."""
+
+    def test_pluto_conj_sun(self):
+        a = {"pluto_degree": 50.0}
+        b = {"sun_degree": 52.0}
+        assert _check_pluto_domination(a, b) is True
+
+    def test_pluto_square_moon(self):
+        a = {"pluto_degree": 10.0}
+        b = {"moon_degree": 100.0}   # 90°
+        assert _check_pluto_domination(a, b) is True
+
+    def test_pluto_opp_venus(self):
+        a = {"pluto_degree": 10.0}
+        b = {"venus_degree": 190.0}  # 180°
+        assert _check_pluto_domination(a, b) is True
+
+    def test_no_trigger_trine(self):
+        a = {"pluto_degree": 10.0}
+        b = {"sun_degree": 130.0}    # 120° trine
+        assert _check_pluto_domination(a, b) is False
+
+    def test_sign_fallback(self):
+        a = {"pluto_sign": "scorpio"}       # idx 7
+        b = {"sun_sign": "aquarius"}        # idx 10 → dist 3 = square
+        assert _check_pluto_domination(a, b) is True
+
+    def test_no_data_returns_false(self):
+        assert _check_pluto_domination({}, {}) is False
+
+    def test_pluto_dom_wired_into_power_v2(self):
+        """When pluto_dom_ab is True, A's frame should be boosted by WEIGHTS['power_pluto_dom'].
+        This changes viewer_role or rpv score."""
+        a = {"rpv_conflict": "argue", "rpv_power": "follow", "rpv_energy": "out"}
+        b = {"rpv_conflict": "argue", "rpv_power": "follow", "rpv_energy": "home"}
+        r_without = compute_power_v2(a, b, pluto_dom_ab=False, pluto_dom_ba=False)
+        r_with    = compute_power_v2(a, b, pluto_dom_ab=True,  pluto_dom_ba=False)
+        # frame_a is boosted → rpv changes or viewer_role shifts
+        assert (r_with["rpv"] != r_without["rpv"] or
+                r_with["viewer_role"] != r_without["viewer_role"])

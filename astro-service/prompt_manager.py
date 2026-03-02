@@ -125,6 +125,12 @@ _PSYCH_TAG_ZH: dict[str, str] = {
     # Saturn-Venus triggers (業力義務 — 義務感與延遲滿足)
     "A_Saturn_Binds_B_Venus":       "你無意中成了他欲望的閘門——他在你面前渴望，卻說不出口；這段關係充滿責任感，但愛意有時藏在義務之下",
     "B_Saturn_Binds_A_Venus":       "對方的存在讓你覺得愛是一種功課，不是衝動——你想靠近，卻總先問自己：我夠格嗎？這種張力可以是深情，也可以是枷鎖",
+    # Saturn-Sun triggers (權威壓制 — 父權框架與自我削弱)
+    "A_Saturn_Disciplines_B_Sun":   "你無意間成為對方人生的權威框架——他在你面前變得謹慎、壓抑核心自我，你的認可是他最渴望卻最難得到的東西",
+    "B_Saturn_Disciplines_A_Sun":   "對方像你人生中的嚴師或父親——你在他面前不自覺地壓縮自己，渴望被認可，卻總覺得不夠好",
+    # Saturn-Mars triggers (行動壓制 — 慾望抑制與服從)
+    "A_Saturn_Restricts_B_Mars":    "你的存在讓對方的衝動與慾望被壓制——他在你面前不敢主動、不敢衝動，像被無形的韁繩拉住",
+    "B_Saturn_Restricts_A_Mars":    "對方讓你的行動力與慾望變得壓抑——你想衝、想要，卻在他面前不自覺地收斂，像被一道隱形的牆擋住",
     # Descendant triggers (第七宮正緣 — 婚姻伴侶指標)
     "A_Sun_Conjunct_Descendant":    "你的核心自我精準落入對方的婚姻宮，你就是他命中注定的另一半",
     "A_Moon_Conjunct_Descendant":   "你的情感本能落入對方的婚姻宮，跟你在一起有回家般的安定感",
