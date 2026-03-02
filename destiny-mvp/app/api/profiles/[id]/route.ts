@@ -25,7 +25,7 @@ export async function PATCH(
   if (body.yin_yang !== undefined && !["yin", "yang"].includes(body.yin_yang)) {
     return NextResponse.json({ error: "yin_yang must be 'yin' or 'yang'" }, { status: 400 });
   }
-  if (body.avatar_icon !== undefined && (typeof body.avatar_icon !== "string" || body.avatar_icon.length > 8)) {
+  if (body.avatar_icon !== undefined && (typeof body.avatar_icon !== "string" || body.avatar_icon.length < 1 || body.avatar_icon.length > 8)) {
     return NextResponse.json({ error: "avatar_icon must be a string ≤8 chars" }, { status: 400 });
   }
   if (body.display_name !== undefined && (typeof body.display_name !== "string" || body.display_name.length < 1 || body.display_name.length > 50)) {

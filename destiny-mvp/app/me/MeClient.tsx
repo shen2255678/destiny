@@ -663,6 +663,7 @@ export function MeClient({
             const res = await fetch(`/api/profiles/${profile.id}`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
+              // Update both icon and name together (SaveCardModal Step 2 always collects both)
               body: JSON.stringify({ avatar_icon: avatarIcon, display_name: label }),
             });
             if (!res.ok) throw new Error("更新失敗");
