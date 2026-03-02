@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   if (!([1, 2, 3] as number[]).includes(body.data_tier)) {
     return NextResponse.json({ error: "Invalid data_tier: must be 1, 2, or 3" }, { status: 400 });
   }
-  if (body.avatar_icon !== undefined && (typeof body.avatar_icon !== "string" || body.avatar_icon.length > 8)) {
+  if (body.avatar_icon !== undefined && (typeof body.avatar_icon !== "string" || body.avatar_icon.length < 1 || body.avatar_icon.length > 8)) {
     return NextResponse.json({ error: "avatar_icon must be a string ≤8 chars" }, { status: 400 });
   }
   if (

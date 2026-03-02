@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { translateShadowTag } from "@/lib/shadowTagsZh";
 import { SaveCardModal } from "@/components/SaveCardModal";
 
@@ -99,7 +100,7 @@ interface Profile {
   data_tier: number;
   gender: string;
   yin_yang: string;
-  avatar_icon?: string;
+  avatar_icon: string;
   natal_cache: Record<string, unknown> | null;
 }
 
@@ -152,6 +153,7 @@ export function MeClient({
   profile: Profile | null;
   matches: Match[];
 }) {
+  const router = useRouter();
   const [yinYang, setYinYang] = useState<"yin" | "yang">(
     (profile?.yin_yang as "yin" | "yang") ?? "yang"
   );
@@ -667,8 +669,9 @@ export function MeClient({
               body: JSON.stringify({ avatar_icon: avatarIcon, display_name: label }),
             });
             if (!res.ok) throw new Error("更新失敗");
-            // Force a page reload to reflect changes
-            window.location.reload();
+            // Refresh server component data without full page reload
+            router.refresh();
+            setEditingAvatar(false);
           }}
           onClose={() => setEditingAvatar(false)}
         />
