@@ -44,10 +44,10 @@ function QuadrantPlot({ lust, soul }: { lust: number; soul: number }) {
   const dotY = toY(soul);
 
   const labels = [
-    { x: PAD + inner * 0.25, y: PAD + inner * 0.25, text: "靈魂伴侶", color: "#9b59b6" },
-    { x: PAD + inner * 0.75, y: PAD + inner * 0.25, text: "命定雙生", color: "#e74c3c" },
-    { x: PAD + inner * 0.25, y: PAD + inner * 0.75, text: "知心好友", color: "#3498db" },
-    { x: PAD + inner * 0.75, y: PAD + inner * 0.75, text: "命定雙生", color: "#e67e22" },
+    { x: PAD + inner * 0.25, y: PAD + inner * 0.25, text: "正緣伴侶", color: "#3498db" },
+    { x: PAD + inner * 0.75, y: PAD + inner * 0.25, text: "靈魂伴侶", color: "#9b59b6" },
+    { x: PAD + inner * 0.25, y: PAD + inner * 0.75, text: "知心好友", color: "#7f8c8d" },
+    { x: PAD + inner * 0.75, y: PAD + inner * 0.75, text: "命定雙生", color: "#e74c3c" },
   ];
 
   return (
@@ -55,8 +55,8 @@ function QuadrantPlot({ lust, soul }: { lust: number; soul: number }) {
       <rect x={PAD} y={PAD} width={inner} height={inner} fill="#1a0f1e" rx={4} />
       <line x1={W / 2} y1={PAD} x2={W / 2} y2={W - PAD} stroke="#5c4059" strokeWidth={1} strokeDasharray="3,3" />
       <line x1={PAD} y1={H / 2} x2={W - PAD} y2={H / 2} stroke="#5c4059" strokeWidth={1} strokeDasharray="3,3" />
-      {labels.map((l) => (
-        <text key={l.text} x={l.x} y={l.y} textAnchor="middle" dominantBaseline="middle"
+      {labels.map((l, i) => (
+        <text key={i} x={l.x} y={l.y} textAnchor="middle" dominantBaseline="middle"
           fontSize={8} fill={l.color} opacity={0.6} fontFamily="sans-serif">
           {l.text}
         </text>
