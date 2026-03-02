@@ -6,33 +6,33 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 
-def _dist(a, b):
+def _dist(a: Optional[float], b: Optional[float]) -> Optional[float]:
     if a is None or b is None:
         return None
     d = abs(a - b)
     return min(d, 360.0 - d)
 
 
-def _conj(a, b, orb=5.0):
+def _conj(a: Optional[float], b: Optional[float], orb: float = 5.0) -> bool:
     d = _dist(a, b)
     return d is not None and d <= orb
 
 
-def _tension(a, b, orb=5.0):
+def _tension(a: Optional[float], b: Optional[float], orb: float = 5.0) -> bool:
     d = _dist(a, b)
     if d is None:
         return False
     return d <= orb or abs(d - 90.0) <= orb or abs(d - 180.0) <= orb
 
 
-def _harmony(a, b, orb=5.0):
+def _harmony(a: Optional[float], b: Optional[float], orb: float = 5.0) -> bool:
     d = _dist(a, b)
     if d is None:
         return False
     return d <= orb or abs(d - 120.0) <= orb
 
 
-def _asc_aspect_strength(planet_deg, asc_deg, mode: str, orb: float) -> float:
+def _asc_aspect_strength(planet_deg: Optional[float], asc_deg: Optional[float], mode: str, orb: float) -> float:
     """Return [0, 1] aspect strength between a planet and an Ascendant degree.
 
     mode="tension"  checks conjunction / square (90°) / opposition (180°).
@@ -65,7 +65,7 @@ _VERTEX_PLANETS = [("Sun", "sun_degree"), ("Moon", "moon_degree"), ("Venus", "ve
 _LILITH_PLANETS = [("Venus", "venus_degree"), ("Mars", "mars_degree")]
 
 
-def _in_house(planet_deg, cusp_deg, next_cusp_deg):
+def _in_house(planet_deg: Optional[float], cusp_deg: Optional[float], next_cusp_deg: Optional[float]) -> bool:
     if planet_deg is None or cusp_deg is None or next_cusp_deg is None:
         return False
     house_size = (next_cusp_deg - cusp_deg) % 360.0
@@ -73,7 +73,7 @@ def _in_house(planet_deg, cusp_deg, next_cusp_deg):
     return planet_rel < house_size
 
 
-def compute_shadow_and_wound(chart_a, chart_b):
+def compute_shadow_and_wound(chart_a: Dict[str, Any], chart_b: Dict[str, Any]) -> Dict[str, Any]:
     result = {
         "soul_mod": 0.0,
         "lust_mod": 0.0,
@@ -393,7 +393,12 @@ def compute_shadow_and_wound(chart_a, chart_b):
     return result
 
 
-def compute_dynamic_attachment(base_att_a, base_att_b, chart_a, chart_b):
+def compute_dynamic_attachment(
+    base_att_a: Optional[str],
+    base_att_b: Optional[str],
+    chart_a: Dict[str, Any],
+    chart_b: Dict[str, Any],
+) -> Tuple[str, str]:
     moon_a    = chart_a.get("moon_degree")
     moon_b    = chart_b.get("moon_degree")
     uranus_b  = chart_b.get("uranus_degree")
@@ -421,7 +426,7 @@ def compute_dynamic_attachment(base_att_a, base_att_b, chart_a, chart_b):
     return dyn_a, dyn_b
 
 
-def compute_attachment_dynamics(att_a, att_b):
+def compute_attachment_dynamics(att_a: Optional[str], att_b: Optional[str]) -> Dict[str, Any]:
     _alias = {"disorganized": "fearful", "fearful-avoidant": "fearful"}
     a = _alias.get((att_a or "secure").lower(), (att_a or "secure").lower())
     b = _alias.get((att_b or "secure").lower(), (att_b or "secure").lower())
@@ -454,7 +459,7 @@ _FULFILLMENT_PER_MATCH = 15.0
 _FULFILLMENT_CAP       = 30.0
 
 
-def compute_elemental_fulfillment(profile_a, profile_b):
+def compute_elemental_fulfillment(profile_a: Dict[str, Any], profile_b: Dict[str, Any]) -> float:
     def_a = set(profile_a.get("deficiency") or [])
     dom_b = set(profile_b.get("dominant")   or [])
     def_b = set(profile_b.get("deficiency") or [])

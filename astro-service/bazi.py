@@ -18,6 +18,7 @@ from __future__ import annotations
 import math
 import os
 from datetime import datetime
+from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 import swisseph as swe
@@ -434,6 +435,7 @@ def calculate_bazi(
 
 # ── Relationship Dynamics (for matching) ────────────────────────────
 
+@lru_cache(maxsize=32)
 def analyze_element_relation(element_a: str, element_b: str) -> Dict:
     """Analyze the Five-Element relationship between two people.
 

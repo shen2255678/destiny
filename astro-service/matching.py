@@ -64,7 +64,6 @@ WEIGHTS = {
     "lust_power_plateau":      0.75,   # L-10: power_val above this gets diminishing returns
     "lust_power_diminish_factor": 0.60, # L-10: slope beyond plateau (0.90 → effective 0.84)
     "lust_attachment_aa_mult": 1.15,   # L-11: anxious×avoidant lust spike multiplier
-    "lust_bazi_restrict_mult": 1.25,   # DEPRECATED: replaced by diminishing-returns additive formula in Sprint 2
 
     # ── compute_soul_score ────────── ✅ wired ────────────────────────────────
     "soul_moon":              0.25,   # always present
@@ -74,7 +73,6 @@ WEIGHTS = {
     "soul_juno":              0.20,   # when ephemeris available
     "soul_attachment":        0.20,   # when questionnaire filled
     "soul_sun_moon":          0.25,   # Sun-Moon cross-aspect (A's Sun × B's Moon, bidirectional avg)
-    "soul_generation_mult":   1.20,   # DEPRECATED: replaced by diminishing-returns additive formula in Sprint 2
 
     # ── compute_kernel_score ─── ✅ wired ────────────────────────────────────
     "kernel_t1_sun":           0.20,
