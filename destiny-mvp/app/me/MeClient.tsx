@@ -251,45 +251,55 @@ export function MeClient({
         <p style={{ color: "#8c7089", fontSize: 13 }}>{profile.display_name} · Tier {profile.data_tier}</p>
       </div>
 
-      {/* Yin-Yang toggle */}
+      {/* Mode toggle: 命緣模式 / 靜默模式 */}
       <div style={{
         background: "rgba(255,255,255,0.3)", backdropFilter: "blur(12px)",
         border: "1px solid rgba(255,255,255,0.6)", borderRadius: 20,
         padding: "20px 24px", marginBottom: 24,
-        display: "flex", alignItems: "center", gap: "20px",
       }}>
-        <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
-          {isYin ? (
-            <>
-              <path d="M30 5 A25 25 0 0 0 30 55 A25 25 0 0 1 30 5 Z" fill="#5c4059" opacity="0.8" />
-              <path d="M30 5 A25 25 0 0 1 30 55 A25 25 0 0 0 30 5 Z" fill="#f4e0e8" opacity="0.5" />
-            </>
-          ) : (
-            <>
-              <path d="M30 5 A25 25 0 0 1 30 55 A25 25 0 0 0 30 5 Z" fill="#f4d5be" opacity="0.8" />
-              <path d="M30 5 A25 25 0 0 0 30 55 A25 25 0 0 1 30 5 Z" fill="#f4e0e8" opacity="0.4" />
-            </>
-          )}
-        </svg>
-        <div>
-          <p style={{ fontSize: 11, color: "#8c7089", marginBottom: 8 }}>你的命盤極性</p>
-          <div style={{ display: "flex", gap: 8 }}>
-            {(["yin", "yang"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => toggleYinYang(v)}
-                style={{
-                  padding: "6px 16px", borderRadius: 999, fontSize: 12, cursor: "pointer",
-                  fontWeight: yinYang === v ? 700 : 400,
-                  background: yinYang === v ? "rgba(217,134,149,0.2)" : "rgba(255,255,255,0.4)",
-                  border: yinYang === v ? "1px solid rgba(217,134,149,0.5)" : "1px solid rgba(255,255,255,0.6)",
-                  color: yinYang === v ? "#b86e7d" : "#8c7089",
-                  transition: "all 0.2s",
-                }}
-              >
-                {v === "yin" ? "☽ 陰" : "☀ 陽"}
-              </button>
-            ))}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+          {/* Mode indicator dot */}
+          <div style={{
+            width: 44, height: 44, borderRadius: "50%", flexShrink: 0,
+            background: isYin
+              ? "linear-gradient(135deg, #c084c8, #7c5c8a)"
+              : "linear-gradient(135deg, #e0c4b8, #c4a090)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 22, marginTop: 2,
+            boxShadow: isYin ? "0 0 12px rgba(124,92,138,0.35)" : "none",
+          }}>
+            {isYin ? "☽" : "✦"}
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#5c4059", marginBottom: 4 }}>
+              {isYin ? "命緣模式" : "靜默模式"}
+            </p>
+            <p style={{ fontSize: 11, color: "#8c7089", lineHeight: 1.6, marginBottom: 12 }}>
+              {isYin
+                ? "你的命盤已加入命運排行，系統將為你計算靈魂共振分數。"
+                : "命盤目前為私密狀態，不參與排行。切換至命緣模式即可開始探索。"}
+            </p>
+            <div style={{ display: "flex", gap: 8 }}>
+              {([
+                { val: "yin" as const,  label: "☽ 命緣模式", desc: "加入排行" },
+                { val: "yang" as const, label: "✦ 靜默模式", desc: "保持私密" },
+              ]).map(({ val, label }) => (
+                <button
+                  key={val}
+                  onClick={() => toggleYinYang(val)}
+                  style={{
+                    padding: "6px 16px", borderRadius: 999, fontSize: 12, cursor: "pointer",
+                    fontWeight: yinYang === val ? 700 : 400,
+                    background: yinYang === val ? "rgba(217,134,149,0.2)" : "rgba(255,255,255,0.4)",
+                    border: yinYang === val ? "1px solid rgba(217,134,149,0.5)" : "1px solid rgba(255,255,255,0.6)",
+                    color: yinYang === val ? "#b86e7d" : "#8c7089",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

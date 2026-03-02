@@ -4,10 +4,9 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { RankingCard } from "@/components/RankingCard";
 import { RankingDetailModal } from "@/components/RankingDetailModal";
 
-interface YinCard {
+interface SoulCard {
   id: string;
   display_name: string;
-  yin_yang: string;
   natal_cache: Record<string, unknown> | null;
 }
 
@@ -35,7 +34,7 @@ const glassCard: React.CSSProperties = {
 
 const PAGE_SIZE = 20;
 
-export function RankingClient({ yinCards }: { yinCards: YinCard[] }) {
+export function RankingClient({ yinCards }: { yinCards: SoulCard[] }) {
   const [selectedCardId, setSelectedCardId] = useState<string>(
     yinCards[0]?.id ?? ""
   );
@@ -103,7 +102,7 @@ export function RankingClient({ yinCards }: { yinCards: YinCard[] }) {
     return () => observer.disconnect();
   }, [hasMore, selectedCardId, rankings.length, fetchRankings]);
 
-  // ── Empty state: no yin cards ──
+  // ── Empty state: user hasn't activated 命緣模式 ──
   if (yinCards.length === 0) {
     return (
       <div
@@ -115,12 +114,7 @@ export function RankingClient({ yinCards }: { yinCards: YinCard[] }) {
         }}
       >
         <div style={glassCard}>
-          <span
-            className="material-symbols-outlined"
-            style={{ fontSize: 48, color: "#d98695", marginBottom: 16 }}
-          >
-            leaderboard
-          </span>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>☽</div>
           <h2
             style={{
               fontSize: 18,
@@ -129,11 +123,29 @@ export function RankingClient({ yinCards }: { yinCards: YinCard[] }) {
               marginBottom: 8,
             }}
           >
-            命運排行榜
+            尚未開啟命緣模式
           </h2>
-          <p style={{ fontSize: 13, color: "#8c7089", lineHeight: 1.6 }}>
-            尚無排名資料。請先建立你的陰面命盤卡。
+          <p style={{ fontSize: 13, color: "#8c7089", lineHeight: 1.8, marginBottom: 20 }}>
+            請前往「我的命盤」，將命盤模式切換為
+            <strong style={{ color: "#b86e7d" }}>「☽ 命緣模式」</strong>，
+            即可加入靈魂排行，探索與你最有共鳴的靈魂。
           </p>
+          <a
+            href="/me"
+            style={{
+              display: "inline-block",
+              padding: "10px 28px",
+              borderRadius: 999,
+              background: "linear-gradient(135deg, #d98695, #b86e7d)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none",
+              letterSpacing: "0.04em",
+            }}
+          >
+            前往我的命盤
+          </a>
         </div>
       </div>
     );
@@ -271,6 +283,7 @@ export function RankingClient({ yinCards }: { yinCards: YinCard[] }) {
       {/* Detail modal */}
       {selectedItem && (
         <RankingDetailModal
+          key={selectedItem.cache_id}
           item={selectedItem}
           onClose={() => setSelectedItem(null)}
         />

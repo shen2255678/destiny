@@ -160,8 +160,8 @@ export function RankingCard({
       )}
 
       {/* Progress bars */}
-      <ProgressBar label="lust" value={item.lust} color="#e07888" />
-      <ProgressBar label="soul" value={item.soul} color="#7c5c8a" />
+      <ProgressBar label="磁場" value={item.lust} color="#e07888" />
+      <ProgressBar label="靈魂" value={item.soul} color="#7c5c8a" />
     </div>
   );
 }

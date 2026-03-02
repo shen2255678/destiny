@@ -9,10 +9,11 @@ export default async function RankingPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch user's yin cards for the card selector
+  // Fetch user's 命緣模式 (yin) cards for ranking
+  // yin_yang='yin' means the user has opted into ranking (命緣模式)
   const { data: yinCards } = await supabase
     .from("soul_cards")
-    .select("id, display_name, yin_yang, natal_cache")
+    .select("id, display_name, natal_cache")
     .eq("owner_id", user.id)
     .eq("yin_yang", "yin")
     .not("natal_cache", "is", null)
