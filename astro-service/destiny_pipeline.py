@@ -194,9 +194,16 @@ class DestinyPipeline:
             "vertex_sign", "lilith_sign",
         ]
         _DEGREE_FIELDS = [
-            "sun_degree", "moon_degree", "venus_degree", "mars_degree",
+            # Inner / personal planets
+            "sun_degree", "moon_degree", "mercury_degree", "venus_degree", "mars_degree",
+            # Social / outer planets
+            "jupiter_degree", "saturn_degree", "uranus_degree", "neptune_degree", "pluto_degree",
+            # Asteroids / points
+            "juno_degree", "chiron_degree",
+            # Nodes & angles
             "ascendant_degree", "north_node_degree", "south_node_degree",
-            "house7_degree", "vertex_degree", "lilith_degree", "chiron_degree",
+            "house4_degree", "house7_degree", "house8_degree", "house12_degree",
+            "vertex_degree", "lilith_degree",
         ]
         for k in _SIGN_FIELDS + _DEGREE_FIELDS:
             v = chart.get(k)
