@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { BirthInput, type BirthData } from "@/components/BirthInput";
 import { createClient } from "@/lib/supabase/client";
+import { SaveCardModal } from "@/components/SaveCardModal";
 
 const YinYangCollision = dynamic(
   () => import("@/components/YinYangCollision"),
@@ -43,6 +44,7 @@ interface SavedProfile {
   gender: "M" | "F";
   yin_yang: string;
   natal_cache: Record<string, unknown> | null;
+  avatar_icon: string;
 }
 
 function ProfilePicker({
@@ -70,7 +72,7 @@ function ProfilePicker({
       >
         <option value="">── 從已儲存命盤選取 ──</option>
         {profiles.map((p) => (
-          <option key={p.id} value={p.id}>{p.display_name}</option>
+          <option key={p.id} value={p.id}>{p.avatar_icon ?? "✦"} {p.display_name}</option>
         ))}
       </select>
     </div>
@@ -88,7 +90,6 @@ export default function LoungePage() {
   const [reportId, setReportId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<SavedProfile[]>([]);
   const [saving, setSaving] = useState<null | "A" | "B">(null);
-  const [saveLabel, setSaveLabel] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
 
   useEffect(() => {
@@ -231,50 +232,37 @@ export default function LoungePage() {
             onChange={setA}
           />
           <div style={{ marginTop: 8, textAlign: "right" }}>
-            {saving === "A" ? (
-              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-                <input
-                  value={saveLabel}
-                  onChange={(e) => setSaveLabel(e.target.value)}
-                  placeholder="幫這個命盤取個名字"
-                  style={{
-                    padding: "5px 10px", borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.6)",
-                    background: "rgba(255,255,255,0.5)",
-                    fontSize: 12, color: "#5c4059", width: 160,
-                  }}
-                />
-                <button
-                  onClick={async () => {
-                    setSaveStatus("儲存中...");
-                    const res = await fetch("/api/profiles", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        label: saveLabel || a.name,
-                        birth_date: a.birth_date,
-                        birth_time: a.birth_time || undefined,
-                        lat: a.lat, lng: a.lng,
-                        data_tier: a.data_tier, gender: a.gender,
-                      }),
-                    });
-                    if (res.status === 403) { setSaveStatus("❌ 免費方案限 1 張，升級解鎖更多"); setSaving(null); return; }
-                    if (!res.ok) { setSaveStatus("❌ 儲存失敗"); setSaving(null); return; }
-                    const saved = await res.json() as SavedProfile;
-                    setProfiles((prev) => [saved, ...prev]);
-                    setSaving(null); setSaveLabel(""); setSaveStatus("✓ 已儲存");
-                    setTimeout(() => setSaveStatus(""), 3000);
-                  }}
-                  style={{ padding: "5px 12px", borderRadius: 8, background: "#d98695", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}
-                >確認</button>
-                <button
-                  onClick={() => { setSaving(null); setSaveLabel(""); }}
-                  style={{ padding: "5px 10px", borderRadius: 8, background: "transparent", border: "1px solid rgba(200,160,170,0.4)", fontSize: 12, color: "#8c7089", cursor: "pointer" }}
-                >取消</button>
-              </div>
-            ) : (
+            {saving === "A" && (
+              <SaveCardModal
+                person="A"
+                defaultName={a.name !== "Person A" ? a.name : ""}
+                onConfirm={async (label, avatarIcon) => {
+                  const res = await fetch("/api/profiles", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      label,
+                      avatar_icon: avatarIcon,
+                      birth_date: a.birth_date,
+                      birth_time: a.birth_time || undefined,
+                      lat: a.lat, lng: a.lng,
+                      data_tier: a.data_tier, gender: a.gender,
+                    }),
+                  });
+                  if (res.status === 403) { setSaveStatus("❌ 免費方案限 1 張，升級解鎖更多"); setSaving(null); return; }
+                  if (!res.ok) throw new Error("儲存失敗");
+                  const saved = await res.json() as SavedProfile;
+                  setProfiles((prev) => [saved, ...prev]);
+                  setSaving(null);
+                  setSaveStatus("✓ 已儲存");
+                  setTimeout(() => setSaveStatus(""), 3000);
+                }}
+                onClose={() => setSaving(null)}
+              />
+            )}
+            {saving !== "A" && (
               <button
-                onClick={() => { setSaving("A"); setSaveLabel(""); }}
+                onClick={() => setSaving("A")}
                 style={{ fontSize: 11, color: "#8c7089", background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}
               >💾 儲存此命盤</button>
             )}
@@ -303,50 +291,37 @@ export default function LoungePage() {
             onChange={setB}
           />
           <div style={{ marginTop: 8, textAlign: "right" }}>
-            {saving === "B" ? (
-              <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-                <input
-                  value={saveLabel}
-                  onChange={(e) => setSaveLabel(e.target.value)}
-                  placeholder="幫這個命盤取個名字"
-                  style={{
-                    padding: "5px 10px", borderRadius: 8,
-                    border: "1px solid rgba(255,255,255,0.6)",
-                    background: "rgba(255,255,255,0.5)",
-                    fontSize: 12, color: "#5c4059", width: 160,
-                  }}
-                />
-                <button
-                  onClick={async () => {
-                    setSaveStatus("儲存中...");
-                    const res = await fetch("/api/profiles", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        label: saveLabel || b.name,
-                        birth_date: b.birth_date,
-                        birth_time: b.birth_time || undefined,
-                        lat: b.lat, lng: b.lng,
-                        data_tier: b.data_tier, gender: b.gender,
-                      }),
-                    });
-                    if (res.status === 403) { setSaveStatus("❌ 免費方案限 1 張，升級解鎖更多"); setSaving(null); return; }
-                    if (!res.ok) { setSaveStatus("❌ 儲存失敗"); setSaving(null); return; }
-                    const saved = await res.json() as SavedProfile;
-                    setProfiles((prev) => [saved, ...prev]);
-                    setSaving(null); setSaveLabel(""); setSaveStatus("✓ 已儲存");
-                    setTimeout(() => setSaveStatus(""), 3000);
-                  }}
-                  style={{ padding: "5px 12px", borderRadius: 8, background: "#d98695", color: "#fff", border: "none", fontSize: 12, cursor: "pointer" }}
-                >確認</button>
-                <button
-                  onClick={() => { setSaving(null); setSaveLabel(""); }}
-                  style={{ padding: "5px 10px", borderRadius: 8, background: "transparent", border: "1px solid rgba(200,160,170,0.4)", fontSize: 12, color: "#8c7089", cursor: "pointer" }}
-                >取消</button>
-              </div>
-            ) : (
+            {saving === "B" && (
+              <SaveCardModal
+                person="B"
+                defaultName={b.name !== "Person B" ? b.name : ""}
+                onConfirm={async (label, avatarIcon) => {
+                  const res = await fetch("/api/profiles", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      label,
+                      avatar_icon: avatarIcon,
+                      birth_date: b.birth_date,
+                      birth_time: b.birth_time || undefined,
+                      lat: b.lat, lng: b.lng,
+                      data_tier: b.data_tier, gender: b.gender,
+                    }),
+                  });
+                  if (res.status === 403) { setSaveStatus("❌ 免費方案限 1 張，升級解鎖更多"); setSaving(null); return; }
+                  if (!res.ok) throw new Error("儲存失敗");
+                  const saved = await res.json() as SavedProfile;
+                  setProfiles((prev) => [saved, ...prev]);
+                  setSaving(null);
+                  setSaveStatus("✓ 已儲存");
+                  setTimeout(() => setSaveStatus(""), 3000);
+                }}
+                onClose={() => setSaving(null)}
+              />
+            )}
+            {saving !== "B" && (
               <button
-                onClick={() => { setSaving("B"); setSaveLabel(""); }}
+                onClick={() => setSaving("B")}
                 style={{ fontSize: 11, color: "#8c7089", background: "transparent", border: "none", cursor: "pointer", padding: "4px 0" }}
               >💾 儲存此命盤</button>
             )}
